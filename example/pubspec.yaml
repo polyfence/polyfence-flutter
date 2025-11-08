@@ -1,0 +1,31 @@
+name: polyfence_example
+description: Example app for Polyfence plugin
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+  flutter: ">=3.10.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  polyfence:
+    path: ../
+  cupertino_icons: ^1.0.2
+  lucide_icons: ^0.257.0
+  http: ^1.1.0
+  shared_preferences: ^2.2.2
+  sensors_plus: ^4.0.2
+  battery_plus: ^4.0.2
+  path_provider: ^2.1.1
+  permission_handler: ^11.3.1
+  # Firebase removed - not needed for example app
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+
+flutter:
+  uses-material-design: true

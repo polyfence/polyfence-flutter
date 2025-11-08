@@ -1,0 +1,668 @@
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:polyfence/polyfence.dart' as polyfence hide GeofenceEvent;
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'dart:async';
+import 'dart:convert';
+import 'dart:io' show Platform;
+import 'dart:math' as math;
+// Import new design system and components
+import 'theme/app_theme.dart';
+import 'models/app_models.dart';
+import 'widgets/status_section.dart';
+import 'widgets/gps_profile_card.dart';
+import 'widgets/zones_card.dart';
+import 'widgets/events_card.dart';
+import 'widgets/tracking_button.dart';
+import 'widgets/error_banner.dart';
+import 'zone_api_service.dart';
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  runApp(const PolyfenceApp());
+}
+
+Future<bool> ensureAndroidTrackingPermissions() async {
+  if (!Platform.isAndroid) return true;
+
+  // 33+: notifications
+  if (await Permission.notification.isDenied ||
+      await Permission.notification.isPermanentlyDenied) {
+    final notif = await Permission.notification.request();
+    if (!notif.isGranted) return false;
+  }
+
+  // Fine location first
+  final fine = await Permission.location.request();
+  if (!fine.isGranted) return false;
+
+  // Background location (API 29+)
+  final always = await Permission.locationAlways.request();
+  if (!always.isGranted) {
+    // Some OEMs require going to settings; guide user
+    await openAppSettings();
+    return false;
+  }
+
+  return true;
+}
+
+class PolyfenceApp extends StatelessWidget {
+  const PolyfenceApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'Polyfence',
+      debugShowCheckedModeBanner: false,
+      theme: AppTheme.lightTheme,
+      darkTheme: AppTheme.darkTheme,
+      themeMode: ThemeMode.light,
+      home: const HomeScreen(),
+      builder: (context, child) {
+        return AnnotatedRegion<SystemUiOverlayStyle>(
+          value: const SystemUiOverlayStyle(
+            statusBarColor: Colors.transparent,
+            statusBarIconBrightness: Brightness.dark,
+            systemNavigationBarColor: Colors.white,
+            systemNavigationBarIconBrightness: Brightness.dark,
+          ),
+          child: child!,
+        );
+      },
+    );
+  }
+}
+
+class HomeScreen extends StatefulWidget {
+  const HomeScreen({super.key});
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
+  // Preserve all existing state variables
+  final List<Map<String, dynamic>> _events = [];
+  bool _isTracking = false; // Default to OFF until we read saved state
+  String _locationStatus = 'Waiting for GPS...';
+  bool _isLoadingZones = true;
+  List<polyfence.Zone> _loadedZones = [];
+
+  // Simple status tracking
+  double? _gpsAccuracy;
+  double _currentSpeed = 0.0;
+  polyfence.PolyfenceAccuracyProfile _currentProfile =
+      polyfence.PolyfenceAccuracyProfile.maxAccuracy;
+
+  // Error tracking
+  List<GeofenceEvent> _errors = [];
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _loadStoredEvents();
+    _initializePolyfence();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    // End analytics session when app closes
+    polyfence.PolyfenceAnalytics.instance.endSession();
+    super.dispose();
+  }
+
+  // Handle app lifecycle for analytics
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    switch (state) {
+      case AppLifecycleState.resumed:
+        polyfence.PolyfenceAnalytics.instance.startSession();
+        break;
+      case AppLifecycleState.paused:
+      case AppLifecycleState.detached:
+        polyfence.PolyfenceAnalytics.instance.endSession();
+        break;
+      default:
+        break;
+    }
+  }
+
+  Future<void> _initializePolyfence() async {
+    try {
+      // Initialize analytics
+      polyfence.PolyfenceAnalytics.instance.startSession();
+
+      // Check permissions first (Android only)
+      if (Platform.isAndroid) {
+        final hasPermissions = await ensureAndroidTrackingPermissions();
+        if (!hasPermissions) {
+          _addErrorEvent('Location permissions required for tracking');
+          return;
+        }
+      }
+
+      // Initialize Polyfence plugin
+      await polyfence.Polyfence.instance.initialize();
+
+      // Load zones from API (may still be down; no fallback)
+      await _loadZonesFromAPI();
+
+      // Listen to geofence events
+      polyfence.Polyfence.instance.onGeofenceEvent.listen((event) {
+        final timestamp = DateTime.now().toIso8601String().substring(11, 19);
+        final eventType = event.type.name.toUpperCase();
+        final zoneName = _getZoneName(event.zoneId);
+
+        // Record analytics for this detection
+        polyfence.PolyfenceAnalytics.instance.recordDetection(
+          detectionTimeMs: DateTime.now().millisecondsSinceEpoch.toDouble(),
+          gpsAccuracy: _gpsAccuracy ?? 0.0,
+          zoneType: 'unknown',
+        );
+
+        _addEvent({
+          'timestamp': timestamp,
+          'type': eventType,
+          'zone': zoneName,
+          'zoneId': event.zoneId,
+        });
+      });
+
+      // Listen to location updates
+      polyfence.Polyfence.instance.onLocationUpdate.listen((location) {
+        if (mounted) {
+          setState(() {
+            _locationStatus =
+                '${location.latitude.toStringAsFixed(4)}, ${location.longitude.toStringAsFixed(4)}';
+            _gpsAccuracy = location.accuracy;
+            _currentSpeed = location.speed ??
+                0.0; // Already converted to km/h by native code
+          });
+        }
+      });
+    } catch (e) {
+      _addErrorEvent('Failed to initialize Polyfence: $e');
+    }
+  }
+
+  Future<void> _loadZonesFromAPI() async {
+    setState(() => _isLoadingZones = true);
+
+    try {
+      final zones = await ZoneApiService.fetchActiveZones();
+      if (mounted) {
+        setState(() {
+          _loadedZones = zones;
+          _isLoadingZones = false;
+        });
+
+        // CRITICAL: Register zones with native geofence engine
+        // Both iOS and Android require this for geofence event detection
+        for (final zone in zones) {
+          try {
+            await polyfence.Polyfence.instance.addZone(zone);
+          } catch (e) {
+            // Failed to register zone - silently continue with others
+          }
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoadingZones = false);
+      }
+      _addErrorEvent('Failed to load zones: $e');
+    }
+  }
+
+  Future<void> _loadStoredEvents() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final eventsJson = prefs.getString('events');
+      if (eventsJson != null) {
+        final List<dynamic> eventsList = jsonDecode(eventsJson);
+        setState(() {
+          _events.clear();
+          _events.addAll(eventsList.cast<Map<String, dynamic>>());
+        });
+      }
+    } catch (e) {
+      // Failed to load stored events
+    }
+  }
+
+  Future<void> _saveEvents() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('events', jsonEncode(_events));
+    } catch (e) {
+      // Failed to save events
+    }
+  }
+
+  void _addEvent(Map<String, dynamic> event) {
+    setState(() {
+      _events.insert(0, event);
+      // Keep only last 100 events
+      if (_events.length > 100) {
+        _events.removeRange(100, _events.length);
+      }
+    });
+    _saveEvents();
+  }
+
+  void _addErrorEvent(String message) {
+    setState(() {
+      _errors.add(GeofenceEvent(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        timestamp: DateTime.now(),
+        type: EventType.error,
+        zoneName: 'System',
+        zoneId: 'system',
+        message: message,
+      ));
+    });
+  }
+
+  String _getZoneName(String zoneId) {
+    try {
+      final zone = _loadedZones.firstWhere((z) => z.id == zoneId);
+      return zone.name;
+    } catch (e) {
+      // No crash - just return the ID as fallback
+      return zoneId;
+    }
+  }
+
+  Future<void> _refreshZones() async {
+    await _loadZonesFromAPI();
+  }
+
+  Future<void> _toggleTracking() async {
+    if (_isTracking) {
+      await _stopTracking();
+    } else {
+      await _startTracking();
+    }
+  }
+
+  Future<void> _startTracking() async {
+    try {
+      await polyfence.Polyfence.instance.startTracking();
+      setState(() {
+        _isTracking = true;
+      });
+
+      // Save state
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('isTracking', true);
+    } catch (e) {
+      _addErrorEvent('Failed to start tracking: $e');
+    }
+  }
+
+  Future<void> _stopTracking() async {
+    try {
+      await polyfence.Polyfence.instance.stopTracking();
+      setState(() {
+        _isTracking = false;
+        _currentSpeed = 0.0;
+      });
+
+      // Save state
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('isTracking', false);
+    } catch (e) {
+      _addErrorEvent('Failed to stop tracking: $e');
+    }
+  }
+
+  Future<void> _setAccuracyProfile(
+      polyfence.PolyfenceAccuracyProfile profile) async {
+    try {
+      await polyfence.Polyfence.instance.setAccuracyProfile(profile);
+      setState(() {
+        _currentProfile = profile;
+      });
+    } catch (e) {
+      _addErrorEvent('Failed to set accuracy profile: $e');
+    }
+  }
+
+  void _clearEvents() {
+    setState(() {
+      _events.clear();
+    });
+    _saveEvents();
+  }
+
+  void _dismissError(String id) {
+    setState(() {
+      _errors.removeWhere((e) => e.id == id);
+    });
+  }
+
+  // Convert Polyfence enums to new model enums
+  GpsProfile _convertToGpsProfile(polyfence.PolyfenceAccuracyProfile profile) {
+    switch (profile) {
+      case polyfence.PolyfenceAccuracyProfile.maxAccuracy:
+        return GpsProfile.max;
+      case polyfence.PolyfenceAccuracyProfile.balanced:
+        return GpsProfile.balanced;
+      case polyfence.PolyfenceAccuracyProfile.batteryOptimal:
+        return GpsProfile.battery;
+      case polyfence.PolyfenceAccuracyProfile.adaptive:
+        return GpsProfile.smart;
+    }
+  }
+
+  polyfence.PolyfenceAccuracyProfile _convertFromGpsProfile(
+      GpsProfile profile) {
+    switch (profile) {
+      case GpsProfile.max:
+        return polyfence.PolyfenceAccuracyProfile.maxAccuracy;
+      case GpsProfile.balanced:
+        return polyfence.PolyfenceAccuracyProfile.balanced;
+      case GpsProfile.battery:
+        return polyfence.PolyfenceAccuracyProfile.batteryOptimal;
+      case GpsProfile.smart:
+        return polyfence.PolyfenceAccuracyProfile.adaptive;
+    }
+  }
+
+  // Convert Polyfence Zone to new Zone model
+  List<Zone> _convertZones(List<polyfence.Zone> polyfenceZones) {
+    return polyfenceZones.map((zone) {
+      double? distance;
+      final currentLocation = _getCurrentLocation();
+
+      if (currentLocation != null) {
+        try {
+          switch (zone.type) {
+            case polyfence.ZoneType.circle:
+              if (zone.center != null && zone.radius != null) {
+                final center = _toLatLng(zone.center!);
+                final centerDistance =
+                    _distanceBetweenLatLng(currentLocation, center);
+                distance = centerDistance <= zone.radius!
+                    ? 0.0
+                    : centerDistance - zone.radius!;
+              }
+              break;
+            case polyfence.ZoneType.polygon:
+              final polygonPoints =
+                  zone.polygon?.map((p) => _toLatLng(p)).toList();
+
+              if (polygonPoints != null && polygonPoints.length >= 3) {
+                final inside =
+                    _isPointInPolygon(currentLocation, polygonPoints);
+                if (inside) {
+                  distance = 0.0;
+                } else {
+                  distance = _distanceToPolygon(currentLocation, polygonPoints);
+                }
+              } else if (zone.center != null) {
+                final center = _toLatLng(zone.center!);
+                distance = _distanceBetweenLatLng(currentLocation, center);
+              }
+              break;
+          }
+        } catch (e) {
+          debugPrint('Zone distance calculation failed for ${zone.name}: $e');
+        }
+      }
+
+      return Zone(
+        id: zone.id,
+        name: zone.name,
+        type: zone.type == polyfence.ZoneType.circle
+            ? ZoneType.circle
+            : ZoneType.polygon,
+        distance: distance,
+      );
+    }).toList();
+  }
+
+  LatLng _toLatLng(polyfence.PolyfenceLocation location) {
+    return LatLng(location.latitude, location.longitude);
+  }
+
+  double _distanceBetweenLatLng(LatLng a, LatLng b) {
+    const double earthRadius = 6371000;
+    final lat1 = a.latitude * (math.pi / 180);
+    final lat2 = b.latitude * (math.pi / 180);
+    final dLat = (b.latitude - a.latitude) * (math.pi / 180);
+    final dLon = (b.longitude - a.longitude) * (math.pi / 180);
+
+    final sinLat = math.sin(dLat / 2);
+    final sinLon = math.sin(dLon / 2);
+    final aCalc =
+        sinLat * sinLat + math.cos(lat1) * math.cos(lat2) * sinLon * sinLon;
+    final c = 2 * math.atan2(math.sqrt(aCalc), math.sqrt(1 - aCalc));
+    return earthRadius * c;
+  }
+
+  bool _isPointInPolygon(LatLng point, List<LatLng> polygon) {
+    bool inside = false;
+    for (int i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+      final xi = polygon[i].longitude;
+      final yi = polygon[i].latitude;
+      final xj = polygon[j].longitude;
+      final yj = polygon[j].latitude;
+
+      final intersect = ((yi > point.latitude) != (yj > point.latitude)) &&
+          (point.longitude <
+              (xj - xi) *
+                      (point.latitude - yi) /
+                      (yj - yi == 0 ? 1e-12 : (yj - yi)) +
+                  xi);
+      if (intersect) inside = !inside;
+    }
+    return inside;
+  }
+
+  double _distanceToPolygon(LatLng point, List<LatLng> polygon) {
+    double minDistance = double.infinity;
+    for (var i = 0; i < polygon.length; i++) {
+      final start = polygon[i];
+      final end = polygon[(i + 1) % polygon.length];
+      final distance = _distanceFromPointToLineSegment(point, start, end);
+      if (distance < minDistance) minDistance = distance;
+    }
+    return minDistance;
+  }
+
+  double _distanceFromPointToLineSegment(
+    LatLng point,
+    LatLng start,
+    LatLng end,
+  ) {
+    final latDiff = end.latitude - start.latitude;
+    final lonDiff = end.longitude - start.longitude;
+
+    if (latDiff == 0 && lonDiff == 0) {
+      return _distanceBetweenLatLng(point, start);
+    }
+
+    final t = ((point.longitude - start.longitude) * lonDiff +
+            (point.latitude - start.latitude) * latDiff) /
+        (lonDiff * lonDiff + latDiff * latDiff);
+
+    final clampedT = t.clamp(0.0, 1.0);
+    final projection = LatLng(
+      start.latitude + clampedT * latDiff,
+      start.longitude + clampedT * lonDiff,
+    );
+
+    return _distanceBetweenLatLng(point, projection);
+  }
+
+  // Convert events to new GeofenceEvent model
+  List<GeofenceEvent> _convertEvents() {
+    // Converting events
+    return _events.map((event) {
+      // Event data
+      // Parse the timestamp from the stored event
+      DateTime timestamp;
+      try {
+        // The timestamp is stored as a string like "22:57:34"
+        final timeStr = event['timestamp'] as String? ?? '00:00:00';
+        final now = DateTime.now();
+        final timeParts = timeStr.split(':');
+        timestamp = DateTime(
+          now.year,
+          now.month,
+          now.day,
+          int.parse(timeParts[0]),
+          int.parse(timeParts[1]),
+          int.parse(timeParts[2]),
+        );
+      } catch (e) {
+        // Error parsing timestamp
+        timestamp = DateTime.now();
+      }
+
+      final convertedEvent = GeofenceEvent(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        timestamp: timestamp,
+        type: event['type'] == 'ENTER' ? EventType.enter : EventType.exit,
+        zoneName: event['zone'] ?? 'Unknown',
+        zoneId: event['zoneId'] ?? 'unknown',
+      );
+      // Converted event
+      return convertedEvent;
+    }).toList();
+  }
+
+  TrackingStatus _getTrackingStatus() {
+    if (_isTracking) return TrackingStatus.active;
+    return TrackingStatus.inactive;
+  }
+
+  LatLng? _getCurrentLocation() {
+    // Fallback to parsed location status
+    try {
+      final parts = _locationStatus.split(',');
+      if (parts.length == 2) {
+        final lat = double.parse(parts[0].trim());
+        final lng = double.parse(parts[1].trim());
+        return LatLng(lat, lng);
+      }
+    } catch (e) {
+      // Fallback to default location
+    }
+    return null; // Return null when GPS is not available
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: PreferredSize(
+        preferredSize: const Size.fromHeight(64),
+        child: Container(
+          decoration: const BoxDecoration(
+            color: AppTheme.background,
+            border: Border(
+              bottom: BorderSide(color: AppTheme.border),
+            ),
+          ),
+          child: SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppTheme.spacingLg,
+                vertical: AppTheme.spacingMd,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    'Polyfence',
+                    style: Theme.of(context).textTheme.displaySmall,
+                  ),
+                  Text(
+                    'Flutter Example App',
+                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                          color: AppTheme.mutedForeground,
+                        ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+      body: Stack(
+        children: [
+          // Main scrollable content
+          Column(
+            children: [
+              // Error Banner
+              if (_errors.isNotEmpty)
+                ErrorBanner(
+                  errors: _errors,
+                  onDismiss: _dismissError,
+                ),
+
+              // Scrollable content
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.only(
+                    left: AppTheme.spacingLg,
+                    right: AppTheme.spacingLg,
+                    top: AppTheme.spacingLg,
+                    bottom: 220,
+                  ),
+                  child: Column(
+                    children: [
+                      StatusSection(
+                        isTracking: _isTracking,
+                        location: _getCurrentLocation(),
+                        accuracy: _gpsAccuracy,
+                        speed: _currentSpeed,
+                        gpsProfile: _convertToGpsProfile(_currentProfile),
+                        locationStatus: _locationStatus,
+                      ),
+                      const SizedBox(height: AppTheme.spacingLg),
+                      GpsProfileCard(
+                        currentProfile: _convertToGpsProfile(_currentProfile),
+                        onProfileChange: (profile) => _setAccuracyProfile(
+                            _convertFromGpsProfile(profile)),
+                      ),
+                      const SizedBox(height: AppTheme.spacingLg),
+                      ZonesCard(
+                        zones: _convertZones(_loadedZones),
+                        isLoading: _isLoadingZones,
+                        onRefresh: _refreshZones,
+                      ),
+                      const SizedBox(height: AppTheme.spacingLg),
+                      EventsCard(
+                        events: _convertEvents(),
+                        onClear: _clearEvents,
+                        trackingStatus: _getTrackingStatus(),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+
+          // Fixed tracking button at bottom
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: TrackingButton(
+              isTracking: _isTracking,
+              onPressed: _toggleTracking,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}

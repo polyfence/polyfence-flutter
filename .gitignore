@@ -1,0 +1,59 @@
+# Flutter/Dart
+.dart_tool/
+.packages
+.pub-cache/
+.pub/
+build/
+.flutter-plugins
+.flutter-plugins-dependencies
+example/pubspec.lock
+
+# IDE
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Local
+*.log
+.env
+.env.local
+.env.production
+test_industry_implementation.md
+
+# Security - Never commit API keys or secrets
+ADMIN_API_KEYS
+SECURITY_MODE
+ALLOWED_ORIGINS
+DB_SSL_CERT
+
+# iOS
+example/ios/Podfile.lock
+example/ios/Pods/
+example/ios/Runner.xcodeproj/
+example/ios/Runner.xcworkspace/
+example/ios/Flutter/
+example/ios/.symlinks/
+example/ios/RunnerTests/
+example/ios/Runner/DerivedData/
+example/ios/Runner/App.framework/
+example/ios/Runner/Flutter.framework/
+example/ios/Runner/Flutter.podspec
+example/ios/Runner/GeneratedPluginRegistrant.*
+
+# Android
+example/android/.gradle/
+example/android/app/build/
+example/android/build/
+example/android/local.properties
+example/android/.idea/
+example/android/*.iml
+example/android/app/release/
+example/android/app/debug/
+zone_admin/DEPLOYMENT.md
+ANALYTICS_REMOVAL_LOG.md

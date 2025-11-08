@@ -1,0 +1,341 @@
+/// Polyfence GPS Configuration System
+/// Provides flexible GPS accuracy/battery profiles for different use cases
+library polyfence_configuration;
+
+/// GPS accuracy profiles that balance precision vs battery consumption
+enum PolyfenceAccuracyProfile {
+  /// Maximum accuracy - highest precision, highest battery usage
+  /// Matches current default behavior
+  maxAccuracy,
+
+  /// Balanced accuracy/battery for most use cases
+  /// Good compromise between precision and battery life
+  balanced,
+
+  /// Prioritizes battery life over precision
+  /// Best for background monitoring applications
+  batteryOptimal,
+
+  /// Automatically adjusts based on context
+  /// Uses proximity, movement, and battery awareness
+  adaptive
+}
+
+/// GPS update strategies that control when and how often GPS is used
+enum PolyfenceUpdateStrategy {
+  /// Continuous updates - current behavior
+  /// Regular intervals regardless of context
+  continuous,
+
+  /// Adjust frequency based on distance to zones
+  /// More frequent when near zones, less frequent when far
+  proximityBased,
+
+  /// Adjust based on device movement
+  /// Less frequent when stationary, more frequent when moving
+  movementBased,
+
+  /// Intelligent combination of proximity + movement + battery awareness
+  /// Automatically optimizes for best battery life while maintaining accuracy
+  intelligent
+}
+
+/// Main configuration class for Polyfence GPS behavior
+class PolyfenceConfiguration {
+  /// GPS accuracy profile
+  final PolyfenceAccuracyProfile accuracyProfile;
+
+  /// GPS update strategy
+  final PolyfenceUpdateStrategy updateStrategy;
+
+  /// Proximity-based optimization settings
+  final ProximitySettings? proximitySettings;
+
+  /// Movement-based optimization settings
+  final MovementSettings? movementSettings;
+
+  /// Battery-aware optimization settings
+  final BatterySettings? batterySettings;
+
+  /// Enable debug logging for GPS configuration changes
+  final bool enableDebugLogging;
+
+  const PolyfenceConfiguration({
+    this.accuracyProfile = PolyfenceAccuracyProfile.maxAccuracy,
+    this.updateStrategy = PolyfenceUpdateStrategy.continuous,
+    this.proximitySettings,
+    this.movementSettings,
+    this.batterySettings,
+    this.enableDebugLogging = false,
+  });
+
+  /// Create a copy with updated values
+  PolyfenceConfiguration copyWith({
+    PolyfenceAccuracyProfile? accuracyProfile,
+    PolyfenceUpdateStrategy? updateStrategy,
+    ProximitySettings? proximitySettings,
+    MovementSettings? movementSettings,
+    BatterySettings? batterySettings,
+    bool? enableDebugLogging,
+  }) {
+    return PolyfenceConfiguration(
+      accuracyProfile: accuracyProfile ?? this.accuracyProfile,
+      updateStrategy: updateStrategy ?? this.updateStrategy,
+      proximitySettings: proximitySettings ?? this.proximitySettings,
+      movementSettings: movementSettings ?? this.movementSettings,
+      batterySettings: batterySettings ?? this.batterySettings,
+      enableDebugLogging: enableDebugLogging ?? this.enableDebugLogging,
+    );
+  }
+
+  /// Convert to map for platform communication
+  Map<String, dynamic> toMap() {
+    final accuracyProfileValue = _enumToChannelValue(accuracyProfile.name);
+    final updateStrategyValue = _enumToChannelValue(updateStrategy.name);
+
+    return {
+      'accuracyProfile': accuracyProfileValue,
+      'updateStrategy': updateStrategyValue,
+      'proximitySettings': proximitySettings?.toMap(),
+      'movementSettings': movementSettings?.toMap(),
+      'batterySettings': batterySettings?.toMap(),
+      'enableDebugLogging': enableDebugLogging,
+    };
+  }
+
+  /// Create from map (for platform communication)
+  factory PolyfenceConfiguration.fromMap(Map<String, dynamic> map) {
+    return PolyfenceConfiguration(
+      accuracyProfile: _enumFromChannelValue(
+        map['accuracyProfile'],
+        PolyfenceAccuracyProfile.values,
+        PolyfenceAccuracyProfile.maxAccuracy,
+      ),
+      updateStrategy: _enumFromChannelValue(
+        map['updateStrategy'],
+        PolyfenceUpdateStrategy.values,
+        PolyfenceUpdateStrategy.continuous,
+      ),
+      proximitySettings: map['proximitySettings'] != null
+          ? ProximitySettings.fromMap(map['proximitySettings'])
+          : null,
+      movementSettings: map['movementSettings'] != null
+          ? MovementSettings.fromMap(map['movementSettings'])
+          : null,
+      batterySettings: map['batterySettings'] != null
+          ? BatterySettings.fromMap(map['batterySettings'])
+          : null,
+      enableDebugLogging: map['enableDebugLogging'] ?? false,
+    );
+  }
+
+  @override
+  String toString() {
+    return 'PolyfenceConfiguration('
+        'accuracyProfile: $accuracyProfile, '
+        'updateStrategy: $updateStrategy, '
+        'proximitySettings: $proximitySettings, '
+        'movementSettings: $movementSettings, '
+        'batterySettings: $batterySettings, '
+        'enableDebugLogging: $enableDebugLogging'
+        ')';
+  }
+}
+
+/// Settings for proximity-based GPS optimization
+class ProximitySettings {
+  /// Distance in meters considered "near" a zone
+  final double nearZoneThresholdMeters;
+
+  /// Distance in meters considered "far" from zones
+  final double farZoneThresholdMeters;
+
+  /// GPS update interval when near zones
+  final Duration nearZoneUpdateInterval;
+
+  /// GPS update interval when far from zones
+  final Duration farZoneUpdateInterval;
+
+  const ProximitySettings({
+    this.nearZoneThresholdMeters = 500.0,
+    this.farZoneThresholdMeters = 2000.0,
+    this.nearZoneUpdateInterval = const Duration(seconds: 5),
+    this.farZoneUpdateInterval = const Duration(seconds: 60),
+  });
+
+  Map<String, dynamic> toMap() {
+    return {
+      'nearZoneThresholdMeters': nearZoneThresholdMeters,
+      'farZoneThresholdMeters': farZoneThresholdMeters,
+      'nearZoneUpdateIntervalMs': nearZoneUpdateInterval.inMilliseconds,
+      'farZoneUpdateIntervalMs': farZoneUpdateInterval.inMilliseconds,
+    };
+  }
+
+  factory ProximitySettings.fromMap(Map<String, dynamic> map) {
+    return ProximitySettings(
+      nearZoneThresholdMeters:
+          map['nearZoneThresholdMeters']?.toDouble() ?? 500.0,
+      farZoneThresholdMeters:
+          map['farZoneThresholdMeters']?.toDouble() ?? 2000.0,
+      nearZoneUpdateInterval: Duration(
+        milliseconds: map['nearZoneUpdateIntervalMs']?.toInt() ?? 5000,
+      ),
+      farZoneUpdateInterval: Duration(
+        milliseconds: map['farZoneUpdateIntervalMs']?.toInt() ?? 60000,
+      ),
+    );
+  }
+
+  @override
+  String toString() {
+    return 'ProximitySettings('
+        'nearZoneThresholdMeters: $nearZoneThresholdMeters, '
+        'farZoneThresholdMeters: $farZoneThresholdMeters, '
+        'nearZoneUpdateInterval: $nearZoneUpdateInterval, '
+        'farZoneUpdateInterval: $farZoneUpdateInterval'
+        ')';
+  }
+}
+
+/// Settings for movement-based GPS optimization
+class MovementSettings {
+  /// Time threshold before device is considered stationary
+  final Duration stationaryThreshold;
+
+  /// Distance threshold in meters to be considered moving
+  final double movementThresholdMeters;
+
+  /// GPS update interval when device is stationary
+  final Duration stationaryUpdateInterval;
+
+  /// GPS update interval when device is moving
+  final Duration movingUpdateInterval;
+
+  const MovementSettings({
+    this.stationaryThreshold = const Duration(minutes: 5),
+    this.movementThresholdMeters = 50.0,
+    this.stationaryUpdateInterval = const Duration(minutes: 2),
+    this.movingUpdateInterval = const Duration(seconds: 10),
+  });
+
+  Map<String, dynamic> toMap() {
+    return {
+      'stationaryThresholdMs': stationaryThreshold.inMilliseconds,
+      'movementThresholdMeters': movementThresholdMeters,
+      'stationaryUpdateIntervalMs': stationaryUpdateInterval.inMilliseconds,
+      'movingUpdateIntervalMs': movingUpdateInterval.inMilliseconds,
+    };
+  }
+
+  factory MovementSettings.fromMap(Map<String, dynamic> map) {
+    return MovementSettings(
+      stationaryThreshold: Duration(
+        milliseconds: map['stationaryThresholdMs']?.toInt() ?? 300000,
+      ),
+      movementThresholdMeters:
+          map['movementThresholdMeters']?.toDouble() ?? 50.0,
+      stationaryUpdateInterval: Duration(
+        milliseconds: map['stationaryUpdateIntervalMs']?.toInt() ?? 120000,
+      ),
+      movingUpdateInterval: Duration(
+        milliseconds: map['movingUpdateIntervalMs']?.toInt() ?? 10000,
+      ),
+    );
+  }
+
+  @override
+  String toString() {
+    return 'MovementSettings('
+        'stationaryThreshold: $stationaryThreshold, '
+        'movementThresholdMeters: $movementThresholdMeters, '
+        'stationaryUpdateInterval: $stationaryUpdateInterval, '
+        'movingUpdateInterval: $movingUpdateInterval'
+        ')';
+  }
+}
+
+String _enumToChannelValue(String dartEnumName) {
+  final withSeparators = dartEnumName.replaceAllMapped(
+    RegExp(r'([a-z0-9])([A-Z])'),
+    (match) => '${match.group(1)}_${match.group(2)}',
+  );
+  return withSeparators.toUpperCase();
+}
+
+T _enumFromChannelValue<T extends Enum>(
+  dynamic rawValue,
+  List<T> values,
+  T fallback,
+) {
+  if (rawValue == null) return fallback;
+  final normalized =
+      rawValue.toString().toUpperCase().replaceAll(RegExp(r'[^A-Z0-9]'), '');
+
+  for (final candidate in values) {
+    final candidateNormalized = candidate.name
+        .replaceAllMapped(
+          RegExp(r'([a-z0-9])([A-Z])'),
+          (match) => '${match.group(1)}_${match.group(2)}',
+        )
+        .toUpperCase()
+        .replaceAll('_', '');
+    if (candidateNormalized == normalized) {
+      return candidate;
+    }
+  }
+
+  return fallback;
+}
+
+/// Settings for battery-aware GPS optimization
+class BatterySettings {
+  /// Battery percentage considered "low"
+  final int lowBatteryThreshold;
+
+  /// Battery percentage considered "critical"
+  final int criticalBatteryThreshold;
+
+  /// GPS update interval when battery is low
+  final Duration lowBatteryUpdateInterval;
+
+  /// Whether to pause GPS when battery is critical
+  final bool pauseOnCriticalBattery;
+
+  const BatterySettings({
+    this.lowBatteryThreshold = 20,
+    this.criticalBatteryThreshold = 10,
+    this.lowBatteryUpdateInterval = const Duration(seconds: 30),
+    this.pauseOnCriticalBattery = true,
+  });
+
+  Map<String, dynamic> toMap() {
+    return {
+      'lowBatteryThreshold': lowBatteryThreshold,
+      'criticalBatteryThreshold': criticalBatteryThreshold,
+      'lowBatteryUpdateIntervalMs': lowBatteryUpdateInterval.inMilliseconds,
+      'pauseOnCriticalBattery': pauseOnCriticalBattery,
+    };
+  }
+
+  factory BatterySettings.fromMap(Map<String, dynamic> map) {
+    return BatterySettings(
+      lowBatteryThreshold: map['lowBatteryThreshold']?.toInt() ?? 20,
+      criticalBatteryThreshold: map['criticalBatteryThreshold']?.toInt() ?? 10,
+      lowBatteryUpdateInterval: Duration(
+        milliseconds: map['lowBatteryUpdateIntervalMs']?.toInt() ?? 30000,
+      ),
+      pauseOnCriticalBattery: map['pauseOnCriticalBattery'] ?? true,
+    );
+  }
+
+  @override
+  String toString() {
+    return 'BatterySettings('
+        'lowBatteryThreshold: $lowBatteryThreshold, '
+        'criticalBatteryThreshold: $criticalBatteryThreshold, '
+        'lowBatteryUpdateInterval: $lowBatteryUpdateInterval, '
+        'pauseOnCriticalBattery: $pauseOnCriticalBattery'
+        ')';
+  }
+}

@@ -17,6 +17,8 @@ import 'widgets/events_card.dart';
 import 'widgets/tracking_button.dart';
 import 'widgets/error_banner.dart';
 import 'zone_api_service.dart';
+import 'config.dart';
+import 'demo_data.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -193,7 +195,21 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     setState(() => _isLoadingZones = true);
 
     try {
-      final zones = await ZoneApiService.fetchActiveZones();
+      List<polyfence.Zone> zones;
+
+      // Use demo zones if demo mode is enabled
+      if (AppConfig.demoMode) {
+        zones = DemoZones.getDemoZones();
+      } else {
+        // Try to fetch from API
+        try {
+          zones = await ZoneApiService.fetchActiveZones();
+        } catch (e) {
+          // Fallback to demo zones if API fails
+          zones = DemoZones.getDemoZones();
+        }
+      }
+
       if (mounted) {
         setState(() {
           _loadedZones = zones;

@@ -63,8 +63,9 @@ The app loads with **3 demo zones** (🎯 Demo Zone 1, 2, 3) for instant testing
 
 Want to test with real zones in real locations?
 
-1. **Get free API key**: [polyfence.io/signup](https://polyfence.io/signup)
-   - Free tier: Create 1-2 zones for testing
+1. **Get free API key**: [polyfence.io/auth/login](https://polyfence.io/auth/login)
+   - Sign in with GitHub, Google, or email
+   - Free tier: Create 2 zones for testing
    - No credit card required
 
 2. **Switch to live mode**:

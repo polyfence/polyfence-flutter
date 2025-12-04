@@ -656,10 +656,10 @@ The included example demonstrates production patterns for geofencing integration
 
 ## 📚 Documentation
 
-- **API Reference**: [Full API Documentation](https://blackabass.github.io/polyfence-plugin/) - Complete API reference with examples
 - **CHANGELOG**: See [CHANGELOG.md](CHANGELOG.md) for version history and recent improvements
-- **Quick Start**: See examples above
-- **Platform Setup**: See [Platform Setup](#-platform-setup) section
+- **Quick Start**: See [Quick Start](#-quick-start) section above
+- **Platform Setup**: See [Platform Setup](#️-platform-setup) section
+- **API Reference**: Generate API docs locally with `dart doc` (outputs to `doc/api/` folder). For online docs, see [pub.dev package page](https://pub.dev/packages/polyfence) when published.
 
 ---
 

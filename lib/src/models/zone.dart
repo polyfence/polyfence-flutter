@@ -2,6 +2,14 @@ import 'location.dart';
 
 enum ZoneType { circle, polygon }
 
+/// Zone model for geofencing
+///
+/// **Zone Limits:**
+/// - Maximum zones: 50 (iOS), unlimited (Android)
+/// - Maximum polygon points: 50 per polygon
+/// - Minimum polygon points: 3
+///
+/// These limits are enforced to ensure optimal performance and memory usage.
 class Zone {
   final String id;
   final String name;
@@ -22,6 +30,16 @@ class Zone {
   }) {
     if (id.isEmpty) throw ArgumentError('Zone ID required');
     if (name.isEmpty) throw ArgumentError('Zone name required');
+    
+    // Validate polygon points
+    if (type == ZoneType.polygon && polygon != null) {
+      if (polygon!.length < 3) {
+        throw ArgumentError('Polygon must have at least 3 points');
+      }
+      if (polygon!.length > 50) {
+        throw ArgumentError('Polygon cannot have more than 50 points');
+      }
+    }
   }
 
   /// Create a circular zone

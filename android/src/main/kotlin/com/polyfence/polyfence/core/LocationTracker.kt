@@ -119,6 +119,9 @@ class LocationTracker : Service() {
             confirmationPoints = config.confidencePoints
         )
         
+        // Set GPS accuracy threshold from config (default: 100m for platform parity)
+        geofenceEngine.setGpsAccuracyThreshold(config.gpsAccuracyThreshold)
+        
         // Setup location callback with recovery
         setupLocationCallbackWithRecovery()
         
@@ -653,6 +656,14 @@ private fun handleGeofenceEvent(zoneId: String, eventType: String, location: and
             val newConfig = SmartGpsConfigFactory.fromMap(configMap)
             updateSmartConfiguration(newConfig)
             Log.d(TAG, "Configuration updated from Flutter: profile=${newConfig.accuracyProfile}, strategy=${newConfig.updateStrategy}")
+            
+            // Update GPS accuracy threshold in GeofenceEngine if provided
+            val gpsAccuracyThreshold = configMap["gpsAccuracyThreshold"] as? Number
+            if (gpsAccuracyThreshold != null) {
+                geofenceEngine.setGpsAccuracyThreshold(gpsAccuracyThreshold.toFloat())
+                config.gpsAccuracyThreshold = gpsAccuracyThreshold.toFloat()
+                Log.d(TAG, "GPS accuracy threshold updated to ${gpsAccuracyThreshold}m")
+            }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to update configuration: ${e.message}")
         }

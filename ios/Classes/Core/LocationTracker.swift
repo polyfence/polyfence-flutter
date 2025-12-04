@@ -109,6 +109,10 @@ class LocationTracker: NSObject {
         
         // Configure validation using config (opt for immediate detection to verify pipeline)
         geofenceEngine.setValidationConfig(requireConfirmation: false, confirmationPoints: 1)
+        
+        // Set GPS accuracy threshold from config (default: 100m for platform parity)
+        let accuracyThreshold = config?.gpsAccuracyThreshold ?? PolyfenceConfig.DEFAULT_GPS_ACCURACY_THRESHOLD
+        geofenceEngine.setGpsAccuracyThreshold(accuracyThreshold)
     }
     
     // MARK: - Public Methods
@@ -711,6 +715,13 @@ extension LocationTracker: CLLocationManagerDelegate {
     /**
      * Update smart GPS configuration
      */
+    /**
+     * Set GPS accuracy threshold for GeofenceEngine
+     */
+    func setGpsAccuracyThreshold(_ threshold: Double) {
+        geofenceEngine.setGpsAccuracyThreshold(threshold)
+    }
+    
     func updateSmartConfiguration(_ config: SmartGpsConfig) {
         self.smartConfig = config
         

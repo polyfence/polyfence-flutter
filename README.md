@@ -36,7 +36,7 @@ dependencies:
       url: https://github.com/blackabass/polyfence-plugin.git
       ref: main
 
-# Coming soon to pub.dev:
+# Available on pub.dev (coming soon):
 # polyfence: ^0.2.0
 ```
 
@@ -110,6 +110,7 @@ The plugin just needs `Zone` objects - integrate with your existing backend or b
 ### 1) Minimal usage
 
 ```dart
+import 'dart:async';
 import 'package:polyfence/polyfence.dart';
 
 class MyApp extends StatefulWidget {
@@ -118,31 +119,62 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> {
+  StreamSubscription<GeofenceEvent>? _geofenceSubscription;
+
   @override
   void initState() {
     super.initState();
     _setupPolyfence();
   }
 
+  @override
+  void dispose() {
+    _geofenceSubscription?.cancel();
+    super.dispose();
+  }
+
   Future<void> _setupPolyfence() async {
-    await Polyfence.instance.initialize();
-    
-    // Listen for enter/exit
-    Polyfence.instance.onGeofenceEvent.listen((e) {
-      debugPrint('${e.type.name.toUpperCase()}: ${e.zoneId}');
-    });
+    try {
+      // Initialize plugin
+      await Polyfence.instance.initialize();
+      
+      // Request permissions first (required for background tracking)
+      final hasPermission = await Polyfence.instance.requestPermissions(always: true);
+      if (!hasPermission) {
+        print('Location permission denied. Geofencing will not work.');
+        return;
+      }
+      
+      // Listen for enter/exit events
+      _geofenceSubscription = Polyfence.instance.onGeofenceEvent.listen(
+        (event) {
+          print('${event.type.name.toUpperCase()}: ${event.zoneId}');
+          print('Location: ${event.location.latitude}, ${event.location.longitude}');
+        },
+        onError: (error) {
+          print('Geofence error: $error');
+        },
+      );
 
-    // Add a sample circle zone
-    final zone = Zone.circle(
-      id: 'hq',
-      name: 'Headquarters',
-      center: PolyfenceLocation(latitude: 37.422, longitude: -122.084),
-      radius: 150,
-    );
-    await Polyfence.instance.addZone(zone);
+      // Add a sample circle zone
+      final zone = Zone.circle(
+        id: 'hq',
+        name: 'Headquarters',
+        center: PolyfenceLocation(latitude: 37.422, longitude: -122.084),
+        radius: 150,
+      );
+      await Polyfence.instance.addZone(zone);
 
-    // Start tracking (will require permissions)
-    await Polyfence.instance.startTracking();
+      // Start tracking
+      await Polyfence.instance.startTracking();
+      print('Polyfence tracking started');
+    } on PolyfenceNotInitializedException {
+      print('Polyfence not initialized');
+    } on PlatformOperationException catch (e) {
+      print('Platform error: ${e.message}');
+    } catch (e) {
+      print('Unexpected error: $e');
+    }
   }
 }
 ```
@@ -185,6 +217,12 @@ These limits are enforced at the platform level. If you exceed them, `addZone()`
 - **minSdk**: 21+ (Android 5.0)
 - **tested**: up to API 35 (Android 15)
 
+#### Foreground Service Notification
+
+Polyfence requires a foreground service notification on Android. **The plugin automatically creates the notification channel** - no additional setup required.
+
+**Note:** The plugin will automatically show a persistent notification while tracking. This is required by Android for foreground services and cannot be disabled. The notification uses low priority and is silent, so it won't disturb users.
+
 ### iOS — `ios/Runner/Info.plist`
 
 ```xml
@@ -203,6 +241,32 @@ These limits are enforced at the platform level. If you exceed them, `addZone()`
 - **iOS**: 12.0+
 - **Requires** "Always" location for background geofencing.
 
+#### iOS Permission Flow
+
+**Important:** iOS requires "Always" location permission for background geofencing, but the flow is different from Android:
+
+1. **First Request:** When you call `requestPermissions(always: true)`, iOS shows a "While in use" permission dialog
+2. **Manual Step Required:** The user must manually enable "Always" permission in:
+   - Settings → Privacy & Security → Location Services → Your App → "Always"
+3. **Check Permission Status:** Your app should check if "Always" permission is granted:
+
+```dart
+// Check location service status
+final isEnabled = await Polyfence.instance.isLocationServiceEnabled();
+if (!isEnabled) {
+  // Guide user to enable location services
+}
+
+// Request permissions (shows "While in use" dialog first)
+final granted = await Polyfence.instance.requestPermissions(always: true);
+if (granted) {
+  // User granted "While in use" - they still need to enable "Always" in Settings
+  // You may want to show a dialog guiding them to Settings
+}
+```
+
+**Note:** iOS doesn't provide a direct API to check if "Always" permission is granted. The plugin will work with "While in use" but background geofencing requires "Always" permission.
+
 ---
 
 ## 🏗 How It Works
@@ -214,21 +278,19 @@ flowchart TB
     X["Example App"]
   end
 
-  subgraph Plugin["Polyfence Plugin"]
-    B["Dart API<br/>PolyfenceService"]
-    C["Error Handling"]
-    D["Debug Collection"]
-    E["Optional Analytics<br/>(opt-in)"]
+  subgraph Plugin["Polyfence Plugin (Dart)"]
+    B["PolyfenceService<br/>(API + Error Streams + Debug)"]
+    E["AnalyticsService<br/>(opt-in)"]
   end
 
   subgraph AndroidNative["Android Native"]
     F["LocationTracker Service<br/>+ Wake Lock + Foreground"]
     G["GeofenceEngine.kt<br/>Haversine + Ray-casting"]
-    H["ZonePersistence<br/>SQLite Storage"]
+    H["ZonePersistence<br/>SharedPreferences"]
   end
 
   subgraph iOSNative["iOS Native"]
-    I["LocationTracker Class<br/>+ Background Tasks"]
+    I["LocationTracker<br/>+ Background Tasks"]
     J["GeofenceEngine.swift<br/>Haversine + Ray-casting"]
     K["ZonePersistence<br/>UserDefaults Storage"]
   end
@@ -242,21 +304,19 @@ flowchart TB
   X -.->|Demo/Testing| B
   E -.->|Optional| B
 
-  B -->|Method Channels| F
-  B -->|Method Channels| I
-  C -->|Error Streams| B
-  D -->|Debug Data| B
+  B -->|Method/Event Channels| F
+  B -->|Method/Event Channels| I
 
-  F -->|Raw GPS| G
-  I -->|Raw GPS| J
+  F -->|GPS Updates| G
+  I -->|GPS Updates| J
   G -->|Zone Events| F
   J -->|Zone Events| I
 
   F -->|Persist Zones| H
   I -->|Persist Zones| K
 
-  F -->|Platform Events| B
-  I -->|Platform Events| B
+  F -->|Events/Errors| B
+  I -->|Events/Errors| B
 
   F -->|Uses| L
   I -->|Uses| M
@@ -288,7 +348,7 @@ await Polyfence.instance.setAccuracyProfile(PolyfenceAccuracyProfile.adaptive);
 
 ```dart
 // Proximity-aware GPS optimization
-await Polyfence.instance.updateConfiguration(
+await Polyfence.instance.updateGpsConfiguration(
   PolyfenceConfiguration(
     accuracyProfile: PolyfenceAccuracyProfile.balanced,
     updateStrategy: PolyfenceUpdateStrategy.proximityBased,
@@ -302,7 +362,7 @@ await Polyfence.instance.updateConfiguration(
 );
 
 // Movement-based optimization
-await Polyfence.instance.updateConfiguration(
+await Polyfence.instance.updateGpsConfiguration(
   PolyfenceConfiguration(
     updateStrategy: PolyfenceUpdateStrategy.movementBased,
     movementSettings: MovementSettings(
@@ -316,6 +376,22 @@ await Polyfence.instance.updateConfiguration(
 // Intelligent optimization (proximity + movement + battery)
 await Polyfence.instance.enableIntelligentOptimization();
 ```
+
+### GPS Accuracy Threshold
+
+By default, Polyfence rejects GPS readings with accuracy worse than **100 meters** to ensure consistent behavior across iOS and Android. This threshold is configurable:
+
+```dart
+await Polyfence.instance.updateGpsConfiguration(
+  PolyfenceConfiguration(
+    gpsAccuracyThreshold: 50.0, // 50 meters - stricter
+    // Or
+    gpsAccuracyThreshold: 200.0, // 200 meters - more lenient
+  ),
+);
+```
+
+**Note:** The default 100m threshold ensures platform parity. Previously, iOS used 500m and Android used 100m, which could cause inconsistent behavior. Both platforms now use 100m by default.
 
 ### Configuration Profiles
 
@@ -352,10 +428,11 @@ This can reduce GPS usage by 60-80% for users who spend time away from monitored
 
 ### Android Background Operation
 
-- **Wake Lock Management**: Automatically acquires `PARTIAL_WAKE_LOCK` during tracking
+- **Wake Lock Management**: Automatically acquires `PARTIAL_WAKE_LOCK` during tracking (indefinite, properly released on stop)
 - **Battery Optimization Bypass**: Built-in API to request exemption
 - **Foreground Service**: Uses `FOREGROUND_SERVICE_LOCATION` for background updates
 - **Auto-restart**: Service restarts if killed (limited to 3 attempts with cooldown)
+- **GPS Recovery**: Automatically recovers from GPS failures (up to 5 consecutive attempts before giving up)
 
 ### iOS Background Operation
 
@@ -367,8 +444,8 @@ This can reduce GPS usage by 60-80% for users who spend time away from monitored
 ### Battery Optimization (Android)
 
 ```dart
-final status = await Polyfence.instance.checkBatteryOptimization();
-if (!status['isOptimized'] && status['canRequest']) {
+final status = await Polyfence.instance.batteryOptimizationStatus();
+if (status['isOptimized'] == true && status['canRequest'] == true) {
   await Polyfence.instance.requestBatteryOptimizationExemption();
 }
 ```
@@ -395,6 +472,25 @@ Polyfence.instance.onError.listen((error) {
       print('Polyfence error: ${error.message}');
   }
 });
+```
+
+### Exception Types
+
+Polyfence throws structured exceptions for better error handling:
+
+- **`PolyfenceNotInitializedException`**: Thrown when plugin methods are called before `initialize()`
+- **`PlatformOperationException`**: Thrown when platform operations fail (includes operation name and error message)
+
+**Example:**
+```dart
+try {
+  await Polyfence.instance.startTracking();
+} on PolyfenceNotInitializedException {
+  await Polyfence.instance.initialize();
+  await Polyfence.instance.startTracking();
+} on PlatformOperationException catch (e) {
+  print('Platform error in ${e.operation}: ${e.message}');
+}
 ```
 
 ### Error Types
@@ -460,7 +556,7 @@ final office = Zone.circle(
 final campus = Zone.polygon(
   id: 'campus',
   name: 'Campus',
-  points: [
+  polygon: [
     PolyfenceLocation(latitude: 51.5079, longitude: -0.1284),
     PolyfenceLocation(latitude: 51.5090, longitude: -0.1240),
     PolyfenceLocation(latitude: 51.5050, longitude: -0.1230),
@@ -477,6 +573,40 @@ await Polyfence.instance.addZone(campus);
 await Polyfence.instance.startTracking();
 await Polyfence.instance.stopTracking();
 ```
+
+---
+
+## ⚠️ Common Gotchas
+
+### iOS "Always" Permission
+- iOS requires **manual** "Always" permission enablement in Settings after the first "While in use" grant
+- The plugin will work with "While in use" but background geofencing requires "Always"
+- Guide users to Settings → Privacy & Security → Location Services → Your App → "Always"
+
+### Android Battery Optimization
+- Android may kill background services if battery optimization is enabled
+- Check status: `await Polyfence.instance.batteryOptimizationStatus()`
+- Request exemption: `await Polyfence.instance.requestBatteryOptimizationExemption()`
+- This is especially important for reliable background tracking
+
+### GPS Accuracy Threshold
+- Default threshold is **100 meters** - locations with worse accuracy are rejected
+- This ensures consistent behavior across iOS and Android
+- Configure via `updateGpsConfiguration()` if needed
+
+### Background Tracking Requirements
+- **Android:** Requires foreground service notification (automatically created by plugin)
+- **iOS:** Requires "Always" location permission (manual setup in Settings)
+- Both platforms require proper permissions before `startTracking()`
+
+### Stream Subscription Management
+- Always cancel stream subscriptions in `dispose()` to prevent memory leaks
+- Example: `_geofenceSubscription?.cancel();`
+
+### Zone Persistence
+- Zones are automatically persisted across app restarts
+- No manual persistence needed
+- Zones are loaded automatically when plugin initializes
 
 ---
 
@@ -519,7 +649,7 @@ The included example demonstrates production patterns for geofencing integration
 
 | Platform | Min | Target | Notes |
 |----------|-----|--------|-------|
-| Android | 21 | 34–35 | Foreground service for background tracking |
+| Android | 21 | 34–35 | Foreground service for background tracking. Tested up to API 35 (Android 15) |
 | iOS | 12.0 | Latest | Requires "Always" location for background |
 
 ---
@@ -527,6 +657,7 @@ The included example demonstrates production patterns for geofencing integration
 ## 📚 Documentation
 
 - **API Reference**: [Full API Documentation](https://blackabass.github.io/polyfence-plugin/) - Complete API reference with examples
+- **CHANGELOG**: See [CHANGELOG.md](CHANGELOG.md) for version history and recent improvements
 - **Quick Start**: See examples above
 - **Platform Setup**: See [Platform Setup](#-platform-setup) section
 
@@ -543,4 +674,3 @@ The included example demonstrates production patterns for geofencing integration
 ## 📜 License
 
 MIT — see [LICENSE](LICENSE)
-

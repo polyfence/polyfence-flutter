@@ -42,7 +42,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - GPS configuration profiles (maxAccuracy, balanced, batteryOptimal, adaptive)
 - Proximity-based GPS optimization
 - Movement-based GPS optimization
-- On-device zone persistence (SQLite on Android, UserDefaults on iOS)
+- On-device zone persistence (SharedPreferences on Android, UserDefaults on iOS)
 - Demo mode in example app with 3 hardcoded zones
 - Optional analytics (opt-in with API key)
 

@@ -179,7 +179,9 @@ class LocationTracker : Service() {
         val bgOk = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_BACKGROUND_LOCATION) == PackageManager.PERMISSION_GRANTED
         } else true
-        val fgsOk = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+        // API 34 (Android 14) requires FOREGROUND_SERVICE_LOCATION permission
+        // Use SDK_INT >= 34 instead of UPSIDE_DOWN_CAKE constant (not available in older SDKs)
+        val fgsOk = if (Build.VERSION.SDK_INT >= 34) {
             ContextCompat.checkSelfPermission(this, Manifest.permission.FOREGROUND_SERVICE_LOCATION) == PackageManager.PERMISSION_GRANTED
         } else true
         return (fine || coarse) && bgOk && fgsOk

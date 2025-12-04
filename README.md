@@ -73,10 +73,10 @@ Want to test with real zones in real locations?
 ```dart
 // example/lib/config.dart
 static const bool demoMode = false;
-static const String? apiKey = 'your-free-api-key-here';
+static const String? apiKey = 'your-free-api-key-here'; // Get from https://polyfence.io/auth/login
 ```
 
-**⚠️ Note:** The example app includes a test/demo API key (`test-demo-api-key`) for demonstration purposes only. This key has limited permissions and should **not** be used in production applications. Always use your own API key for production use.
+**⚠️ Note:** The example app includes a test/demo API key for demonstration purposes only. This key has limited permissions and should **not** be used in production applications. Always use your own API key for production use.
 
 3. **Create zones**: [Zone Management Portal](https://polyfence.io/admin)
 
@@ -150,6 +150,21 @@ class _MyAppState extends State<MyApp> {
 <img alt="App screenshot 1" src="https://github.com/user-attachments/assets/e786391a-d178-4daf-8829-f97bbc29202d" width="320" />
 
 <img alt="App screenshot 2" src="https://github.com/user-attachments/assets/bd1d07c2-d9bc-499b-bded-3e9dff9eeeb7" width="320" />
+
+---
+
+## 📊 Zone Limits
+
+Polyfence enforces limits to ensure optimal performance and memory usage:
+
+| Limit | Value | Platform |
+| :-- | :-- | :-- |
+| **Maximum zones** | 50 | iOS |
+| **Maximum zones** | Unlimited | Android |
+| **Maximum polygon points** | 50 per polygon | Both |
+| **Minimum polygon points** | 3 per polygon | Both |
+
+These limits are enforced at the platform level. If you exceed them, `addZone()` will throw an error.
 
 ---
 

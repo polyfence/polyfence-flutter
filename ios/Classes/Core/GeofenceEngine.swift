@@ -25,6 +25,9 @@ class GeofenceEngine {
     private var confirmationPoints: Int = 2
     private var confirmationTimeoutMs: TimeInterval = 10.0 // 10 seconds
     
+    // GPS accuracy threshold in meters (default: 100m to match Android)
+    private var gpsAccuracyThreshold: Double = 100.0
+    
     // Event callbacks
     private var eventCallback: ((String, String, CLLocation) -> Void)?
     
@@ -56,6 +59,15 @@ class GeofenceEngine {
     func setValidationConfig(requireConfirmation: Bool, confirmationPoints: Int) {
         self.requireConfirmation = requireConfirmation
         self.confirmationPoints = confirmationPoints
+    }
+    
+    /**
+     * Set GPS accuracy threshold in meters
+     * Locations with accuracy worse than this are rejected
+     * Default: 100m (matches Android for platform parity)
+     */
+    func setGpsAccuracyThreshold(_ threshold: Double) {
+        self.gpsAccuracyThreshold = threshold
     }
     
     /**
@@ -413,9 +425,11 @@ class GeofenceEngine {
     
     /**
      * Validate location quality
+     * Uses configurable GPS accuracy threshold (default: 100m)
+     * This ensures platform parity with Android
      */
     private func isValidLocation(_ location: CLLocation) -> Bool {
-        return location.horizontalAccuracy > 0 && location.horizontalAccuracy < 500
+        return location.horizontalAccuracy > 0 && location.horizontalAccuracy < gpsAccuracyThreshold
     }
     
     /**

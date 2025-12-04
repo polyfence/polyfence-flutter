@@ -65,6 +65,9 @@ class GeofenceEngine {
     private var confirmationPoints = 2
     private var confirmationTimeoutMs = 10000L // 10 seconds
     
+    // GPS accuracy threshold in meters (default: 100m for platform parity)
+    private var gpsAccuracyThreshold = 100.0f
+    
     // Event callback
     private var eventCallback: ((String, String, Location) -> Unit)? = null
     
@@ -125,6 +128,15 @@ fun getZoneName(zoneId: String): String? {
         this.requireConfirmation = requireConfirmation
         this.confirmationPoints = confirmationPoints
         this.confirmationTimeoutMs = timeoutMs
+    }
+    
+    /**
+     * Set GPS accuracy threshold in meters
+     * Locations with accuracy worse than this are rejected
+     * Default: 100m (matches iOS for platform parity)
+     */
+    fun setGpsAccuracyThreshold(threshold: Float) {
+        this.gpsAccuracyThreshold = threshold
     }
     
     /**
@@ -281,12 +293,14 @@ fun getZoneName(zoneId: String): String? {
     
     /**
      * Validate GPS location
+     * Uses configurable GPS accuracy threshold (default: 100m)
+     * This ensures platform parity with iOS
      */
     private fun isValidLocation(location: Location): Boolean {
-    return location.hasAccuracy() && 
-           location.accuracy <= 100.0f && // Changed from 50.0f to 100.0f
-           location.latitude != 0.0 && 
-           location.longitude != 0.0
+        return location.hasAccuracy() && 
+               location.accuracy <= gpsAccuracyThreshold &&
+               location.latitude != 0.0 && 
+               location.longitude != 0.0
     }
     
     /**

@@ -222,7 +222,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           try {
             await polyfence.Polyfence.instance.addZone(zone);
           } catch (e) {
-            // Failed to register zone - silently continue with others
+            // Failed to register zone - log and continue with others
+            _addErrorEvent('Failed to register zone "${zone.name}": $e');
           }
         }
       }
@@ -246,7 +247,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         });
       }
     } catch (e) {
-      // Failed to load stored events
+      // Failed to load stored events - log but don't show error banner
+      debugPrint('Failed to load stored events: $e');
     }
   }
 
@@ -255,7 +257,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('events', jsonEncode(_events));
     } catch (e) {
-      // Failed to save events
+      // Failed to save events - log but don't show error banner
+      debugPrint('Failed to save events: $e');
     }
   }
 

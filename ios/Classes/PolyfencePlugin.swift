@@ -268,6 +268,13 @@ public class PolyfencePlugin: NSObject, FlutterPlugin {
             let smartConfig = SmartGpsConfigFactory.fromMap(configMap)
             config?.updateConfiguration(configMap)
             locationTracker?.updateSmartConfiguration(smartConfig)
+            
+            // Update GPS accuracy threshold in GeofenceEngine if provided
+            if let gpsAccuracyThreshold = configMap["gpsAccuracyThreshold"] as? Double {
+                locationTracker?.setGpsAccuracyThreshold(gpsAccuracyThreshold)
+                config?.gpsAccuracyThreshold = gpsAccuracyThreshold
+            }
+            
             result(nil)
         } catch {
             result(FlutterError(code: "CONFIG_UPDATE_FAILED", message: "Failed to update smart GPS configuration: \(error.localizedDescription)", details: nil))

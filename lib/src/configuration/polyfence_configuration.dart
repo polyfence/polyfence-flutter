@@ -59,6 +59,11 @@ class PolyfenceConfiguration {
   /// Battery-aware optimization settings
   final BatterySettings? batterySettings;
 
+  /// GPS accuracy threshold in meters
+  /// Locations with accuracy worse than this are rejected
+  /// Default: 100m (ensures platform parity between iOS and Android)
+  final double gpsAccuracyThreshold;
+
   /// Enable debug logging for GPS configuration changes
   final bool enableDebugLogging;
 
@@ -68,6 +73,7 @@ class PolyfenceConfiguration {
     this.proximitySettings,
     this.movementSettings,
     this.batterySettings,
+    this.gpsAccuracyThreshold = 100.0,
     this.enableDebugLogging = false,
   });
 
@@ -78,6 +84,7 @@ class PolyfenceConfiguration {
     ProximitySettings? proximitySettings,
     MovementSettings? movementSettings,
     BatterySettings? batterySettings,
+    double? gpsAccuracyThreshold,
     bool? enableDebugLogging,
   }) {
     return PolyfenceConfiguration(
@@ -86,6 +93,7 @@ class PolyfenceConfiguration {
       proximitySettings: proximitySettings ?? this.proximitySettings,
       movementSettings: movementSettings ?? this.movementSettings,
       batterySettings: batterySettings ?? this.batterySettings,
+      gpsAccuracyThreshold: gpsAccuracyThreshold ?? this.gpsAccuracyThreshold,
       enableDebugLogging: enableDebugLogging ?? this.enableDebugLogging,
     );
   }
@@ -101,6 +109,7 @@ class PolyfenceConfiguration {
       'proximitySettings': proximitySettings?.toMap(),
       'movementSettings': movementSettings?.toMap(),
       'batterySettings': batterySettings?.toMap(),
+      'gpsAccuracyThreshold': gpsAccuracyThreshold,
       'enableDebugLogging': enableDebugLogging,
     };
   }
@@ -127,6 +136,7 @@ class PolyfenceConfiguration {
       batterySettings: map['batterySettings'] != null
           ? BatterySettings.fromMap(map['batterySettings'])
           : null,
+      gpsAccuracyThreshold: (map['gpsAccuracyThreshold'] as num?)?.toDouble() ?? 100.0,
       enableDebugLogging: map['enableDebugLogging'] ?? false,
     );
   }
@@ -139,6 +149,7 @@ class PolyfenceConfiguration {
         'proximitySettings: $proximitySettings, '
         'movementSettings: $movementSettings, '
         'batterySettings: $batterySettings, '
+        'gpsAccuracyThreshold: $gpsAccuracyThreshold, '
         'enableDebugLogging: $enableDebugLogging'
         ')';
   }

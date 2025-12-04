@@ -7,6 +7,7 @@ build/
 .flutter-plugins
 .flutter-plugins-dependencies
 example/pubspec.lock
+pubspec.lock
 
 # IDE
 .idea/
@@ -25,6 +26,15 @@ Thumbs.db
 .env.local
 .env.production
 test_industry_implementation.md
+
+# Documentation (keep only README.md and CHANGELOG.md)
+*_GUIDE.md
+*_PLAN.md
+*_FIXES.md
+*_APPLIED.md
+*_SUMMARY.md
+*_ENHANCEMENTS.md
+INDEX.md
 
 # Security - Never commit API keys or secrets
 ADMIN_API_KEYS

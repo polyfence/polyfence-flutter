@@ -6,16 +6,16 @@ import '../models/geofence_event.dart';
 import '../models/polyfence_runtime_status.dart';
 import '../platform/polyfence_platform.dart';
 import '../errors/polyfence_error.dart';
+import '../errors/polyfence_exceptions.dart';
 import '../debug/polyfence_debug_info.dart';
 import '../configuration/polyfence_configuration.dart';
+import '../utils/enum_utils.dart';
 import 'analytics_service.dart';
 import 'app_lifecycle_manager.dart';
 
-/**
- * Simplified Polyfence service
- * Single responsibility: Flutter API ↔ Native bridge
- * NO duplicate detection logic - Android handles everything
- */
+/// Simplified Polyfence service
+/// Single responsibility: Flutter API ↔ Native bridge
+/// NO duplicate detection logic - Android handles everything
 class PolyfenceService {
   static final PolyfenceService _instance = PolyfenceService._internal();
   static PolyfenceService get instance => _instance;
@@ -97,20 +97,20 @@ class PolyfenceService {
           .performanceStream
           .listen((event) {
         _handlePerformanceEvent(event);
-        if (event is Map && event['type'] == 'status') {
-          _statusController.add(Map<String, dynamic>.from(event));
+        if (event['type'] == 'status') {
+          _statusController.add(event);
         }
       });
 
       _isInitialized = true;
     } on PlatformException catch (e) {
-      throw Exception('Failed to initialize: ${e.message}');
+      throw PlatformOperationException('initialize', e.message ?? 'Unknown error');
     }
   }
 
   /// Add a zone for monitoring
   Future<void> addZone(Zone zone) async {
-    if (!_isInitialized) throw StateError('Polyfence not initialized');
+    if (!_isInitialized) throw PolyfenceNotInitializedException();
     final stopwatch = Stopwatch()..start();
 
     try {
@@ -122,13 +122,13 @@ class PolyfenceService {
 
       stopwatch.stop();
     } on PlatformException catch (e) {
-      throw Exception('Failed to add zone: ${e.message}');
+      throw PlatformOperationException('addZone', e.message ?? 'Unknown error');
     }
   }
 
   /// Remove a zone
   Future<void> removeZone(String zoneId) async {
-    if (!_isInitialized) throw StateError('Polyfence not initialized');
+    if (!_isInitialized) throw PolyfenceNotInitializedException();
 
     // Remove from cache
     _zones.remove(zoneId);
@@ -137,13 +137,13 @@ class PolyfenceService {
     try {
       await _platform.removeZone(zoneId);
     } on PlatformException catch (e) {
-      throw Exception('Failed to remove zone: ${e.message}');
+      throw PlatformOperationException('removeZone', e.message ?? 'Unknown error');
     }
   }
 
   /// Clear all zones
   Future<void> clearAllZones() async {
-    if (!_isInitialized) throw StateError('Polyfence not initialized');
+    if (!_isInitialized) throw PolyfenceNotInitializedException();
 
     // Clear cache
     _zones.clear();
@@ -152,7 +152,7 @@ class PolyfenceService {
     try {
       await _platform.clearAllZones();
     } on PlatformException catch (e) {
-      throw Exception('Failed to clear zones: ${e.message}');
+      throw PlatformOperationException('clearAllZones', e.message ?? 'Unknown error');
     }
   }
 
@@ -161,19 +161,19 @@ class PolyfenceService {
 
   /// Start location tracking
   Future<void> startTracking() async {
-    if (!_isInitialized) throw StateError('Polyfence not initialized');
+    if (!_isInitialized) throw PolyfenceNotInitializedException();
 
     // Check if location services are enabled
     final isEnabled = await _platform.isLocationServiceEnabled();
     if (!isEnabled) {
-      throw Exception('Location services not enabled');
+      throw PlatformOperationException('startTracking', 'Location services not enabled');
     }
 
     // Request permissions if needed
     final hasPermissions = await _platform.requestPermissions();
     if (!hasPermissions) {
       PolyfenceAnalytics.instance.recordError('permission_denied');
-      throw Exception('Location permissions not granted');
+      throw PlatformOperationException('startTracking', 'Location permissions not granted');
     }
 
     // Start tracking on native platform
@@ -181,18 +181,18 @@ class PolyfenceService {
       await _platform.startTracking();
     } on PlatformException catch (e) {
       PolyfenceAnalytics.instance.recordError('tracking_start_failed');
-      throw Exception('Failed to start tracking: ${e.message}');
+      throw PlatformOperationException('startTracking', e.message ?? 'Unknown error');
     }
   }
 
   /// Stop location tracking
   Future<void> stopTracking() async {
-    if (!_isInitialized) throw StateError('Polyfence not initialized');
+    if (!_isInitialized) throw PolyfenceNotInitializedException();
 
     try {
       await _platform.stopTracking();
     } on PlatformException catch (e) {
-      throw Exception('Failed to stop tracking: ${e.message}');
+      throw PlatformOperationException('stopTracking', e.message ?? 'Unknown error');
     }
   }
 
@@ -284,96 +284,96 @@ class PolyfenceService {
   }
 
   /// Get current configuration from Android
-  Future<Map<String, dynamic>> getConfiguration() async {
-    if (!_isInitialized) throw StateError('Polyfence not initialized');
+  Future<Map<String, dynamic>> configuration() async {
+    if (!_isInitialized) throw PolyfenceNotInitializedException();
 
     try {
       final config = await _platform.getConfiguration();
       return config;
     } on PlatformException catch (e) {
-      throw Exception('Failed to get configuration: ${e.message}');
+      throw PlatformOperationException('configuration', e.message ?? 'Unknown error');
     }
   }
 
   /// Update configuration on Android
   Future<void> updateConfiguration(Map<String, dynamic> config) async {
-    if (!_isInitialized) throw StateError('Polyfence not initialized');
+    if (!_isInitialized) throw PolyfenceNotInitializedException();
 
     try {
       await _platform.updateConfiguration(config);
     } on PlatformException catch (e) {
-      throw Exception('Failed to update configuration: ${e.message}');
+      throw PlatformOperationException('updateConfiguration', e.message ?? 'Unknown error');
     }
   }
 
   /// Reset configuration to defaults
   Future<void> resetConfiguration() async {
-    if (!_isInitialized) throw StateError('Polyfence not initialized');
+    if (!_isInitialized) throw PolyfenceNotInitializedException();
 
     try {
       await _platform.resetConfiguration();
     } on PlatformException catch (e) {
-      throw Exception('Failed to reset configuration: ${e.message}');
+      throw PlatformOperationException('resetConfiguration', e.message ?? 'Unknown error');
     }
   }
 
   /// Request location permissions
   Future<bool> requestPermissions({bool always = false}) async {
-    if (!_isInitialized) throw StateError('Polyfence not initialized');
+    if (!_isInitialized) throw PolyfenceNotInitializedException();
 
     try {
       final result = await _platform.requestPermissions(always: always);
       return result;
     } on PlatformException catch (e) {
-      throw Exception('Failed to request permissions: ${e.message}');
+      throw PlatformOperationException('requestPermissions', e.message ?? 'Unknown error');
     }
   }
 
   /// Check if location services are enabled
   Future<bool> isLocationServiceEnabled() async {
-    if (!_isInitialized) throw StateError('Polyfence not initialized');
+    if (!_isInitialized) throw PolyfenceNotInitializedException();
 
     try {
       final result = await _platform.isLocationServiceEnabled();
       return result;
     } on PlatformException catch (e) {
-      throw Exception('Failed to check location services: ${e.message}');
+      throw PlatformOperationException('isLocationServiceEnabled', e.message ?? 'Unknown error');
     }
   }
 
   /// Check battery optimization status (Android only)
-  Future<Map<String, dynamic>> checkBatteryOptimization() async {
-    if (!_isInitialized) throw StateError('Polyfence not initialized');
+  Future<Map<String, dynamic>> batteryOptimizationStatus() async {
+    if (!_isInitialized) throw PolyfenceNotInitializedException();
 
     try {
       final result = await _platform.checkBatteryOptimization();
       return Map<String, dynamic>.from(result);
     } on PlatformException catch (e) {
-      throw Exception('Failed to check battery optimization: ${e.message}');
+      throw PlatformOperationException('batteryOptimizationStatus', e.message ?? 'Unknown error');
     }
   }
 
   /// Request battery optimization exemption (Android only)
   Future<bool> requestBatteryOptimizationExemption() async {
-    if (!_isInitialized) throw StateError('Polyfence not initialized');
+    if (!_isInitialized) throw PolyfenceNotInitializedException();
 
     try {
       final result = await _platform.requestBatteryOptimizationExemption();
       return result;
     } on PlatformException catch (e) {
-      throw Exception('Failed to request battery optimization: ${e.message}');
+      throw PlatformOperationException('requestBatteryOptimizationExemption', e.message ?? 'Unknown error');
     }
   }
 
   /// Get comprehensive debug information
-  Future<PolyfenceDebugInfo> getDebugInfo() async {
-    if (!_isInitialized) throw StateError('Polyfence not initialized');
+  Future<PolyfenceDebugInfo> debugInfo() async {
+    if (!_isInitialized) throw PolyfenceNotInitializedException();
 
     try {
       final result = await _platform.getDebugInfo();
       return PolyfenceDebugInfo.fromMap(Map<String, dynamic>.from(result));
     } on PlatformException catch (e) {
-      throw Exception('Failed to get debug info: ${e.message}');
+      throw PlatformOperationException('debugInfo', e.message ?? 'Unknown error');
     }
   }
 
@@ -385,11 +385,11 @@ class PolyfenceService {
   }
 
   /// Get error history
-  Future<List<PolyfenceErrorSummary>> getErrorHistory({
+  Future<List<PolyfenceErrorSummary>> errorHistory({
     Duration? timeRange,
     List<PolyfenceErrorType>? errorTypes,
   }) async {
-    if (!_isInitialized) throw StateError('Polyfence not initialized');
+    if (!_isInitialized) throw PolyfenceNotInitializedException();
 
     final params = {
       'timeRangeMs': timeRange?.inMilliseconds,
@@ -403,7 +403,7 @@ class PolyfenceService {
           .map((e) => PolyfenceErrorSummary.fromMap(e))
           .toList();
     } on PlatformException catch (e) {
-      throw Exception('Failed to get error history: ${e.message}');
+      throw PlatformOperationException('errorHistory', e.message ?? 'Unknown error');
     }
   }
 
@@ -413,7 +413,7 @@ class PolyfenceService {
 
   /// Update GPS configuration
   Future<void> updateGpsConfiguration(PolyfenceConfiguration config) async {
-    if (!_isInitialized) throw StateError('Polyfence not initialized');
+    if (!_isInitialized) throw PolyfenceNotInitializedException();
 
     try {
       final configMap = config.toMap();
@@ -421,36 +421,32 @@ class PolyfenceService {
 
       // Update local configuration
       _currentConfiguration = config;
-
-      if (config.enableDebugLogging) {
-        // Updated GPS configuration
-      }
     } on PlatformException catch (e) {
-      throw Exception('Failed to update configuration: ${e.message}');
+      throw PlatformOperationException('updateConfiguration', e.message ?? 'Unknown error');
     }
   }
 
   /// Get current GPS configuration
-  Future<PolyfenceConfiguration> getCurrentConfiguration() async {
-    if (!_isInitialized) throw StateError('Polyfence not initialized');
+  Future<PolyfenceConfiguration> gpsConfiguration() async {
+    if (!_isInitialized) throw PolyfenceNotInitializedException();
 
     try {
       final result = await _platform.getCurrentConfiguration();
       _currentConfiguration = PolyfenceConfiguration.fromMap(result);
       return _currentConfiguration;
     } on PlatformException catch (e) {
-      throw Exception('Failed to get configuration: ${e.message}');
+      throw PlatformOperationException('gpsConfiguration', e.message ?? 'Unknown error');
     }
   }
 
   /// Quick profile setter for common use cases
   Future<void> setAccuracyProfile(PolyfenceAccuracyProfile profile) async {
-    if (!_isInitialized) throw StateError('Polyfence not initialized');
+    if (!_isInitialized) throw PolyfenceNotInitializedException();
 
-    final profileKey = _enumToChannelFormat(profile.name);
+    final profileKey = EnumUtils.toChannelFormat(profile.name);
     await _platform.setAccuracyProfile(profileKey);
 
-    final existing = _currentConfiguration ?? const PolyfenceConfiguration();
+    final existing = _currentConfiguration;
     _currentConfiguration = existing.copyWith(accuracyProfile: profile);
   }
 
@@ -486,12 +482,12 @@ class PolyfenceService {
 
   /// Enable intelligent optimization (proximity + movement + battery)
   Future<void> enableIntelligentOptimization() async {
-    final config = PolyfenceConfiguration(
+    const config = PolyfenceConfiguration(
       accuracyProfile: PolyfenceAccuracyProfile.adaptive,
       updateStrategy: PolyfenceUpdateStrategy.intelligent,
-      proximitySettings: const ProximitySettings(),
-      movementSettings: const MovementSettings(),
-      batterySettings: const BatterySettings(),
+      proximitySettings: ProximitySettings(),
+      movementSettings: MovementSettings(),
+      batterySettings: BatterySettings(),
     );
     await updateGpsConfiguration(config);
   }
@@ -527,7 +523,7 @@ class PolyfenceService {
     if (rawData is! Map) return;
 
     try {
-      final data = Map<String, dynamic>.from(rawData as Map);
+      final data = Map<String, dynamic>.from(rawData);
       final status = PolyfenceRuntimeStatus.fromMap(data);
       if (!_runtimeStatusController.isClosed) {
         _runtimeStatusController.add(status);
@@ -536,12 +532,4 @@ class PolyfenceService {
       // Failed to parse runtime status
     }
   }
-}
-
-String _enumToChannelFormat(String name) {
-  final withSeparators = name.replaceAllMapped(
-    RegExp(r'([a-z0-9])([A-Z])'),
-    (match) => '${match.group(1)}_${match.group(2)}',
-  );
-  return withSeparators.toUpperCase();
 }

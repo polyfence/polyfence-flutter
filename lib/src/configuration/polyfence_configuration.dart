@@ -2,6 +2,8 @@
 /// Provides flexible GPS accuracy/battery profiles for different use cases
 library polyfence_configuration;
 
+import '../utils/enum_utils.dart';
+
 /// GPS accuracy profiles that balance precision vs battery consumption
 enum PolyfenceAccuracyProfile {
   /// Maximum accuracy - highest precision, highest battery usage
@@ -90,8 +92,8 @@ class PolyfenceConfiguration {
 
   /// Convert to map for platform communication
   Map<String, dynamic> toMap() {
-    final accuracyProfileValue = _enumToChannelValue(accuracyProfile.name);
-    final updateStrategyValue = _enumToChannelValue(updateStrategy.name);
+    final accuracyProfileValue = EnumUtils.toChannelFormat(accuracyProfile.name);
+    final updateStrategyValue = EnumUtils.toChannelFormat(updateStrategy.name);
 
     return {
       'accuracyProfile': accuracyProfileValue,
@@ -106,12 +108,12 @@ class PolyfenceConfiguration {
   /// Create from map (for platform communication)
   factory PolyfenceConfiguration.fromMap(Map<String, dynamic> map) {
     return PolyfenceConfiguration(
-      accuracyProfile: _enumFromChannelValue(
+      accuracyProfile: EnumUtils.fromChannelFormat(
         map['accuracyProfile'],
         PolyfenceAccuracyProfile.values,
         PolyfenceAccuracyProfile.maxAccuracy,
       ),
-      updateStrategy: _enumFromChannelValue(
+      updateStrategy: EnumUtils.fromChannelFormat(
         map['updateStrategy'],
         PolyfenceUpdateStrategy.values,
         PolyfenceUpdateStrategy.continuous,
@@ -253,39 +255,6 @@ class MovementSettings {
         'movingUpdateInterval: $movingUpdateInterval'
         ')';
   }
-}
-
-String _enumToChannelValue(String dartEnumName) {
-  final withSeparators = dartEnumName.replaceAllMapped(
-    RegExp(r'([a-z0-9])([A-Z])'),
-    (match) => '${match.group(1)}_${match.group(2)}',
-  );
-  return withSeparators.toUpperCase();
-}
-
-T _enumFromChannelValue<T extends Enum>(
-  dynamic rawValue,
-  List<T> values,
-  T fallback,
-) {
-  if (rawValue == null) return fallback;
-  final normalized =
-      rawValue.toString().toUpperCase().replaceAll(RegExp(r'[^A-Z0-9]'), '');
-
-  for (final candidate in values) {
-    final candidateNormalized = candidate.name
-        .replaceAllMapped(
-          RegExp(r'([a-z0-9])([A-Z])'),
-          (match) => '${match.group(1)}_${match.group(2)}',
-        )
-        .toUpperCase()
-        .replaceAll('_', '');
-    if (candidateNormalized == normalized) {
-      return candidate;
-    }
-  }
-
-  return fallback;
 }
 
 /// Settings for battery-aware GPS optimization

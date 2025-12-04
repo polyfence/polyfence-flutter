@@ -22,8 +22,10 @@ class ZoneApiService {
         Uri.parse(baseUrl),
         headers: {
           'Content-Type': 'application/json',
-          // EXAMPLE APP ONLY: Private test usage in this repository.
-          // Do NOT ship this in production apps.
+          // ⚠️ TEST/DEMO KEY ONLY - Example app demonstration purposes
+          // This is a test API key with limited permissions.
+          // Do NOT use this key in production applications.
+          // For production: Get your own key from https://polyfence.io/signup
           'x-api-key': 'cu-5lmLLJE7lQLPBkd7JPR3SPgDI9D3PfR3j2StsdX8',
         },
       ).timeout(const Duration(seconds: 10));

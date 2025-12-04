@@ -9,6 +9,7 @@ export 'src/services/analytics_service.dart';
 export 'src/services/app_lifecycle_manager.dart';
 export 'src/platform/polyfence_platform.dart';
 export 'src/errors/polyfence_error.dart';
+export 'src/errors/polyfence_exceptions.dart';
 export 'src/debug/polyfence_debug_info.dart';
 export 'src/configuration/polyfence_configuration.dart';
 

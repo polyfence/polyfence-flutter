@@ -76,6 +76,8 @@ static const bool demoMode = false;
 static const String? apiKey = 'your-free-api-key-here';
 ```
 
+**⚠️ Note:** The example app includes a test/demo API key (`test-demo-api-key`) for demonstration purposes only. This key has limited permissions and should **not** be used in production applications. Always use your own API key for production use.
+
 3. **Create zones**: [Zone Management Portal](https://polyfence.io/admin)
 
 4. **Restart app** - your zones load automatically
@@ -398,7 +400,7 @@ Polyfence.instance.onError.listen((error) {
 ### Get System Status
 
 ```dart
-final debugInfo = await Polyfence.instance.getDebugInfo();
+final debugInfo = await Polyfence.instance.debugInfo();
 
 // System status
 print('Location Permission: ${debugInfo.systemStatus.isLocationPermissionGranted}');
@@ -421,7 +423,7 @@ print('Active Zones: ${debugInfo.zones.activeZones}');
 ### Error History
 
 ```dart
-final recentErrors = await Polyfence.instance.getErrorHistory(
+final recentErrors = await Polyfence.instance.errorHistory(
   timeRange: Duration(hours: 24),
 );
 ```

@@ -20,97 +20,118 @@ class ZonePersistence(private val context: Context) {
     
     private val prefs: SharedPreferences = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
     
+    // Synchronization lock to prevent race conditions in read-modify-write operations
+    private val lock = Any()
+    
     /**
      * Save zone data to persistent storage
+     * Thread-safe: Uses synchronization to prevent data loss from concurrent writes
      */
     fun saveZone(zoneId: String, zoneName: String, zoneData: Map<String, Any>) {
-        try {
-            val savedZones = getSavedZones().toMutableMap()
-            
-            val zoneJson = JSONObject().apply {
-                put("id", zoneId)
-                put("name", zoneName)
-                put("data", JSONObject(zoneData))
-                put("timestamp", System.currentTimeMillis())
+        synchronized(lock) {
+            try {
+                val savedZones = getSavedZones().toMutableMap()
+                
+                val zoneJson = JSONObject().apply {
+                    put("id", zoneId)
+                    put("name", zoneName)
+                    put("data", JSONObject(zoneData))
+                    put("timestamp", System.currentTimeMillis())
+                }
+                
+                savedZones[zoneId] = zoneJson
+                persistZones(savedZones)
+                
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to save zone $zoneId: ${e.message}")
             }
-            
-            savedZones[zoneId] = zoneJson
-            persistZones(savedZones)
-            
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to save zone $zoneId: ${e.message}")
         }
     }
     
     /**
      * Remove zone from persistent storage
+     * Thread-safe: Uses synchronization to prevent data loss from concurrent writes
      */
     fun removeZone(zoneId: String) {
-        try {
-            val savedZones = getSavedZones().toMutableMap()
-            savedZones.remove(zoneId)
-            persistZones(savedZones)
-            
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to remove zone $zoneId: ${e.message}")
+        synchronized(lock) {
+            try {
+                val savedZones = getSavedZones().toMutableMap()
+                savedZones.remove(zoneId)
+                persistZones(savedZones)
+                
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to remove zone $zoneId: ${e.message}")
+            }
         }
     }
     
     /**
      * Clear all zones from persistent storage
+     * Thread-safe: Uses synchronization to prevent race conditions
      */
     fun clearAllZones() {
-        try {
-            prefs.edit().remove(ZONES_KEY).apply()
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to clear zones: ${e.message}")
+        synchronized(lock) {
+            try {
+                prefs.edit().remove(ZONES_KEY).apply()
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to clear zones: ${e.message}")
+            }
         }
     }
     
     /**
      * Load all saved zones
+     * Thread-safe: Uses synchronization for consistent reads
      */
     fun loadAllZones(): Map<String, Triple<String, String, Map<String, Any>>> {
-        return try {
-            val savedZones = getSavedZones()
-            val result = mutableMapOf<String, Triple<String, String, Map<String, Any>>>()
-            
-            savedZones.forEach { (zoneId, zoneJson) ->
-                val zoneName = zoneJson.getString("name")
-                val zoneDataJson = zoneJson.getJSONObject("data")
-                val zoneData = jsonToMap(zoneDataJson)
+        synchronized(lock) {
+            return try {
+                val savedZones = getSavedZones()
+                val result = mutableMapOf<String, Triple<String, String, Map<String, Any>>>()
                 
-                result[zoneId] = Triple(zoneId, zoneName, zoneData)
+                savedZones.forEach { (zoneId, zoneJson) ->
+                    val zoneName = zoneJson.getString("name")
+                    val zoneDataJson = zoneJson.getJSONObject("data")
+                    val zoneData = jsonToMap(zoneDataJson)
+                    
+                    result[zoneId] = Triple(zoneId, zoneName, zoneData)
+                }
+                
+                result
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to load zones: ${e.message}")
+                emptyMap()
             }
-            
-            result
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to load zones: ${e.message}")
-            emptyMap()
         }
     }
     
     /**
      * Get count of saved zones
+     * Thread-safe: Uses synchronization for consistent reads
      */
     fun getZoneCount(): Int {
-        return try {
-            getSavedZones().size
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to get zone count: ${e.message}")
-            0
+        synchronized(lock) {
+            return try {
+                getSavedZones().size
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to get zone count: ${e.message}")
+                0
+            }
         }
     }
     
     /**
      * Check if zone exists in storage
+     * Thread-safe: Uses synchronization for consistent reads
      */
     fun hasZone(zoneId: String): Boolean {
-        return try {
-            getSavedZones().containsKey(zoneId)
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to check zone existence: ${e.message}")
-            false
+        synchronized(lock) {
+            return try {
+                getSavedZones().containsKey(zoneId)
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to check zone existence: ${e.message}")
+                false
+            }
         }
     }
     

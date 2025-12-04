@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/services.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import '../models/zone.dart';
 import '../models/location.dart';
 import '../models/geofence_event.dart';
@@ -36,16 +37,90 @@ class PolyfenceService {
   final StreamController<Map<String, dynamic>> _statusController =
       StreamController<Map<String, dynamic>>.broadcast();
 
-  // Public streams
+  /// Stream of all geofence events (enter/exit).
+  ///
+  /// Emits [GeofenceEvent] whenever a zone entry or exit is detected.
+  ///
+  /// **Example:**
+  /// ```dart
+  /// Polyfence.instance.onGeofenceEvent.listen((event) {
+  ///   print('${event.type.name.toUpperCase()}: ${event.zoneId}');
+  ///   print('Location: ${event.location.latitude}, ${event.location.longitude}');
+  /// });
+  /// ```
   Stream<GeofenceEvent> get onGeofenceEvent => _eventController.stream;
+
+  /// Stream of zone entry events only.
+  ///
+  /// Filters [onGeofenceEvent] to only emit entry events.
+  ///
+  /// **Example:**
+  /// ```dart
+  /// Polyfence.instance.onZoneEnter.listen((event) {
+  ///   print('Entered zone: ${event.zoneId}');
+  /// });
+  /// ```
   Stream<GeofenceEvent> get onZoneEnter =>
       _eventController.stream.where((e) => e.type == GeofenceEventType.enter);
+
+  /// Stream of zone exit events only.
+  ///
+  /// Filters [onGeofenceEvent] to only emit exit events.
+  ///
+  /// **Example:**
+  /// ```dart
+  /// Polyfence.instance.onZoneExit.listen((event) {
+  ///   print('Exited zone: ${event.zoneId}');
+  /// });
+  /// ```
   Stream<GeofenceEvent> get onZoneExit =>
       _eventController.stream.where((e) => e.type == GeofenceEventType.exit);
+
+  /// Stream of location updates from GPS.
+  ///
+  /// Emits [PolyfenceLocation] whenever a new GPS reading is received.
+  /// Update frequency depends on GPS configuration.
+  ///
+  /// **Example:**
+  /// ```dart
+  /// Polyfence.instance.onLocationUpdate.listen((location) {
+  ///   print('Location: ${location.latitude}, ${location.longitude}');
+  ///   print('Accuracy: ${location.accuracy}m');
+  /// });
+  /// ```
   Stream<PolyfenceLocation> get onLocationUpdate => _locationController.stream;
+
+  /// Stream of errors from the plugin.
+  ///
+  /// Emits [PolyfenceError] whenever an error occurs (GPS failures, permission
+  /// issues, platform errors, etc.).
+  ///
+  /// **Example:**
+  /// ```dart
+  /// Polyfence.instance.onError.listen((error) {
+  ///   print('Error: ${error.type} - ${error.message}');
+  /// });
+  /// ```
   Stream<PolyfenceError> get onError => _errorController.stream;
+
+  /// Stream of runtime status updates.
+  ///
+  /// Emits [PolyfenceRuntimeStatus] with current plugin state including
+  /// nearest zone distance, GPS accuracy, and tracking status.
+  ///
+  /// **Example:**
+  /// ```dart
+  /// Polyfence.instance.runtimeStatus.listen((status) {
+  ///   print('Nearest zone: ${status.nearestZoneDistanceM}m away');
+  /// });
+  /// ```
   Stream<PolyfenceRuntimeStatus> get runtimeStatus =>
       _runtimeStatusController.stream;
+
+  /// Stream of raw status updates from platform.
+  ///
+  /// Lower-level stream that emits raw status maps from the native platform.
+  /// Use [runtimeStatus] for typed status updates.
   Stream<Map<String, dynamic>> get statusStream => _statusController.stream;
 
   bool _isInitialized = false;
@@ -61,7 +136,25 @@ class PolyfenceService {
   // Current GPS configuration
   PolyfenceConfiguration _currentConfiguration = const PolyfenceConfiguration();
 
-  /// Initialize Polyfence
+  /// Initialize Polyfence plugin.
+  ///
+  /// Must be called before using any other methods. Sets up platform channels
+  /// and event streams for geofence detection and location updates.
+  ///
+  /// **Example:**
+  /// ```dart
+  /// await Polyfence.instance.initialize();
+  ///
+  /// // With analytics (opt-in):
+  /// await Polyfence.instance.initialize(
+  ///   analyticsConfig: AnalyticsConfig(
+  ///     enabled: true,
+  ///     apiKey: 'your-api-key',
+  ///   ),
+  /// );
+  /// ```
+  ///
+  /// Throws [PlatformOperationException] if platform initialization fails.
   Future<void> initialize({
     String? licenseKey,
     Map<String, dynamic>? config,
@@ -76,9 +169,11 @@ class PolyfenceService {
 
       // Initialize analytics if configured
       if (analyticsConfig != null) {
+        // Get plugin version from package info
+        final packageInfo = await PackageInfo.fromPlatform();
         await PolyfenceAnalytics.instance.initialize(
           config: analyticsConfig,
-          pluginVersion: '0.1.0', // This should come from package info
+          pluginVersion: packageInfo.version,
         );
 
         // Initialize app lifecycle management for analytics
@@ -126,7 +221,18 @@ class PolyfenceService {
     }
   }
 
-  /// Remove a zone
+  /// Removes a zone from monitoring.
+  ///
+  /// The zone will no longer trigger entry/exit events. The zone is also
+  /// removed from persistent storage.
+  ///
+  /// **Example:**
+  /// ```dart
+  /// await Polyfence.instance.removeZone('office');
+  /// ```
+  ///
+  /// Throws [PolyfenceNotInitializedException] if not initialized.
+  /// Throws [PlatformOperationException] if platform error occurs.
   Future<void> removeZone(String zoneId) async {
     if (!_isInitialized) throw PolyfenceNotInitializedException();
 
@@ -141,7 +247,18 @@ class PolyfenceService {
     }
   }
 
-  /// Clear all zones
+  /// Removes all zones from monitoring.
+  ///
+  /// All zones are cleared from memory and persistent storage. No more
+  /// geofence events will be triggered until new zones are added.
+  ///
+  /// **Example:**
+  /// ```dart
+  /// await Polyfence.instance.clearAllZones();
+  /// ```
+  ///
+  /// Throws [PolyfenceNotInitializedException] if not initialized.
+  /// Throws [PlatformOperationException] if platform error occurs.
   Future<void> clearAllZones() async {
     if (!_isInitialized) throw PolyfenceNotInitializedException();
 
@@ -156,10 +273,49 @@ class PolyfenceService {
     }
   }
 
-  /// Get all zones (read-only)
+  /// Gets all currently monitored zones.
+  ///
+  /// Returns a read-only list of all zones that have been added. Zones are
+  /// returned in the order they were added.
+  ///
+  /// **Example:**
+  /// ```dart
+  /// final allZones = Polyfence.instance.zones;
+  /// print('Monitoring ${allZones.length} zones');
+  /// for (final zone in allZones) {
+  ///   print('  - ${zone.name} (${zone.type.name})');
+  /// }
+  /// ```
   List<Zone> get zones => _zones.values.toList();
 
-  /// Start location tracking
+  /// Starts background location tracking and geofence monitoring.
+  ///
+  /// This method will:
+  /// 1. Check if location services are enabled
+  /// 2. Request location permissions if needed
+  /// 3. Start background GPS tracking
+  /// 4. Begin monitoring all added zones for entry/exit events
+  ///
+  /// **Permissions:**
+  /// - Android: Requires `ACCESS_FINE_LOCATION` and `ACCESS_BACKGROUND_LOCATION`
+  /// - iOS: Requires "Always" location permission for background tracking
+  ///
+  /// **Example:**
+  /// ```dart
+  /// // Add zones first
+  /// await Polyfence.instance.addZone(officeZone);
+  ///
+  /// // Listen for events
+  /// Polyfence.instance.onGeofenceEvent.listen((event) {
+  ///   print('${event.type.name.toUpperCase()}: ${event.zoneId}');
+  /// });
+  ///
+  /// // Start tracking
+  /// await Polyfence.instance.startTracking();
+  /// ```
+  ///
+  /// Throws [PolyfenceNotInitializedException] if not initialized.
+  /// Throws [PlatformOperationException] if location services disabled or permissions denied.
   Future<void> startTracking() async {
     if (!_isInitialized) throw PolyfenceNotInitializedException();
 
@@ -185,7 +341,18 @@ class PolyfenceService {
     }
   }
 
-  /// Stop location tracking
+  /// Stops location tracking and geofence monitoring.
+  ///
+  /// GPS tracking stops immediately. Zones remain in memory but won't trigger
+  /// events until tracking is started again.
+  ///
+  /// **Example:**
+  /// ```dart
+  /// await Polyfence.instance.stopTracking();
+  /// ```
+  ///
+  /// Throws [PolyfenceNotInitializedException] if not initialized.
+  /// Throws [PlatformOperationException] if platform error occurs.
   Future<void> stopTracking() async {
     if (!_isInitialized) throw PolyfenceNotInitializedException();
 
@@ -204,13 +371,21 @@ class PolyfenceService {
         (eventData['detectionTimeMs'] as num?)?.toDouble() ?? 0.0;
     final gpsAccuracy = (eventData['gpsAccuracy'] as num?)?.toDouble() ?? 0.0;
 
-    // Fix: Handle both int and double timestamp from iOS/Android
+    // Platform channel type safety: timestamp must be int64 milliseconds
+    // Both iOS and Android send int64, but we validate to catch platform bugs
     final timestampRaw = eventData['timestamp'];
-    final timestamp = timestampRaw is int
-        ? timestampRaw
-        : timestampRaw is double
-            ? timestampRaw.toInt()
-            : DateTime.now().millisecondsSinceEpoch;
+    final int timestamp;
+    if (timestampRaw is int) {
+      timestamp = timestampRaw;
+    } else if (timestampRaw is double) {
+      // iOS might send double (TimeInterval), convert to int
+      timestamp = timestampRaw.toInt();
+    } else {
+      throw PlatformOperationException(
+        '_handleGeofenceEvent',
+        'Invalid timestamp type: ${timestampRaw.runtimeType}. Expected int (milliseconds since epoch). Platform may have a bug.',
+      );
+    }
 
     if (zoneId == null || eventType == null) {
       return;
@@ -283,7 +458,19 @@ class PolyfenceService {
     }
   }
 
-  /// Get current configuration from Android
+  /// Gets the current GPS configuration.
+  ///
+  /// Returns a map containing current GPS settings including update intervals,
+  /// accuracy thresholds, and optimization settings.
+  ///
+  /// **Example:**
+  /// ```dart
+  /// final config = await Polyfence.instance.configuration();
+  /// print('GPS interval: ${config['gps_interval_ms']}ms');
+  /// ```
+  ///
+  /// Throws [PolyfenceNotInitializedException] if not initialized.
+  /// Throws [PlatformOperationException] if platform error occurs.
   Future<Map<String, dynamic>> configuration() async {
     if (!_isInitialized) throw PolyfenceNotInitializedException();
 
@@ -295,7 +482,21 @@ class PolyfenceService {
     }
   }
 
-  /// Update configuration on Android
+  /// Updates GPS configuration.
+  ///
+  /// Allows fine-tuning GPS behavior for battery vs accuracy tradeoffs.
+  /// Configuration changes take effect immediately.
+  ///
+  /// **Example:**
+  /// ```dart
+  /// await Polyfence.instance.updateConfiguration({
+  ///   'gps_interval_ms': 10000, // 10 seconds
+  ///   'gps_accuracy_threshold': 50.0, // 50 meters
+  /// });
+  /// ```
+  ///
+  /// Throws [PolyfenceNotInitializedException] if not initialized.
+  /// Throws [PlatformOperationException] if platform error occurs.
   Future<void> updateConfiguration(Map<String, dynamic> config) async {
     if (!_isInitialized) throw PolyfenceNotInitializedException();
 
@@ -306,7 +507,18 @@ class PolyfenceService {
     }
   }
 
-  /// Reset configuration to defaults
+  /// Resets GPS configuration to default values.
+  ///
+  /// Restores factory defaults for GPS intervals, accuracy thresholds, and
+  /// optimization settings.
+  ///
+  /// **Example:**
+  /// ```dart
+  /// await Polyfence.instance.resetConfiguration();
+  /// ```
+  ///
+  /// Throws [PolyfenceNotInitializedException] if not initialized.
+  /// Throws [PlatformOperationException] if platform error occurs.
   Future<void> resetConfiguration() async {
     if (!_isInitialized) throw PolyfenceNotInitializedException();
 
@@ -317,7 +529,27 @@ class PolyfenceService {
     }
   }
 
-  /// Request location permissions
+  /// Requests location permissions from the user.
+  ///
+  /// **Android:**
+  /// - `always: false` - Requests "While in use" permission
+  /// - `always: true` - Requests "Always allow" permission (required for background)
+  ///
+  /// **iOS:**
+  /// - Always requests "Always" permission (required for background geofencing)
+  ///
+  /// **Example:**
+  /// ```dart
+  /// final granted = await Polyfence.instance.requestPermissions(always: true);
+  /// if (!granted) {
+  ///   print('Location permission denied');
+  /// }
+  /// ```
+  ///
+  /// Returns `true` if permissions were granted, `false` otherwise.
+  ///
+  /// Throws [PolyfenceNotInitializedException] if not initialized.
+  /// Throws [PlatformOperationException] if platform error occurs.
   Future<bool> requestPermissions({bool always = false}) async {
     if (!_isInitialized) throw PolyfenceNotInitializedException();
 
@@ -329,7 +561,21 @@ class PolyfenceService {
     }
   }
 
-  /// Check if location services are enabled
+  /// Checks if location services are enabled on the device.
+  ///
+  /// Returns `true` if GPS/location services are enabled, `false` otherwise.
+  /// This checks the system-level location setting, not app permissions.
+  ///
+  /// **Example:**
+  /// ```dart
+  /// final enabled = await Polyfence.instance.isLocationServiceEnabled();
+  /// if (!enabled) {
+  ///   // Guide user to enable location services in settings
+  /// }
+  /// ```
+  ///
+  /// Throws [PolyfenceNotInitializedException] if not initialized.
+  /// Throws [PlatformOperationException] if platform error occurs.
   Future<bool> isLocationServiceEnabled() async {
     if (!_isInitialized) throw PolyfenceNotInitializedException();
 
@@ -341,7 +587,29 @@ class PolyfenceService {
     }
   }
 
-  /// Check battery optimization status (Android only)
+  /// Checks battery optimization status (Android only).
+  ///
+  /// Battery optimization can prevent background location tracking. This method
+  /// checks if the app is exempt from battery optimization.
+  ///
+  /// **Returns:**
+  /// - `isOptimized`: `true` if battery optimization is enabled (may affect tracking)
+  /// - `canRequest`: `true` if user can be prompted to disable optimization
+  ///
+  /// **Example:**
+  /// ```dart
+  /// final status = await Polyfence.instance.batteryOptimizationStatus();
+  /// if (status['isOptimized'] == true) {
+  ///   // Request exemption for reliable background tracking
+  ///   await Polyfence.instance.requestBatteryOptimizationExemption();
+  /// }
+  /// ```
+  ///
+  /// **Note:** iOS doesn't have battery optimization, so this always returns
+  /// `isOptimized: false` on iOS.
+  ///
+  /// Throws [PolyfenceNotInitializedException] if not initialized.
+  /// Throws [PlatformOperationException] if platform error occurs.
   Future<Map<String, dynamic>> batteryOptimizationStatus() async {
     if (!_isInitialized) throw PolyfenceNotInitializedException();
 
@@ -353,7 +621,29 @@ class PolyfenceService {
     }
   }
 
-  /// Request battery optimization exemption (Android only)
+  /// Requests exemption from battery optimization (Android only).
+  ///
+  /// Opens a system dialog asking the user to disable battery optimization
+  /// for your app. This is recommended for reliable background geofencing.
+  ///
+  /// **Example:**
+  /// ```dart
+  /// final status = await Polyfence.instance.batteryOptimizationStatus();
+  /// if (status['isOptimized'] == true && status['canRequest'] == true) {
+  ///   final exempted = await Polyfence.instance.requestBatteryOptimizationExemption();
+  ///   if (exempted) {
+  ///     print('Battery optimization disabled - background tracking will be reliable');
+  ///   }
+  /// }
+  /// ```
+  ///
+  /// Returns `true` if user granted exemption, `false` if denied.
+  ///
+  /// **Note:** iOS doesn't have battery optimization, so this always returns
+  /// `true` on iOS (no-op).
+  ///
+  /// Throws [PolyfenceNotInitializedException] if not initialized.
+  /// Throws [PlatformOperationException] if platform error occurs.
   Future<bool> requestBatteryOptimizationExemption() async {
     if (!_isInitialized) throw PolyfenceNotInitializedException();
 
@@ -365,7 +655,25 @@ class PolyfenceService {
     }
   }
 
-  /// Get comprehensive debug information
+  /// Gets comprehensive debug information about the plugin state.
+  ///
+  /// Returns detailed information including:
+  /// - Zone count and status
+  /// - GPS accuracy and health
+  /// - Battery usage estimates
+  /// - Detection statistics
+  /// - Error counts
+  ///
+  /// **Example:**
+  /// ```dart
+  /// final debugInfo = await Polyfence.instance.debugInfo();
+  /// print('Zones monitored: ${debugInfo.zonesCount}');
+  /// print('GPS accuracy: ${debugInfo.lastKnownAccuracy}m');
+  /// print('Detections: ${debugInfo.totalDetections}');
+  /// ```
+  ///
+  /// Throws [PolyfenceNotInitializedException] if not initialized.
+  /// Throws [PlatformOperationException] if platform error occurs.
   Future<PolyfenceDebugInfo> debugInfo() async {
     if (!_isInitialized) throw PolyfenceNotInitializedException();
 
@@ -377,14 +685,46 @@ class PolyfenceService {
     }
   }
 
-  /// Get performance metrics stream
+  /// Stream of performance metrics from the plugin.
+  ///
+  /// Emits [PolyfencePerformanceMetrics] with performance data including
+  /// detection latencies, GPS accuracy statistics, and battery usage.
+  ///
+  /// **Example:**
+  /// ```dart
+  /// Polyfence.instance.performanceStream.listen((metrics) {
+  ///   print('Average detection latency: ${metrics.averageDetectionLatency}ms');
+  ///   print('GPS accuracy ratio: ${metrics.gpsOkRatio}');
+  /// });
+  /// ```
   Stream<PolyfencePerformanceMetrics> get performanceStream {
     return (_platform as MethodChannelPolyfence)
         .performanceStream
         .map((event) => PolyfencePerformanceMetrics.fromMap(event));
   }
 
-  /// Get error history
+  /// Gets error history for debugging and monitoring.
+  ///
+  /// Returns a list of errors that occurred within the specified time range
+  /// and/or error types. Useful for troubleshooting and understanding plugin
+  /// behavior in production.
+  ///
+  /// **Example:**
+  /// ```dart
+  /// // Get all errors from last hour
+  /// final errors = await Polyfence.instance.errorHistory(
+  ///   timeRange: Duration(hours: 1),
+  /// );
+  ///
+  /// // Get only GPS errors from last 24 hours
+  /// final gpsErrors = await Polyfence.instance.errorHistory(
+  ///   timeRange: Duration(hours: 24),
+  ///   errorTypes: [PolyfenceErrorType.gpsError],
+  /// );
+  /// ```
+  ///
+  /// Throws [PolyfenceNotInitializedException] if not initialized.
+  /// Throws [PlatformOperationException] if platform error occurs.
   Future<List<PolyfenceErrorSummary>> errorHistory({
     Duration? timeRange,
     List<PolyfenceErrorType>? errorTypes,
@@ -411,7 +751,29 @@ class PolyfenceService {
   // GPS CONFIGURATION API
   // ============================================================================
 
-  /// Update GPS configuration
+  /// Updates GPS configuration with advanced settings.
+  ///
+  /// Allows fine-grained control over GPS behavior including accuracy profiles,
+  /// update strategies, and optimization settings. Configuration changes take
+  /// effect immediately.
+  ///
+  /// **Example:**
+  /// ```dart
+  /// await Polyfence.instance.updateGpsConfiguration(
+  ///   PolyfenceConfiguration(
+  ///     accuracyProfile: PolyfenceAccuracyProfile.balanced,
+  ///     updateStrategy: PolyfenceUpdateStrategy.proximityBased,
+  ///     gpsAccuracyThreshold: 50.0, // 50 meters
+  ///     proximitySettings: ProximitySettings(
+  ///       nearZoneThresholdMeters: 500.0,
+  ///       farZoneThresholdMeters: 2000.0,
+  ///     ),
+  ///   ),
+  /// );
+  /// ```
+  ///
+  /// Throws [PolyfenceNotInitializedException] if not initialized.
+  /// Throws [PlatformOperationException] if platform error occurs.
   Future<void> updateGpsConfiguration(PolyfenceConfiguration config) async {
     if (!_isInitialized) throw PolyfenceNotInitializedException();
 
@@ -426,7 +788,20 @@ class PolyfenceService {
     }
   }
 
-  /// Get current GPS configuration
+  /// Gets the current GPS configuration.
+  ///
+  /// Returns the active [PolyfenceConfiguration] with all current GPS settings
+  /// including accuracy profile, update strategy, and optimization parameters.
+  ///
+  /// **Example:**
+  /// ```dart
+  /// final config = await Polyfence.instance.gpsConfiguration();
+  /// print('Accuracy profile: ${config.accuracyProfile}');
+  /// print('GPS threshold: ${config.gpsAccuracyThreshold}m');
+  /// ```
+  ///
+  /// Throws [PolyfenceNotInitializedException] if not initialized.
+  /// Throws [PlatformOperationException] if platform error occurs.
   Future<PolyfenceConfiguration> gpsConfiguration() async {
     if (!_isInitialized) throw PolyfenceNotInitializedException();
 
@@ -439,7 +814,29 @@ class PolyfenceService {
     }
   }
 
-  /// Quick profile setter for common use cases
+  /// Sets GPS accuracy profile for common use cases.
+  ///
+  /// Quick way to configure GPS behavior using predefined profiles:
+  /// - [PolyfenceAccuracyProfile.maxAccuracy] - High accuracy, high battery usage
+  /// - [PolyfenceAccuracyProfile.balanced] - Balanced accuracy and battery
+  /// - [PolyfenceAccuracyProfile.batteryOptimal] - Low battery usage, lower accuracy
+  /// - [PolyfenceAccuracyProfile.adaptive] - Automatically adjusts based on context
+  ///
+  /// **Example:**
+  /// ```dart
+  /// // For delivery tracking - need high accuracy
+  /// await Polyfence.instance.setAccuracyProfile(
+  ///   PolyfenceAccuracyProfile.maxAccuracy,
+  /// );
+  ///
+  /// // For background monitoring - save battery
+  /// await Polyfence.instance.setAccuracyProfile(
+  ///   PolyfenceAccuracyProfile.batteryOptimal,
+  /// );
+  /// ```
+  ///
+  /// Throws [PolyfenceNotInitializedException] if not initialized.
+  /// Throws [PlatformOperationException] if platform error occurs.
   Future<void> setAccuracyProfile(PolyfenceAccuracyProfile profile) async {
     if (!_isInitialized) throw PolyfenceNotInitializedException();
 
@@ -450,7 +847,24 @@ class PolyfenceService {
     _currentConfiguration = existing.copyWith(accuracyProfile: profile);
   }
 
-  /// Enable proximity-based optimization
+  /// Enables proximity-based GPS optimization.
+  ///
+  /// Adjusts GPS update frequency based on distance to zones:
+  /// - **Near zones** (< `nearThreshold`): High frequency for accurate entry detection
+  /// - **Far from zones** (> `farThreshold`): Low frequency to save battery
+  ///
+  /// This can reduce GPS usage by 60-80% for users who spend time away from zones.
+  ///
+  /// **Example:**
+  /// ```dart
+  /// await Polyfence.instance.enableProximityOptimization(
+  ///   nearThreshold: 500.0,  // High accuracy within 500m of zones
+  ///   farThreshold: 2000.0,  // Low frequency when >2km from zones
+  /// );
+  /// ```
+  ///
+  /// Throws [PolyfenceNotInitializedException] if not initialized.
+  /// Throws [PlatformOperationException] if platform error occurs.
   Future<void> enableProximityOptimization({
     double nearThreshold = 500.0,
     double farThreshold = 2000.0,
@@ -465,7 +879,24 @@ class PolyfenceService {
     await updateGpsConfiguration(config);
   }
 
-  /// Enable movement-based optimization
+  /// Enables movement-based GPS optimization.
+  ///
+  /// Adjusts GPS update frequency based on device movement:
+  /// - **Stationary** (no movement for `stationaryThreshold`): Low frequency
+  /// - **Moving**: Higher frequency (`stationaryUpdateInterval`)
+  ///
+  /// Reduces battery drain when device is stationary (e.g., user at desk).
+  ///
+  /// **Example:**
+  /// ```dart
+  /// await Polyfence.instance.enableMovementOptimization(
+  ///   stationaryThreshold: Duration(minutes: 5), // Consider stationary after 5 min
+  ///   stationaryUpdateInterval: Duration(minutes: 2), // Update every 2 min when stationary
+  /// );
+  /// ```
+  ///
+  /// Throws [PolyfenceNotInitializedException] if not initialized.
+  /// Throws [PlatformOperationException] if platform error occurs.
   Future<void> enableMovementOptimization({
     Duration stationaryThreshold = const Duration(minutes: 5),
     Duration stationaryUpdateInterval = const Duration(minutes: 2),
@@ -480,7 +911,22 @@ class PolyfenceService {
     await updateGpsConfiguration(config);
   }
 
-  /// Enable intelligent optimization (proximity + movement + battery)
+  /// Enables intelligent GPS optimization.
+  ///
+  /// Combines proximity-based, movement-based, and battery-aware optimizations
+  /// for optimal balance between accuracy and battery life. Automatically adjusts
+  /// GPS behavior based on:
+  /// - Distance to nearest zone
+  /// - Device movement state
+  /// - Battery level
+  ///
+  /// **Example:**
+  /// ```dart
+  /// await Polyfence.instance.enableIntelligentOptimization();
+  /// ```
+  ///
+  /// Throws [PolyfenceNotInitializedException] if not initialized.
+  /// Throws [PlatformOperationException] if platform error occurs.
   Future<void> enableIntelligentOptimization() async {
     const config = PolyfenceConfiguration(
       accuracyProfile: PolyfenceAccuracyProfile.adaptive,
@@ -492,13 +938,33 @@ class PolyfenceService {
     await updateGpsConfiguration(config);
   }
 
-  /// Reset to default configuration (max accuracy)
+  /// Resets GPS configuration to default (max accuracy).
+  ///
+  /// Restores factory defaults: maximum accuracy profile with continuous
+  /// update strategy. Useful for resetting after testing different configurations.
+  ///
+  /// **Example:**
+  /// ```dart
+  /// await Polyfence.instance.resetToDefaultConfiguration();
+  /// ```
+  ///
+  /// Throws [PolyfenceNotInitializedException] if not initialized.
+  /// Throws [PlatformOperationException] if platform error occurs.
   Future<void> resetToDefaultConfiguration() async {
     const config = PolyfenceConfiguration();
     await updateGpsConfiguration(config);
   }
 
-  /// Get current configuration (cached)
+  /// Gets the current GPS configuration (cached).
+  ///
+  /// Returns the last known [PolyfenceConfiguration] without querying the platform.
+  /// For the latest configuration from the platform, use [gpsConfiguration].
+  ///
+  /// **Example:**
+  /// ```dart
+  /// final config = Polyfence.instance.currentConfiguration;
+  /// print('Current accuracy profile: ${config.accuracyProfile}');
+  /// ```
   PolyfenceConfiguration get currentConfiguration => _currentConfiguration;
 
   /// Dispose resources

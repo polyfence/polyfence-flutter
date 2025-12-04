@@ -26,7 +26,7 @@ class PolyfenceErrorManager {
             "type": type,
             "message": message,
             "context": context,
-            "timestamp": Date().timeIntervalSince1970 * 1000,
+            "timestamp": Int64(Date().timeIntervalSince1970 * 1000),
             "correlationId": correlationId ?? UUID().uuidString
         ]
         

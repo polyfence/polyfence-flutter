@@ -341,8 +341,11 @@ private fun handleGeofenceEvent(zoneId: String, eventType: String, location: and
     val message = zoneName // Use zone name instead of ID
     
     // Create PendingIntent to reuse existing app task when notification is tapped
-    val intent = Intent().apply {
-        setClassName(packageName, "com.teslon.polyfenceexampleapp.MainActivity")
+    // Use dynamic package resolution instead of hardcoded class name
+    val intent = packageManager.getLaunchIntentForPackage(packageName)?.apply {
+        flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+    } ?: Intent().apply {
+        setPackage(packageName)
         flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
     }
     
@@ -435,7 +438,9 @@ private fun handleGeofenceEvent(zoneId: String, eventType: String, location: and
             }
             
             if (!isWakeLockAcquired) {
-                wakeLock?.acquire(30*60*1000L) // 30 minutes max
+                // Use indefinite wake lock for foreground service
+                // Properly released in releaseWakeLock() when tracking stops
+                wakeLock?.acquire()
                 isWakeLockAcquired = true
                 Log.d(TAG, "Wake lock acquired for location tracking")
             }
@@ -494,10 +499,12 @@ private fun handleGeofenceEvent(zoneId: String, eventType: String, location: and
                 Log.w(TAG, "Location availability lost")
                 consecutiveGpsFailures++
                 
-                // 🔧 FIX: Add cooldown before triggering recovery
-                if (consecutiveGpsFailures <= 2) {
+                // Trigger recovery for GPS failures (up to 5 consecutive failures)
+                // After 5 failures, stop trying to avoid battery drain
+                if (consecutiveGpsFailures <= 5) {
                     errorRecovery.handleGpsFailure()
                 } else {
+                    Log.w(TAG, "Too many consecutive GPS failures ($consecutiveGpsFailures), stopping recovery attempts")
                 }
             }
         }

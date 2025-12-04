@@ -526,12 +526,9 @@ The included example demonstrates production patterns for geofencing integration
 
 ## 📚 Documentation
 
-Full documentation available in the `/docs` directory:
-
-- **Setup**: Platform-specific configuration guides
-- **Integration**: End-to-end examples and patterns  
-- **Troubleshooting**: Common issues and solutions
-- **API Reference**: Complete API documentation
+- **API Reference**: [Full API Documentation](https://blackabass.github.io/polyfence-plugin/) - Complete API reference with examples
+- **Quick Start**: See examples above
+- **Platform Setup**: See [Platform Setup](#-platform-setup) section
 
 ---
 

@@ -68,33 +68,35 @@ class MethodChannelPolyfence extends PolyfencePlatform {
 
   @override
   Stream<PolyfenceLocation> get onLocationUpdate {
-    _locationStream ??= _locationChannel.receiveBroadcastStream('location').map(
-        (data) => PolyfenceLocation.fromJson(Map<String, dynamic>.from(data)));
-    return _locationStream!;
+    // Use lazy initialization: create stream only once
+    // In Dart's single-threaded model, ??= is atomic and safe
+    return _locationStream ??= _locationChannel
+        .receiveBroadcastStream('location')
+        .map((data) => PolyfenceLocation.fromJson(Map<String, dynamic>.from(data)));
   }
 
   // Separate geofence event stream
   Stream<Map<String, dynamic>> get onGeofenceEvent {
-    _geofenceStream ??= _geofenceChannel
+    // Use lazy initialization: create stream only once
+    return _geofenceStream ??= _geofenceChannel
         .receiveBroadcastStream('geofence')
         .map((data) => Map<String, dynamic>.from(data));
-    return _geofenceStream!;
   }
 
   @override
   Stream<Map<String, dynamic>> get onError {
-    _errorStream ??= _errorChannel
+    // Use lazy initialization: create stream only once
+    return _errorStream ??= _errorChannel
         .receiveBroadcastStream('error')
         .map((data) => Map<String, dynamic>.from(data));
-    return _errorStream!;
   }
 
   @override
   Stream<Map<String, dynamic>> get performanceStream {
-    _performanceStream ??= _performanceChannel
+    // Use lazy initialization: create stream only once
+    return _performanceStream ??= _performanceChannel
         .receiveBroadcastStream('performance')
         .map((data) => Map<String, dynamic>.from(data));
-    return _performanceStream!;
   }
 
   @override

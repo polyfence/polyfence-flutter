@@ -67,7 +67,7 @@ public class PolyfencePlugin: NSObject, FlutterPlugin {
             "zonesCount": zonesCount,
             "profile": nil,
             "lastAccuracy": nil,
-            "timestamp": Date().timeIntervalSince1970 * 1000
+            "timestamp": Int64(Date().timeIntervalSince1970 * 1000)
         ]
         PolyfencePlugin.sendPerformanceEvent(event: payload as [String : Any])
     }
@@ -142,7 +142,7 @@ public class PolyfencePlugin: NSObject, FlutterPlugin {
                     "zoneId": zoneId,
                     "zoneName": zoneName,
                     "eventType": eventType,
-                    "timestamp": Date().timeIntervalSince1970 * 1000,
+                    "timestamp": Int64(Date().timeIntervalSince1970 * 1000),
                     "detectionTimeMs": detectionTimeMs,
                     "gpsAccuracy": gpsAccuracy,
                     "latitude": latitude,

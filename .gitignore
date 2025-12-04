@@ -34,7 +34,13 @@ test_industry_implementation.md
 *_APPLIED.md
 *_SUMMARY.md
 *_ENHANCEMENTS.md
+*_CLARIFICATION.md
 INDEX.md
+
+# Generated documentation (regenerate with: dart doc)
+# Uncomment to commit docs for GitHub Pages:
+# !docs/
+docs/
 
 # Security - Never commit API keys or secrets
 ADMIN_API_KEYS

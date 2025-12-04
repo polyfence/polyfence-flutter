@@ -143,7 +143,7 @@ class LocationTracker: NSObject {
                 "is_charging": charging,
                 "gps_active": gpsActive,
                 "gps_status": gpsActive ? "active" : "idle",
-                "timestamp": Date().timeIntervalSince1970 * 1000
+                "timestamp": Int64(Date().timeIntervalSince1970 * 1000)
             ]
             // Send health timer data on main thread
             DispatchQueue.main.async {
@@ -294,7 +294,7 @@ class LocationTracker: NSObject {
             "latitude": loc.coordinate.latitude,
             "longitude": loc.coordinate.longitude,
             "accuracy": loc.horizontalAccuracy,
-            "timestamp": Date().timeIntervalSince1970 * 1000
+            "timestamp": Int64(Date().timeIntervalSince1970 * 1000)
         ]
     }
     
@@ -385,7 +385,7 @@ class LocationTracker: NSObject {
             "battery_level": battery,
             "is_charging": charging,
             "gps_active": true,
-            "timestamp": Date().timeIntervalSince1970 * 1000
+            "timestamp": Int64(Date().timeIntervalSince1970 * 1000)
         ]
         // Send health data on main thread
         DispatchQueue.main.async {
@@ -400,7 +400,7 @@ class LocationTracker: NSObject {
             "latitude": location.coordinate.latitude,
             "longitude": location.coordinate.longitude,
             "accuracy": location.horizontalAccuracy,
-            "timestamp": Date().timeIntervalSince1970 * 1000,
+            "timestamp": Int64(Date().timeIntervalSince1970 * 1000),
             "speed": location.speed >= 0 ? location.speed * 3.6 : 0.0 // Convert m/s to km/h
         ]
         

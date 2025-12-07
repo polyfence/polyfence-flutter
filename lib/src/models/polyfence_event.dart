@@ -1,7 +1,5 @@
-/**
- * Consistent event structure for notifications
- * Single responsibility: Standardized event format
- */
+/// Consistent event structure for notifications
+/// Single responsibility: Standardized event format
 class PolyfenceEvent {
   final String type; // 'enter', 'exit', 'error'
   final String zoneId;

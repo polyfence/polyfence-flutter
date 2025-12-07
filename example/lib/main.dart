@@ -99,7 +99,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       polyfence.PolyfenceAccuracyProfile.maxAccuracy;
 
   // Error tracking
-  List<GeofenceEvent> _errors = [];
+  final List<GeofenceEvent> _errors = [];
 
   @override
   void initState() {

@@ -258,7 +258,7 @@ class _ZoneListItem extends StatelessWidget {
                                 ),
                       ),
                       if (zone.distance != null) ...[
-                        Text(
+                        const Text(
                           ' • ',
                           style: TextStyle(color: AppTheme.mutedForeground),
                         ),

@@ -7,7 +7,7 @@ void main() {
       final zone = Zone.circle(
         id: 'test-circle',
         name: 'Test Circle',
-        center: PolyfenceLocation(latitude: 37.422, longitude: -122.084),
+        center: const PolyfenceLocation(latitude: 37.422, longitude: -122.084),
         radius: 100.0,
       );
 
@@ -22,9 +22,9 @@ void main() {
 
     test('Zone.polygon creates valid polygon zone', () {
       final polygon = [
-        PolyfenceLocation(latitude: 37.422, longitude: -122.084),
-        PolyfenceLocation(latitude: 37.423, longitude: -122.085),
-        PolyfenceLocation(latitude: 37.424, longitude: -122.086),
+        const PolyfenceLocation(latitude: 37.422, longitude: -122.084),
+        const PolyfenceLocation(latitude: 37.423, longitude: -122.085),
+        const PolyfenceLocation(latitude: 37.424, longitude: -122.086),
       ];
 
       final zone = Zone.polygon(
@@ -43,8 +43,8 @@ void main() {
 
     test('Zone.polygon rejects polygon with less than 3 points', () {
       final polygon = [
-        PolyfenceLocation(latitude: 37.422, longitude: -122.084),
-        PolyfenceLocation(latitude: 37.423, longitude: -122.085),
+        const PolyfenceLocation(latitude: 37.422, longitude: -122.084),
+        const PolyfenceLocation(latitude: 37.423, longitude: -122.085),
       ];
 
       expect(
@@ -99,7 +99,7 @@ void main() {
         () => Zone.circle(
           id: '',
           name: 'Test',
-          center: PolyfenceLocation(latitude: 37.422, longitude: -122.084),
+          center: const PolyfenceLocation(latitude: 37.422, longitude: -122.084),
           radius: 100.0,
         ),
         throwsArgumentError,
@@ -111,7 +111,7 @@ void main() {
         () => Zone.circle(
           id: 'test',
           name: '',
-          center: PolyfenceLocation(latitude: 37.422, longitude: -122.084),
+          center: const PolyfenceLocation(latitude: 37.422, longitude: -122.084),
           radius: 100.0,
         ),
         throwsArgumentError,
@@ -122,7 +122,7 @@ void main() {
       final zone = Zone.circle(
         id: 'test-circle',
         name: 'Test Circle',
-        center: PolyfenceLocation(latitude: 37.422, longitude: -122.084),
+        center: const PolyfenceLocation(latitude: 37.422, longitude: -122.084),
         radius: 100.0,
       );
 

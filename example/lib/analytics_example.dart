@@ -218,26 +218,26 @@ class _AnalyticsExampleState extends State<AnalyticsExample> {
               ),
             ),
             const SizedBox(height: 16),
-            Card(
+            const Card(
               child: Padding(
-                padding: const EdgeInsets.all(16.0),
+                padding: EdgeInsets.all(16.0),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
+                    Text(
                       'Privacy Features',
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
-                    const SizedBox(height: 16),
-                    const Text('✅ No GPS coordinates collected'),
-                    const Text('✅ No device IDs or personal data'),
-                    const Text('✅ Session-based aggregation only'),
-                    const Text('✅ Opt-in by default (disabled)'),
-                    const Text('✅ Data sent only on session end'),
-                    const Text('✅ Automatic deduplication'),
+                    SizedBox(height: 16),
+                    Text('✅ No GPS coordinates collected'),
+                    Text('✅ No device IDs or personal data'),
+                    Text('✅ Session-based aggregation only'),
+                    Text('✅ Opt-in by default (disabled)'),
+                    Text('✅ Data sent only on session end'),
+                    Text('✅ Automatic deduplication'),
                   ],
                 ),
               ),

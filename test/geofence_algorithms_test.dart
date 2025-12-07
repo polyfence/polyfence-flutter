@@ -88,10 +88,10 @@ void main() {
     });
 
     test('Distance calculation is symmetric', () {
-      final lat1 = 37.422;
-      final lon1 = -122.084;
-      final lat2 = 37.423;
-      final lon2 = -122.085;
+      const lat1 = 37.422;
+      const lon1 = -122.084;
+      const lat2 = 37.423;
+      const lon2 = -122.085;
 
       final distance1 = GeofenceAlgorithms.haversineDistance(lat1, lon1, lat2, lon2);
       final distance2 = GeofenceAlgorithms.haversineDistance(lat2, lon2, lat1, lon1);

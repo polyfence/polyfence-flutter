@@ -28,6 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed Android SDK constant check for FOREGROUND_SERVICE_LOCATION permission (API 34+)
 - Fixed GPS recovery logic to handle up to 5 consecutive failures consistently
 - Enhanced thread safety in ZonePersistence (Android & iOS) to prevent data corruption
+- Fixed code style issues (const constructors, doc comments, unnecessary operations) - all lint issues resolved
 
 ### Added
 - `PolyfenceException` base class for all plugin exceptions

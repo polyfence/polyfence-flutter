@@ -95,7 +95,7 @@ class _EventsCardState extends State<EventsCard>
                   Expanded(
                     child: Row(
                       children: [
-                        Icon(
+                        const Icon(
                           LucideIcons.zap,
                           size: 20,
                           color: AppTheme.mutedForeground,
@@ -179,13 +179,13 @@ class _EventsCardState extends State<EventsCard>
                               children: [
                                 _buildEventItem(event),
                                 if (!isLast)
-                                  Divider(
+                                  const Divider(
                                     height: 1,
                                     color: AppTheme.border,
                                   ),
                               ],
                             );
-                          }).toList(),
+                          }),
                           // Add consistent bottom padding
                           const SizedBox(height: 16),
                         ],
@@ -203,9 +203,9 @@ class _EventsCardState extends State<EventsCard>
       padding: const EdgeInsets.all(16), // lg padding
       child: Column(
         children: [
-          Text(
+          const Text(
             'No events yet',
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 14, // text-sm
               color: AppTheme.mutedForeground,
             ),
@@ -268,7 +268,7 @@ class _EventsCardState extends State<EventsCard>
                   ),
                 ),
                 const SizedBox(width: 8),
-                Text('•', style: TextStyle(color: AppTheme.mutedForeground)),
+                const Text('•', style: TextStyle(color: AppTheme.mutedForeground)),
                 const SizedBox(width: 8),
                 Text(
                   isEnter ? 'ENTER' : 'EXIT',
@@ -279,7 +279,7 @@ class _EventsCardState extends State<EventsCard>
                   ),
                 ),
                 const SizedBox(width: 8),
-                Text('•', style: TextStyle(color: AppTheme.mutedForeground)),
+                const Text('•', style: TextStyle(color: AppTheme.mutedForeground)),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(

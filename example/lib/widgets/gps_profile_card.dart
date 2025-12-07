@@ -30,14 +30,14 @@ class GpsProfileCard extends StatelessWidget {
               horizontal: 16, // lg padding
               vertical: 12, // md padding
             ),
-            decoration: BoxDecoration(
+            decoration: const BoxDecoration(
               border: Border(
                 bottom: BorderSide(color: AppTheme.border),
               ),
             ),
             child: Row(
               children: [
-                Icon(LucideIcons.settings,
+                const Icon(LucideIcons.settings,
                     size: 20, color: AppTheme.mutedForeground),
                 const SizedBox(width: 8), // sm gap
                 Text(

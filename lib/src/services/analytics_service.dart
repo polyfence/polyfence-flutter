@@ -200,10 +200,8 @@ class PolyfenceAnalytics {
     // Get app identifier from package info
     _appIdentifier = await _getAppIdentifier();
 
-    // Enforce hard-off if no apiKey provided when enabled
-    if (config.enabled &&
-        (config.apiKey != null && config.apiKey!.isNotEmpty)) {
-      // Analytics initialized
+    // Start session if analytics is enabled (apiKey is optional)
+    if (config.enabled) {
       startSession();
     }
   }
@@ -284,8 +282,7 @@ class PolyfenceAnalytics {
     if (_currentSession == null ||
         _appIdentifier == null ||
         _pluginVersion == null ||
-        !(_config?.enabled ?? false) ||
-        (_config?.apiKey == null || _config!.apiKey!.isEmpty)) {
+        !(_config?.enabled ?? false)) {
       return;
     }
 
@@ -303,13 +300,20 @@ class PolyfenceAnalytics {
       final endpoint = _config?.apiEndpoint ?? _defaultEndpoint;
       final idempotencyKey = const Uuid().v4();
 
+      // Build headers - only include x-api-key if provided
+      final headers = <String, String>{
+        'Content-Type': 'application/json',
+        'Idempotency-Key': idempotencyKey,
+      };
+      
+      // Only add x-api-key header if apiKey is provided
+      if (_config?.apiKey != null && _config!.apiKey!.isNotEmpty) {
+        headers['x-api-key'] = _config!.apiKey!;
+      }
+
       final response = await http.post(
         Uri.parse(endpoint),
-        headers: {
-          'Content-Type': 'application/json',
-          'Idempotency-Key': idempotencyKey,
-          'x-api-key': _config!.apiKey!,
-        },
+        headers: headers,
         body: json.encode(payload),
       );
 
@@ -366,8 +370,7 @@ class PolyfenceAnalytics {
 
   // Retry failed analytics requests
   Future<void> retryFailedRequests() async {
-    if (!(_config?.enabled ?? false) ||
-        (_config?.apiKey == null || _config!.apiKey!.isEmpty)) return;
+    if (!(_config?.enabled ?? false)) return;
 
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -391,13 +394,20 @@ class PolyfenceAnalytics {
           final endpoint = _config?.apiEndpoint ?? _defaultEndpoint;
           final idempotencyKey = const Uuid().v4();
 
+          // Build headers - only include x-api-key if provided
+          final headers = <String, String>{
+            'Content-Type': 'application/json',
+            'Idempotency-Key': idempotencyKey,
+          };
+          
+          // Only add x-api-key header if apiKey is provided
+          if (_config?.apiKey != null && _config!.apiKey!.isNotEmpty) {
+            headers['x-api-key'] = _config!.apiKey!;
+          }
+
           final response = await http.post(
             Uri.parse(endpoint),
-            headers: {
-              'Content-Type': 'application/json',
-              'Idempotency-Key': idempotencyKey,
-              'x-api-key': _config!.apiKey!,
-            },
+            headers: headers,
             body: json.encode(payload),
           );
 

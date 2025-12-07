@@ -38,6 +38,8 @@ dependencies:
 
 # Available on pub.dev (coming soon):
 # polyfence: ^0.2.0
+
+**Current version:** 0.2.0
 ```
 
 Then run:

@@ -14,18 +14,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `getErrorHistory()` → `errorHistory()`
   - `getCurrentConfiguration()` → `gpsConfiguration()`
   - `checkBatteryOptimization()` → `batteryOptimizationStatus()`
+- Made analytics API key optional (analytics can run without API key for local testing)
 
 ### Fixed
 - Fixed inconsistent error handling - standardized exception types
 - Fixed error messages to use public API method names
 - Removed duplicate enum conversion utilities
 - Fixed linter warnings (unnecessary null checks, type checks, casts)
+- Fixed broken documentation links in README (API Reference and Platform Setup anchors)
+- Fixed platform channel type safety - standardized timestamps to Int64 across all platforms
+- Fixed Android wake lock timeout issue (now uses indefinite wake lock with proper cleanup)
+- Fixed hardcoded package name in Android notification intents (now dynamically resolves)
+- Fixed Android SDK constant check for FOREGROUND_SERVICE_LOCATION permission (API 34+)
+- Fixed GPS recovery logic to handle up to 5 consecutive failures consistently
+- Enhanced thread safety in ZonePersistence (Android & iOS) to prevent data corruption
 
 ### Added
 - `PolyfenceException` base class for all plugin exceptions
 - `PolyfenceNotInitializedException` for initialization errors
 - `PlatformOperationException` for platform operation failures
 - `EnumUtils` utility class for enum conversion
+- Comprehensive dartdoc comments for all public APIs
+- Dynamic plugin version extraction from pubspec.yaml
 
 ## [0.1.0] - 2025-11-08
 

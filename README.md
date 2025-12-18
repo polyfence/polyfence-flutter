@@ -69,20 +69,23 @@ Want to test with real zones in real locations?
    - Sign in with GitHub, Google, or email
    - Free tier: Create 2 zones for testing
    - No credit card required
+   - Generate your API key from the dashboard
 
-2. **Switch to live mode**:
+2. **Create zones**: [Zone Management Portal](https://polyfence.io/admin)
+   - Draw circle or polygon zones on the map
+   - Mark zones as active for them to appear in the app
+
+3. **Configure the app**:
 
 ```dart
 // example/lib/config.dart
 static const bool demoMode = false;
-static const String? apiKey = 'your-free-api-key-here'; // Get from https://polyfence.io/auth/login
+static const String? apiKey = 'your-api-key-here'; // Paste your API key from dashboard
 ```
 
-**⚠️ Note:** The example app includes a test/demo API key for demonstration purposes only. This key has limited permissions and should **not** be used in production applications. Always use your own API key for production use.
-
-3. **Create zones**: [Zone Management Portal](https://polyfence.io/admin)
-
 4. **Restart app** - your zones load automatically
+
+**🔒 Security Note:** Never commit real API keys to public repositories. The example app is for testing only. For production apps, use environment variables, secure storage, or Flutter's `--dart-define` to protect your keys.
 
 ### Production Use
 

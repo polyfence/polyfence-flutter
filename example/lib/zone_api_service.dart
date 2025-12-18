@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:polyfence/polyfence.dart';
+import 'config.dart';
 
 /// Centralized error logging for example app
 class _Logger {
@@ -17,16 +18,20 @@ class ZoneApiService {
 
   /// Fetch all active zones from the admin database
   static Future<List<Zone>> fetchActiveZones() async {
+    // Check if API key is configured
+    if (AppConfig.apiKey == null || AppConfig.apiKey!.isEmpty) {
+      throw Exception(
+        'API key not configured. Please set AppConfig.apiKey in config.dart.\n'
+        'Get your free API key from: https://polyfence.io/auth/login'
+      );
+    }
+
     try {
       final response = await http.get(
         Uri.parse(baseUrl),
         headers: {
           'Content-Type': 'application/json',
-          // ⚠️ TEST/DEMO KEY ONLY - Example app demonstration purposes
-          // This is a test API key with limited permissions.
-          // Do NOT use this key in production applications.
-          // For production: Get your own key from https://polyfence.io/signup
-          'x-api-key': 'cu-5lmLLJE7lQLPBkd7JPR3SPgDI9D3PfR3j2StsdX8',
+          'x-api-key': AppConfig.apiKey!,
         },
       ).timeout(const Duration(seconds: 10));
 

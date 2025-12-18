@@ -195,6 +195,15 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     setState(() => _isLoadingZones = true);
 
     try {
+      final prefs = await SharedPreferences.getInstance();
+
+      // Get previously registered zone IDs from persistent storage (truth source)
+      // This survives app kills, crashes, and restarts
+      final storedZoneIdsJson = prefs.getString('registered_zone_ids') ?? '[]';
+      final previousZoneIds = (jsonDecode(storedZoneIdsJson) as List<dynamic>)
+          .cast<String>()
+          .toSet();
+
       List<polyfence.Zone> zones;
 
       // Use demo zones if demo mode is enabled
@@ -211,21 +220,42 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       }
 
       if (mounted) {
+        final currentZoneIds = zones.map((z) => z.id).toSet();
+
+        // Calculate delta: what to remove, what to add
+        final zonesToRemove = previousZoneIds.difference(currentZoneIds);
+        final zonesToAdd = currentZoneIds.difference(previousZoneIds);
+
+        // Remove deleted zones (efficient: only removed zones)
+        for (final zoneId in zonesToRemove) {
+          try {
+            await polyfence.Polyfence.instance.removeZone(zoneId);
+          } catch (e) {
+            _addErrorEvent('Failed to remove zone $zoneId: $e');
+          }
+        }
+
+        // Add new zones (efficient: only new zones)
+        for (final zone in zones) {
+          if (zonesToAdd.contains(zone.id)) {
+            try {
+              await polyfence.Polyfence.instance.addZone(zone);
+            } catch (e) {
+              _addErrorEvent('Failed to add zone ${zone.id}: $e');
+            }
+          }
+        }
+
+        // Update persistent record of registered zones
+        await prefs.setString(
+          'registered_zone_ids',
+          jsonEncode(currentZoneIds.toList()),
+        );
+
         setState(() {
           _loadedZones = zones;
           _isLoadingZones = false;
         });
-
-        // CRITICAL: Register zones with native geofence engine
-        // Both iOS and Android require this for geofence event detection
-        for (final zone in zones) {
-          try {
-            await polyfence.Polyfence.instance.addZone(zone);
-          } catch (e) {
-            // Failed to register zone - log and continue with others
-            _addErrorEvent('Failed to register zone "${zone.name}": $e');
-          }
-        }
       }
     } catch (e) {
       if (mounted) {

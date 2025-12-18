@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **BREAKING FIX:** Fixed Android zone removal bug - `removeZone()` and `clearAllZones()` now work regardless of tracking state
+  - **Root cause:** Two-layer guard system prevented zone removal when tracking was disabled
+    - Layer 1: PolyfencePlugin checked `isTrackingEnabled()` (SharedPreferences)
+    - Layer 2: LocationTracker service checked `isRunning` (foreground service state)
+  - **What changed:**
+    - Removed tracking state check from `PolyfencePlugin.removeZone()` and `clearAllZones()`
+    - Reordered logic in `LocationTracker` to process removal before checking service state
+    - Zones are now removed from persistent storage even when tracking is stopped
+  - **Impact:** Fixes issue where deleted zones continued triggering geofence events on Android
+  - **Edge case resolved:** Zones deleted while tracking is disabled no longer reappear when tracking restarts
+  - **No breaking changes:** Background tracking behavior and app closure handling remain unchanged
+
 ### Changed
 - Renamed methods to follow Dart style guide:
   - `getConfiguration()` → `configuration()`

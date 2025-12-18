@@ -150,18 +150,24 @@ class LocationTracker : Service() {
                 addZone(intent)
             }
             ACTION_REMOVE_ZONE -> {
+                // Allow zone removal even when tracking is stopped
+                // This ensures persistence is updated regardless of service state
+                removeZone(intent)
+                // Stop service if it's not actively tracking
                 if (!isRunning) {
                     stopSelf()
                     return START_NOT_STICKY
                 }
-                removeZone(intent)
             }
             ACTION_CLEAR_ZONES -> {
+                // Allow clearing zones even when tracking is stopped
+                // This ensures persistence is updated regardless of service state
+                clearZones()
+                // Stop service if it's not actively tracking
                 if (!isRunning) {
                     stopSelf()
                     return START_NOT_STICKY
                 }
-                clearZones()
             }
             ACTION_UPDATE_CONFIG -> {
                 val configMap = intent.getSerializableExtra("config") as? Map<String, Any>

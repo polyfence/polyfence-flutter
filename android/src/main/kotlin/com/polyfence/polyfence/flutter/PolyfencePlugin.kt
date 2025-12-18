@@ -364,11 +364,6 @@ class PolyfencePlugin: FlutterPlugin, MethodCallHandler, ActivityAware {
     }
     
     private fun removeZone(zoneId: String) {
-        // Only start service if tracking is enabled
-        if (!isTrackingEnabled(context)) {
-            return
-        }
-        
         val intent = Intent(context, LocationTracker::class.java).apply {
             action = LocationTracker.ACTION_REMOVE_ZONE
             putExtra("zoneId", zoneId)
@@ -377,11 +372,6 @@ class PolyfencePlugin: FlutterPlugin, MethodCallHandler, ActivityAware {
     }
     
     private fun clearAllZones() {
-        // Only start service if tracking is enabled
-        if (!isTrackingEnabled(context)) {
-            return
-        }
-        
         val intent = Intent(context, LocationTracker::class.java).apply {
             action = LocationTracker.ACTION_CLEAR_ZONES
         }

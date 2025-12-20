@@ -38,9 +38,9 @@ dependencies:
 
 # Available on pub.dev (coming soon):
 # polyfence: ^0.2.0
+```
 
 **Current version:** 0.2.0
-```
 
 Then run:
 
@@ -48,65 +48,14 @@ Then run:
 flutter pub get
 ```
 
----
-
-## 📱 Example App
-
-### Quick Start (Demo Mode)
-
-```bash
-cd example
-flutter run
-```
-
-The app loads with **3 demo zones** (🎯 Demo Zone 1, 2, 3) for instant testing - no setup required.
-
-### Live Testing with Your Own Zones
-
-Want to test with real zones in real locations?
-
-1. **Get free API key**: [polyfence.io/auth/login](https://polyfence.io/auth/login)
-   - Sign in with GitHub, Google, or email
-   - Free tier: Create 2 zones for testing
-   - No credit card required
-   - Generate your API key from the dashboard
-
-2. **Create zones**: [Zone Management Portal](https://polyfence.io/admin)
-   - Draw circle or polygon zones on the map
-   - Mark zones as active for them to appear in the app
-
-3. **Configure the app**:
-
-```dart
-// example/lib/config.dart
-static const bool demoMode = false;
-static const String? apiKey = 'your-api-key-here'; // Paste your API key from dashboard
-```
-
-4. **Restart app** - your zones load automatically
-
-**🔒 Security Note:** Never commit real API keys to public repositories. The example app is for testing only. For production apps, use environment variables, secure storage, or Flutter's `--dart-define` to protect your keys.
-
-### Production Use
-
-Ready to ship? [View pricing](https://polyfence.io/pricing) for unlimited zones.
+> **💡 New to Polyfence?** Try the example app first: `cd example && flutter run` (includes 3 demo zones, no setup needed)
 
 ---
 
-## 🔌 Backend & Zone Management
-
-**This plugin works with any backend** that provides zone data (circles/polygons).
-
-### Official Backend (Optional)
-
-- **Repository**: [polyfence backend](https://github.com/blackabass/polyfence)
-- **Features**: Zone management portal, REST API, analytics dashboard
-- **Live instance**: [polyfence.io](https://polyfence.io)
-- **Free tier available** for testing
-
-### Build Your Own
-
-The plugin just needs `Zone` objects - integrate with your existing backend or build custom zone management tools.
+**This plugin works with any backend** - it just needs `Zone` objects (circles/polygons). You can:
+- Integrate with your existing backend
+- Build custom zone management tools
+- Use the optional [polyfence.io](https://polyfence.io) service for zone management and analytics
 
 ---
 
@@ -196,12 +145,15 @@ Polyfence enforces limits to ensure optimal performance and memory usage:
 
 | Limit | Value | Platform |
 | :-- | :-- | :-- |
-| **Maximum zones** | 50 | iOS |
-| **Maximum zones** | Unlimited | Android |
+| **Maximum zones** | 50 (hard limit) | iOS |
+| **Maximum zones** | No hard limit (50 recommended) | Android |
 | **Maximum polygon points** | 50 per polygon | Both |
 | **Minimum polygon points** | 3 per polygon | Both |
 
-These limits are enforced at the platform level. If you exceed them, `addZone()` will throw an error.
+**Notes:**
+- iOS enforces a hard 50-zone limit. Attempting to add more zones will fail silently.
+- Android has no enforced limit but performance may degrade with many zones. We recommend staying under 50 zones for optimal performance and battery life.
+- These limits apply per device, not per app instance.
 
 ---
 
@@ -622,33 +574,50 @@ await Polyfence.instance.stopTracking();
 - Zones are automatically persisted across app restarts
 - No manual persistence needed
 - Zones are loaded automatically when plugin initializes
-- **Delta-based zone sync**: The plugin intelligently syncs zones by only adding new zones and removing deleted zones, preventing "zombie zones" that continue triggering events after deletion
 - Zone state persists through app kills, crashes, and restarts
-- Architectural principle: **Zones in app = Zones in storage. Always.**
+
+**Note:** When loading zones from an external source, consider implementing delta-based sync to avoid re-registering all zones on each load.
 
 ---
 
 ## 🧪 Example App
 
-The included example demonstrates production patterns for geofencing integration.
+A complete example app is included in the `example/` directory.
 
-**Features:**
+### Quick Start
 
-- Testing zone entry/exit detection
-- Observing plugin behavior across app states  
-- Evaluating battery impact of different GPS profiles
-- Reference implementation for integration
+**Demo Mode** (no setup required):
+```bash
+cd example
+flutter run
+```
 
-⚠️ **Note:** GPS Profile adjustments (Max, Balanced, Battery, Smart) apply to Android only. iOS manages GPS frequency automatically.
+The app starts with 3 hardcoded demo zones for instant testing.
+
+### Testing with Real Zones
+
+To test with your own zones at real locations:
+
+1. Set `demoMode = false` in `example/lib/config.dart`
+2. Add your API key from [polyfence.io](https://polyfence.io) (free tier available)
+3. Restart the app
+
+The example demonstrates:
+- Zone entry/exit event handling
+- Background tracking across app states
+- GPS profile switching (Android)
+- Permission request flow
+- Error stream handling
+- Delta-based zone synchronization pattern
 
 <details>
-  <summary>Screenshots (expand)</summary>
+  <summary>📸 Example App Screenshots</summary>
 
   <p>
-    <img alt="Example screen 1" src="https://github.com/user-attachments/assets/cc15ec76-819f-4d83-a1c1-dc83d8715da9" width="240" />
-    <img alt="Example screen 2" src="https://github.com/user-attachments/assets/b9e372ed-8269-4afc-8c1a-71e87ba41ea8" width="240" />
-    <img alt="Example screen 3" src="https://github.com/user-attachments/assets/ec6a214e-0d98-4008-8291-70c74b16ea07" width="240" />
-    <img alt="Example screen 4" src="https://github.com/user-attachments/assets/98f5a976-a2c2-40ef-98a9-4230f0ce0520" width="240" />
+    <img alt="Zone map view" src="https://github.com/user-attachments/assets/cc15ec76-819f-4d83-a1c1-dc83d8715da9" width="240" />
+    <img alt="Event stream" src="https://github.com/user-attachments/assets/b9e372ed-8269-4afc-8c1a-71e87ba41ea8" width="240" />
+    <img alt="GPS configuration" src="https://github.com/user-attachments/assets/ec6a214e-0d98-4008-8291-70c74b16ea07" width="240" />
+    <img alt="Debug info" src="https://github.com/user-attachments/assets/98f5a976-a2c2-40ef-98a9-4230f0ce0520" width="240" />
   </p>
 </details>
 

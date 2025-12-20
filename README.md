@@ -570,7 +570,7 @@ await Polyfence.instance.stopTracking();
 - Always cancel stream subscriptions in `dispose()` to prevent memory leaks
 - Example: `_geofenceSubscription?.cancel();`
 
-### Zone Persistence
+### Zone Persistence & Synchronization
 - Zones are automatically persisted across app restarts
 - No manual persistence needed
 - Zones are loaded automatically when plugin initializes

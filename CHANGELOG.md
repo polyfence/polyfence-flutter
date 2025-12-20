@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Delta-based zone synchronization** in example app
+  - Prevents "zombie zones" when switching between demo and API modes
+  - Uses SharedPreferences to track registered zone IDs persistently
+  - Only adds new zones and removes deleted zones (efficient delta sync)
+  - Survives app kills, crashes, and restarts
+  - Ensures zones in app always match zones in backend (architectural principle)
+
 ### Fixed
 - **BREAKING FIX:** Fixed Android zone removal bug - `removeZone()` and `clearAllZones()` now work regardless of tracking state
   - **Root cause:** Two-layer guard system prevented zone removal when tracking was disabled
@@ -27,7 +35,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `getErrorHistory()` → `errorHistory()`
   - `getCurrentConfiguration()` → `gpsConfiguration()`
   - `checkBatteryOptimization()` → `batteryOptimizationStatus()`
-- Made analytics API key optional (analytics can run without API key for local testing)
+- **API key configuration improvements**:
+  - Made API key nullable/optional (was required before)
+  - Set default to `null` in example app config (forces explicit user configuration)
+  - Added validation check before making API requests
+  - Improved error messages when API key is missing
+  - Added security documentation for protecting API keys in production
+  - Removed placeholder API keys from repository for security
 
 ### Fixed
 - Fixed inconsistent error handling - standardized exception types

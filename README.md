@@ -19,7 +19,7 @@ Polyfence cuts through the complexity of background geofencing with a privacy-ce
 | 🔒 Data privacy | **On-device only** | External/cloud services |
 | 🌐 Zone types | **Circles & Polygons** | Often circles only |
 | 📱 Background | **True background (iOS & Android)** | Often limited |
-| 📦 Dependencies | **None** | Analytics/Play-services common |
+| 📦 Dependencies | **Minimal** (Play Services Location on Android) | Heavy analytics/cloud SDKs |
 | 🚨 Error handling | **Structured error streams** | Basic logging only |
 | 🔍 Debug tools | **Comprehensive debug API** | Limited or none |
 | 🔋 Battery optimization | **Built-in bypass requests** | Manual implementation |
@@ -221,6 +221,7 @@ These limits are enforced at the platform level. If you exceed them, `addZone()`
 
 - **minSdk**: 21+ (Android 5.0)
 - **tested**: up to API 35 (Android 15)
+- **dependency**: Google Play Services Location 21.0.1 (automatically included)
 
 #### Foreground Service Notification
 
@@ -280,34 +281,38 @@ if (granted) {
 flowchart TB
   subgraph Flutter["Flutter Layer"]
     A["Your Flutter App"]
-    X["Example App"]
   end
 
   subgraph Plugin["Polyfence Plugin (Dart)"]
     B["PolyfenceService<br/>(API + Error Streams + Debug)"]
     E["AnalyticsService<br/>(opt-in)"]
+    AL["AppLifecycleManager<br/>(analytics support)"]
   end
 
   subgraph AndroidNative["Android Native"]
     F["LocationTracker Service<br/>+ Wake Lock + Foreground"]
     G["GeofenceEngine.kt<br/>Haversine + Ray-casting"]
     H["ZonePersistence<br/>SharedPreferences"]
+    EM["PolyfenceErrorManager"]
+    DC["PolyfenceDebugCollector"]
   end
 
   subgraph iOSNative["iOS Native"]
     I["LocationTracker<br/>+ Background Tasks"]
     J["GeofenceEngine.swift<br/>Haversine + Ray-casting"]
     K["ZonePersistence<br/>UserDefaults Storage"]
+    EMI["PolyfenceErrorManager"]
+    DCI["PolyfenceDebugCollector"]
   end
 
   subgraph OS["Operating System"]
-    L["Android GPS APIs<br/>+ Notifications"]
-    M["iOS CoreLocation APIs<br/>+ UNUserNotificationCenter"]
+    L["Google Play Services Location<br/>+ Android Notifications"]
+    M["iOS CoreLocation<br/>+ UNUserNotificationCenter"]
   end
 
   A -->|Uses| B
-  X -.->|Demo/Testing| B
   E -.->|Optional| B
+  AL -.->|Supports| E
 
   B -->|Method/Event Channels| F
   B -->|Method/Event Channels| I
@@ -319,6 +324,11 @@ flowchart TB
 
   F -->|Persist Zones| H
   I -->|Persist Zones| K
+
+  F -->|Error Handling| EM
+  I -->|Error Handling| EMI
+  F -->|Debug Info| DC
+  I -->|Debug Info| DCI
 
   F -->|Events/Errors| B
   I -->|Events/Errors| B
@@ -608,10 +618,13 @@ await Polyfence.instance.stopTracking();
 - Always cancel stream subscriptions in `dispose()` to prevent memory leaks
 - Example: `_geofenceSubscription?.cancel();`
 
-### Zone Persistence
+### Zone Persistence & Synchronization
 - Zones are automatically persisted across app restarts
 - No manual persistence needed
 - Zones are loaded automatically when plugin initializes
+- **Delta-based zone sync**: The plugin intelligently syncs zones by only adding new zones and removing deleted zones, preventing "zombie zones" that continue triggering events after deletion
+- Zone state persists through app kills, crashes, and restarts
+- Architectural principle: **Zones in app = Zones in storage. Always.**
 
 ---
 

@@ -76,13 +76,7 @@ class GeofenceEngine {
     func addZone(zoneId: String, zoneName: String, zoneData: [String: Any]) throws {
         // Memory monitoring
         let memoryBefore = getCurrentMemoryUsage()
-        
-        // Zone count limit test
-        let currentZoneCount = syncQueue.sync { zones.count }
-        if currentZoneCount >= 50 {
-            return
-        }
-        
+
         let zoneType = zoneData["type"] as? String ?? "unknown"
         
         if zoneType == "polygon" {

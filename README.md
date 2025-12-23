@@ -231,19 +231,17 @@ See `example/lib/zone_api_service.dart` for a complete integration example.
 
 ## 📊 Zone Limits
 
-Polyfence enforces limits to ensure optimal performance and memory usage:
-
 | Limit | Value | Platform |
 | :-- | :-- | :-- |
-| **Maximum zones** | 50 (hard limit) | iOS |
-| **Maximum zones** | No hard limit (50 recommended) | Android |
+| **Maximum zones** | No hard limit | Both |
 | **Maximum polygon points** | 50 per polygon | Both |
 | **Minimum polygon points** | 3 per polygon | Both |
 
 **Notes:**
-- iOS enforces a hard 50-zone limit. Attempting to add more zones will fail silently.
-- Android has no enforced limit but performance may degrade with many zones. We recommend staying under 50 zones for optimal performance and battery life.
-- These limits apply per device, not per app instance.
+- **No zone count limit**: Add as many zones as your use case requires (tested with 100+ zones on both platforms)
+- **Polygon complexity limit**: Maximum 50 points per polygon to ensure efficient ray-casting performance
+- **Performance considerations**: Modern devices handle 100+ zones efficiently. Battery impact scales with GPS frequency, not zone count
+- These limits apply per device, not per app instance
 
 ---
 

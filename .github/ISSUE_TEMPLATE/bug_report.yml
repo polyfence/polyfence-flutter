@@ -1,0 +1,119 @@
+name: Bug Report
+description: File a bug report to help us improve Polyfence
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug! Please fill out the sections below.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Bug Description
+      description: A clear description of the bug
+      placeholder: When I call startTracking(), the app crashes on iOS...
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to Reproduce
+      description: How can we reproduce this issue?
+      placeholder: |
+        1. Call Polyfence.instance.initialize()
+        2. Add a zone with addZone()
+        3. Call startTracking()
+        4. App crashes
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: What did you expect to happen?
+      placeholder: The app should start tracking without crashing
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual Behavior
+      description: What actually happened?
+      placeholder: The app crashes with error...
+    validations:
+      required: true
+
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform
+      description: Which platform does this affect?
+      multiple: true
+      options:
+        - iOS
+        - Android
+        - Both
+    validations:
+      required: true
+
+  - type: input
+    id: flutter-version
+    attributes:
+      label: Flutter Version
+      description: Run `flutter --version` and paste the output
+      placeholder: Flutter 3.16.0 • channel stable
+    validations:
+      required: true
+
+  - type: input
+    id: polyfence-version
+    attributes:
+      label: Polyfence Version
+      description: Which version of Polyfence are you using?
+      placeholder: 0.2.0
+    validations:
+      required: true
+
+  - type: input
+    id: device
+    attributes:
+      label: Device/Simulator
+      description: What device are you testing on?
+      placeholder: iPhone 14 Pro (iOS 17.2) or Pixel 7 (Android 14)
+    validations:
+      required: true
+
+  - type: textarea
+    id: code
+    attributes:
+      label: Code Sample
+      description: Minimal code to reproduce the issue
+      render: dart
+      placeholder: |
+        await Polyfence.instance.initialize();
+        await Polyfence.instance.addZone(Zone.circle(...));
+        await Polyfence.instance.startTracking(); // Crashes here
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs/Stack Trace
+      description: Paste any error messages or stack traces
+      render: shell
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Checklist
+      options:
+        - label: I have searched existing issues to avoid duplicates
+          required: true
+        - label: I have tested on a physical device (not just simulator)
+          required: false
+        - label: I have included logs/stack traces
+          required: false

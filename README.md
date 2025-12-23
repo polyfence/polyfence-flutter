@@ -319,50 +319,46 @@ if (granted) {
 
 ```mermaid
 flowchart TB
-  subgraph Device["📱 Your Device (Everything Runs Locally)"]
-    direction TB
+    subgraph Device["Your Device • 100% On-Device Processing"]
+        direction TB
 
-    subgraph Flutter["Flutter Layer"]
-      App["Your App<br/><small>addZone() • startTracking()</small>"]
+        subgraph Flutter["Flutter Layer"]
+            App["<b>Your App</b><br/>addZone() • startTracking()"]
+        end
+
+        subgraph Core["Polyfence Core"]
+            Service["Event Streams • Error Handling<br/>Debug API • Battery Management"]
+        end
+
+        subgraph Native["Platform Layer (iOS/Android)"]
+            direction LR
+            GPS["<b>GPS Tracker</b><br/>CoreLocation<br/>Play Services"]
+            Engine["<b>Geofence Engine</b><br/>Haversine<br/>Ray-casting"]
+            Storage["<b>Storage</b><br/>Local Only"]
+        end
     end
 
-    subgraph Dart["Polyfence Dart Layer"]
-      Service["PolyfenceService<br/><small>Event Streams • Error Handling</small>"]
+    subgraph Optional["Optional External Services (Your Choice)"]
+        Analytics["Analytics<br/>(opt-in)"]
+        API["Zone API<br/>(your backend)"]
     end
 
-    subgraph Native["Native Layer (iOS/Android)"]
-      direction LR
-      GPS["GPS Tracker<br/><small>CoreLocation / Play Services</small>"]
-      Engine["Geofence Engine<br/><small>Haversine + Ray-casting</small>"]
-      Storage["Persistent Storage<br/><small>UserDefaults / SharedPreferences</small>"]
-    end
-  end
+    App -->|"① Add zones"| Service
+    Service -->|"② Platform call"| GPS
+    GPS -->|"③ Location"| Engine
+    Engine -->|"④ Detect"| Engine
+    Engine -->|"⑤ Events"| Service
+    Service -->|"⑥ Stream"| App
 
-  subgraph External["☁️ Optional External Services"]
-    Analytics["Analytics<br/><small>opt-in only</small>"]
-    API["Zone API<br/><small>your choice</small>"]
-  end
+    Engine <-.->|"Persists & Restores"| Storage
 
-  App -->|"1. Add zones"| Service
-  Service -->|"2. Method channels"| GPS
-  GPS -->|"3. Location updates"| Engine
-  Engine -->|"4. Check zones"| Engine
-  Engine -->|"5. Entry/Exit events"| Service
-  Service -->|"6. Event stream"| App
+    Service -.->|"If enabled"| Analytics
+    App -.->|"Optional"| API
 
-  Engine -.->|"Auto-save zones"| Storage
-  Storage -.->|"Load on restart"| Engine
-
-  Service -.->|"Only if enabled + API key"| Analytics
-  App -.->|"Fetch zones (optional)"| API
-
-  style Device fill:#e8f5e9,stroke:#2e7d32,stroke-width:3px
-  style External fill:#fff3e0,stroke:#f57c00,stroke-width:2px
-  style Analytics fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px,stroke-dasharray: 5 5
-  style API fill:#e3f2fd,stroke:#1976d2,stroke-width:2px,stroke-dasharray: 5 5
-
-  classDef privacy fill:#c8e6c9,stroke:#388e3c
-  class Engine,Storage privacy
+    style Device fill:#e8f5e9,stroke:#2e7d32,stroke-width:3px
+    style Optional fill:#fff3e0,stroke:#f57c00,stroke-width:2px
+    style Engine fill:#c8e6c9,stroke:#388e3c,stroke-width:2px
+    style Storage fill:#c8e6c9,stroke:#388e3c,stroke-width:2px
 ```
 
 **Architecture Highlights:**

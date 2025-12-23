@@ -321,69 +321,70 @@ if (granted) {
 
 ```mermaid
 flowchart TB
-  subgraph Flutter["Flutter Layer"]
-    A["Your Flutter App"]
+  subgraph Device["📱 Your Device (Everything Runs Locally)"]
+    direction TB
+
+    subgraph Flutter["Flutter Layer"]
+      App["Your App<br/><small>addZone() • startTracking()</small>"]
+    end
+
+    subgraph Dart["Polyfence Dart Layer"]
+      Service["PolyfenceService<br/><small>Event Streams • Error Handling</small>"]
+    end
+
+    subgraph Native["Native Layer (iOS/Android)"]
+      direction LR
+      GPS["GPS Tracker<br/><small>CoreLocation / Play Services</small>"]
+      Engine["Geofence Engine<br/><small>Haversine + Ray-casting</small>"]
+      Storage["Persistent Storage<br/><small>UserDefaults / SharedPreferences</small>"]
+    end
   end
 
-  subgraph Plugin["Polyfence Plugin (Dart)"]
-    B["PolyfenceService<br/>(API + Error Streams + Debug)"]
-    E["AnalyticsService<br/>(opt-in)"]
-    AL["AppLifecycleManager<br/>(analytics support)"]
+  subgraph External["☁️ Optional External Services"]
+    Analytics["Analytics<br/><small>opt-in only</small>"]
+    API["Zone API<br/><small>your choice</small>"]
   end
 
-  subgraph AndroidNative["Android Native"]
-    F["LocationTracker Service<br/>+ Wake Lock + Foreground"]
-    G["GeofenceEngine.kt<br/>Haversine + Ray-casting"]
-    H["ZonePersistence<br/>SharedPreferences"]
-    EM["PolyfenceErrorManager"]
-    DC["PolyfenceDebugCollector"]
-  end
+  App -->|"1. Add zones"| Service
+  Service -->|"2. Method channels"| GPS
+  GPS -->|"3. Location updates"| Engine
+  Engine -->|"4. Check zones"| Engine
+  Engine -->|"5. Entry/Exit events"| Service
+  Service -->|"6. Event stream"| App
 
-  subgraph iOSNative["iOS Native"]
-    I["LocationTracker<br/>+ Background Tasks"]
-    J["GeofenceEngine.swift<br/>Haversine + Ray-casting"]
-    K["ZonePersistence<br/>UserDefaults Storage"]
-    EMI["PolyfenceErrorManager"]
-    DCI["PolyfenceDebugCollector"]
-  end
+  Engine -.->|"Auto-save zones"| Storage
+  Storage -.->|"Load on restart"| Engine
 
-  subgraph OS["Operating System"]
-    L["Google Play Services Location<br/>+ Android Notifications"]
-    M["iOS CoreLocation<br/>+ UNUserNotificationCenter"]
-  end
+  Service -.->|"Only if enabled + API key"| Analytics
+  App -.->|"Fetch zones (optional)"| API
 
-  A -->|Uses| B
-  E -.->|Optional| B
-  AL -.->|Supports| E
+  style Device fill:#e8f5e9,stroke:#2e7d32,stroke-width:3px
+  style External fill:#fff3e0,stroke:#f57c00,stroke-width:2px
+  style Analytics fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px,stroke-dasharray: 5 5
+  style API fill:#e3f2fd,stroke:#1976d2,stroke-width:2px,stroke-dasharray: 5 5
 
-  B -->|Method/Event Channels| F
-  B -->|Method/Event Channels| I
-
-  F -->|GPS Updates| G
-  I -->|GPS Updates| J
-  G -->|Zone Events| F
-  J -->|Zone Events| I
-
-  F -->|Persist Zones| H
-  I -->|Persist Zones| K
-
-  F -->|Error Handling| EM
-  I -->|Error Handling| EMI
-  F -->|Debug Info| DC
-  I -->|Debug Info| DCI
-
-  F -->|Events/Errors| B
-  I -->|Events/Errors| B
-
-  F -->|Uses| L
-  I -->|Uses| M
+  classDef privacy fill:#c8e6c9,stroke:#388e3c
+  class Engine,Storage privacy
 ```
 
-**Key architectural principles:**
-- **On-device geofencing**: All zone calculations run locally using Haversine distance (circles) and Ray-casting (polygons)
-- **Local persistence**: Zones persist in SharedPreferences (Android) / UserDefaults (iOS) and survive app restarts
-- **No network dependency**: After zones are loaded, the plugin works 100% offline
-- **Privacy by default**: Zero external API calls unless you explicitly enable analytics
+**Architecture Highlights:**
+
+🔒 **Privacy First**
+- All geofencing calculations happen on-device using Haversine distance (circles) and Ray-casting (polygons)
+- Zero external API calls by default—everything in the green box stays local
+- Optional services (analytics, zone APIs) are clearly separated and opt-in only
+
+💾 **Automatic Persistence**
+- Zones automatically save to local storage (UserDefaults on iOS, SharedPreferences on Android)
+- Survive app kills, crashes, and device restarts
+- No manual database management needed
+
+📡 **Event Flow**
+1. Your app adds zones via `addZone()`
+2. GPS tracker monitors device location
+3. Geofence engine checks if location crosses zone boundaries
+4. Entry/Exit events stream back to your app in real-time
+5. Zones persist locally for next app launch
 
 ---
 

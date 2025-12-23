@@ -859,8 +859,8 @@ No code changes needed beyond how you obtain the `Zone` objects.
 ## 🙋 Support
 
 - **Plugin Issues**: [GitHub Issues](https://github.com/blackabass/polyfence-plugin/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/blackabass/polyfence-plugin/discussions)
-- **Backend/Portal**: [Main Repository](https://github.com/blackabass/polyfence)
+- **Questions & Discussions**: Open an issue with the `question` label
+- **Commercial Support**: [polyfence.io](https://polyfence.io)
 
 ---
 

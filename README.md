@@ -10,6 +10,31 @@
 
 ---
 
+## 🎯 No Backend Required
+
+**Polyfence works 100% standalone.** No account signup, no API key, no external services needed.
+
+The plugin runs entirely on-device using native GPS APIs. Your geofencing logic, your zones, your data—all local by default.
+
+```dart
+// That's it. No API key, no backend, no setup.
+await Polyfence.instance.initialize();
+await Polyfence.instance.addZone(Zone.circle(...));
+await Polyfence.instance.startTracking();
+```
+
+**Three ways to use Polyfence** (choose what fits your workflow):
+
+| Approach | Backend | API Key | Best For |
+|----------|---------|---------|----------|
+| **Hardcode zones in your app** | None | Not needed | Static zones, full control, privacy-first apps |
+| **Fetch from your own API** | Your backend | Not needed | Existing infrastructure, custom zone logic |
+| **Use Polyfence SaaS** _(optional)_ | polyfence.io | Required | Visual zone editor, analytics dashboard |
+
+All three approaches use the **same plugin API**—switch anytime without code changes.
+
+---
+
 ## ✨ Why Polyfence?
 
 Polyfence cuts through the complexity of background geofencing with a privacy-centric API that **just works**.
@@ -48,20 +73,15 @@ Then run:
 flutter pub get
 ```
 
-> **💡 New to Polyfence?** Try the example app first: `cd example && flutter run` (includes 3 demo zones, no setup needed)
-
----
-
-**This plugin works with any backend** - it just needs `Zone` objects (circles/polygons). You can:
-- Integrate with your existing backend
-- Build custom zone management tools
-- Use the optional [polyfence.io](https://polyfence.io) service for zone management and analytics
+> **💡 New to Polyfence?** Try the example app first: `cd example && flutter run` (works immediately, no setup needed)
 
 ---
 
 ## ⚡ Quick Start
 
-### 1) Minimal usage
+### Standalone Mode (No Backend)
+
+The simplest way to use Polyfence—define zones directly in your code:
 
 ```dart
 import 'dart:async';
@@ -89,16 +109,16 @@ class _MyAppState extends State<MyApp> {
 
   Future<void> _setupPolyfence() async {
     try {
-      // Initialize plugin
+      // Initialize plugin (no API key needed)
       await Polyfence.instance.initialize();
-      
+
       // Request permissions first (required for background tracking)
       final hasPermission = await Polyfence.instance.requestPermissions(always: true);
       if (!hasPermission) {
         print('Location permission denied. Geofencing will not work.');
         return;
       }
-      
+
       // Listen for enter/exit events
       _geofenceSubscription = Polyfence.instance.onGeofenceEvent.listen(
         (event) {
@@ -110,18 +130,30 @@ class _MyAppState extends State<MyApp> {
         },
       );
 
-      // Add a sample circle zone
-      final zone = Zone.circle(
-        id: 'hq',
-        name: 'Headquarters',
+      // Add zones directly in code
+      final office = Zone.circle(
+        id: 'office',
+        name: 'Office',
         center: PolyfenceLocation(latitude: 37.422, longitude: -122.084),
         radius: 150,
       );
-      await Polyfence.instance.addZone(zone);
+
+      final warehouse = Zone.polygon(
+        id: 'warehouse',
+        name: 'Warehouse',
+        polygon: [
+          PolyfenceLocation(latitude: 37.423, longitude: -122.085),
+          PolyfenceLocation(latitude: 37.424, longitude: -122.086),
+          PolyfenceLocation(latitude: 37.425, longitude: -122.087),
+        ],
+      );
+
+      await Polyfence.instance.addZone(office);
+      await Polyfence.instance.addZone(warehouse);
 
       // Start tracking
       await Polyfence.instance.startTracking();
-      print('Polyfence tracking started');
+      print('Polyfence tracking started with ${(await Polyfence.instance.getZones()).length} zones');
     } on PolyfenceNotInitializedException {
       print('Polyfence not initialized');
     } on PlatformOperationException catch (e) {
@@ -133,9 +165,67 @@ class _MyAppState extends State<MyApp> {
 }
 ```
 
+**Zones are automatically persisted** across app restarts—no database setup needed.
+
 <img alt="App screenshot 1" src="https://github.com/user-attachments/assets/e786391a-d178-4daf-8829-f97bbc29202d" width="320" />
 
 <img alt="App screenshot 2" src="https://github.com/user-attachments/assets/bd1d07c2-d9bc-499b-bded-3e9dff9eeeb7" width="320" />
+
+---
+
+### With Your Own Backend
+
+Fetch zones from your existing API:
+
+```dart
+Future<void> _loadZonesFromMyBackend() async {
+  // Call your own API
+  final response = await http.get(Uri.parse('https://myapi.com/geofence-zones'));
+  final List<dynamic> zonesJson = json.decode(response.body);
+
+  // Convert to Polyfence Zone objects
+  for (var zoneData in zonesJson) {
+    final zone = Zone.circle(
+      id: zoneData['id'],
+      name: zoneData['name'],
+      center: PolyfenceLocation(
+        latitude: zoneData['latitude'],
+        longitude: zoneData['longitude'],
+      ),
+      radius: zoneData['radius'].toDouble(),
+    );
+
+    await Polyfence.instance.addZone(zone);
+  }
+
+  await Polyfence.instance.startTracking();
+}
+```
+
+**Note:** The plugin doesn't care where zones come from—it just needs `Zone` objects. Use any backend, any API format, any authentication method you want.
+
+---
+
+### With Polyfence SaaS (Optional)
+
+Use our hosted zone management service for a visual zone editor and analytics:
+
+```dart
+import 'package:polyfence_api/zone_api_service.dart'; // Example integration
+
+Future<void> _loadZonesFromPolyfenceSaaS() async {
+  // Requires API key from https://polyfence.io (free tier available)
+  final zones = await ZoneApiService.fetchActiveZones();
+
+  for (var zone in zones) {
+    await Polyfence.instance.addZone(zone);
+  }
+
+  await Polyfence.instance.startTracking();
+}
+```
+
+See `example/lib/zone_api_service.dart` for a complete integration example.
 
 ---
 
@@ -289,6 +379,12 @@ flowchart TB
   I -->|Uses| M
 ```
 
+**Key architectural principles:**
+- **On-device geofencing**: All zone calculations run locally using Haversine distance (circles) and Ray-casting (polygons)
+- **Local persistence**: Zones persist in SharedPreferences (Android) / UserDefaults (iOS) and survive app restarts
+- **No network dependency**: After zones are loaded, the plugin works 100% offline
+- **Privacy by default**: Zero external API calls unless you explicitly enable analytics
+
 ---
 
 ## ⚙️ GPS Configuration Options
@@ -383,7 +479,7 @@ await Polyfence.instance.enableProximityOptimization(
 **Proximity Behavior:**
 
 - **Inside zones**: Continuous monitoring for exit detection
-- **Near zones (<500m)**: High frequency for accurate entry detection  
+- **Near zones (<500m)**: High frequency for accurate entry detection
 - **Medium distance (500m-2km)**: Graduated frequency based on distance
 - **Far from zones (>2km)**: Low frequency monitoring to preserve battery
 
@@ -584,31 +680,35 @@ await Polyfence.instance.stopTracking();
 
 A complete example app is included in the `example/` directory.
 
-### Quick Start
+### Run the Example
 
-**Demo Mode** (no setup required):
+**Standalone mode** (works immediately, no setup):
 ```bash
 cd example
 flutter run
 ```
 
-The app starts with 3 hardcoded demo zones for instant testing.
+The app starts with 3 hardcoded zones. **This is a valid production pattern**, not just a demo—many apps have static zones.
 
-### Testing with Real Zones
+### Using Zones from Polyfence SaaS
 
-To test with your own zones at real locations:
+To fetch zones from polyfence.io instead of hardcoding:
 
 1. Set `demoMode = false` in `example/lib/config.dart`
-2. Add your API key from [polyfence.io](https://polyfence.io) (free tier available)
-3. Restart the app
+2. Get your free API key from [polyfence.io](https://polyfence.io)
+3. Add the key to `example/lib/config.dart`: `static const String? apiKey = 'your-key';`
+4. Restart the app
 
-The example demonstrates:
-- Zone entry/exit event handling
-- Background tracking across app states
-- GPS profile switching (Android)
-- Permission request flow
-- Error stream handling
-- Delta-based zone synchronization pattern
+### What the Example Demonstrates
+
+- ✅ **Standalone zone management** (hardcoded zones in `demo_zones.dart`)
+- ✅ **API integration pattern** (fetch zones from polyfence.io in `zone_api_service.dart`)
+- ✅ **Delta-based sync** (efficient zone updates without re-registering all zones)
+- ✅ **Zone entry/exit event handling**
+- ✅ **Background tracking** across app states
+- ✅ **GPS profile switching** (Android)
+- ✅ **Permission request flow**
+- ✅ **Error stream handling**
 
 <details>
   <summary>📸 Example App Screenshots</summary>
@@ -623,12 +723,119 @@ The example demonstrates:
 
 ---
 
+## ❓ FAQ
+
+### Do I need a polyfence.io account to use this plugin?
+
+**No.** The plugin works 100% standalone without any account, API key, or backend. You can hardcode zones directly in your Flutter app or fetch them from your own API. The polyfence.io service is completely optional.
+
+### Can I use this plugin without any backend at all?
+
+**Yes.** Just add zones programmatically:
+
+```dart
+await Polyfence.instance.addZone(Zone.circle(
+  id: 'home',
+  name: 'Home',
+  center: PolyfenceLocation(latitude: 37.422, longitude: -122.084),
+  radius: 200,
+));
+```
+
+Zones are automatically persisted on-device and survive app restarts. No database, no backend, no API needed.
+
+### Can I manage zones without leaving my code editor?
+
+**Yes.** Define zones as constants in your Dart code:
+
+```dart
+// zones.dart
+final List<Zone> myZones = [
+  Zone.circle(
+    id: 'office',
+    name: 'Office',
+    center: PolyfenceLocation(latitude: 37.422, longitude: -122.084),
+    radius: 150,
+  ),
+  Zone.circle(
+    id: 'home',
+    name: 'Home',
+    center: PolyfenceLocation(latitude: 37.785, longitude: -122.406),
+    radius: 200,
+  ),
+];
+
+// In your app
+for (var zone in myZones) {
+  await Polyfence.instance.addZone(zone);
+}
+```
+
+Version control your zones alongside your code. No UI, no CLI, no backend needed.
+
+### What's the difference between demo zones and production zones?
+
+There's no difference. "Demo zones" in the example app are just hardcoded `Zone` objects—the same objects you'd create in production code. Hardcoding zones is a valid production approach if your zones are static or change infrequently.
+
+### Can I use my own backend for zone management?
+
+**Yes.** The plugin is backend-agnostic. It only needs `Zone` objects—it doesn't care where they come from. Fetch zones from your API, convert the JSON to `Zone` objects, and add them to the plugin. Use any authentication, any data format, any backend framework you want.
+
+### Does the plugin send any data to external servers?
+
+**No, not by default.** All geofencing logic runs on-device. The plugin has zero network dependencies and makes no external API calls unless you:
+
+1. Explicitly fetch zones from an external API (your choice of API)
+2. Enable optional analytics by passing an `AnalyticsConfig` to `initialize()` with `enabled: true`
+
+Analytics is **opt-in only** and requires an explicit API key. Most users never enable it.
+
+### How do I switch from standalone to SaaS (or vice versa)?
+
+The plugin API is identical for all deployment modes. To switch:
+
+**From hardcoded to API:**
+```dart
+// Before: Hardcoded
+await Polyfence.instance.addZone(Zone.circle(...));
+
+// After: Fetch from API
+final zones = await fetchZonesFromMyAPI(); // Your implementation
+for (var zone in zones) {
+  await Polyfence.instance.addZone(zone);
+}
+```
+
+**From SaaS to standalone:**
+```dart
+// Before: Polyfence SaaS
+final zones = await ZoneApiService.fetchActiveZones();
+
+// After: Hardcoded
+final zones = [
+  Zone.circle(id: 'office', name: 'Office', ...),
+  Zone.circle(id: 'home', name: 'Home', ...),
+];
+
+// Same code after fetching
+for (var zone in zones) {
+  await Polyfence.instance.addZone(zone);
+}
+```
+
+No code changes needed beyond how you obtain the `Zone` objects.
+
+---
+
 ## 🔒 Privacy & Security
 
-- All geofencing logic runs on-device
-- No data transmission by default
-- Optional analytics is opt-in and requires explicit API key
-- GDPR/CCPA-friendly by design
+- **On-device only**: All geofencing logic runs locally using native GPS APIs
+- **No data transmission by default**: Zero network calls unless you explicitly fetch zones from an API
+- **Optional analytics**: Analytics is opt-in and requires explicit API key configuration
+- **GDPR/CCPA-friendly by design**: No tracking, no telemetry, no external services by default
+- **Local persistence**: Zones stored in SharedPreferences (Android) / UserDefaults (iOS)—never sent to external servers
+
+**Privacy guarantee:** By default, Polyfence never transmits location data, zone definitions, or any user information to external servers. Your data stays on the user's device.
 
 ---
 

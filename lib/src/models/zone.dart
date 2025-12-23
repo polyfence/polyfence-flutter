@@ -5,11 +5,11 @@ enum ZoneType { circle, polygon }
 /// Zone model for geofencing
 ///
 /// **Zone Limits:**
-/// - Maximum zones: 50 (iOS), unlimited (Android)
+/// - Maximum zones: No hard limit (both platforms)
 /// - Maximum polygon points: 50 per polygon
 /// - Minimum polygon points: 3
 ///
-/// These limits are enforced to ensure optimal performance and memory usage.
+/// The polygon point limit ensures efficient ray-casting performance.
 class Zone {
   final String id;
   final String name;

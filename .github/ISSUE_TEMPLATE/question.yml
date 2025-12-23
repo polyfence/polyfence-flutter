@@ -1,0 +1,46 @@
+name: Question
+description: Ask a question about Polyfence
+title: "[Question]: "
+labels: ["question"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Have a question? We're here to help!
+
+        **Note:** For commercial support, visit [polyfence.io](https://polyfence.io)
+
+  - type: textarea
+    id: question
+    attributes:
+      label: Your Question
+      description: What would you like to know?
+      placeholder: How do I implement delta-based zone syncing?
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: What are you trying to accomplish?
+      placeholder: I'm building a logistics app with 100+ zones and want to sync efficiently...
+
+  - type: textarea
+    id: attempted
+    attributes:
+      label: What Have You Tried?
+      description: Have you already attempted a solution?
+      placeholder: I tried calling addZone() in a loop, but...
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Checklist
+      options:
+        - label: I have read the README documentation
+          required: true
+        - label: I have checked existing issues for similar questions
+          required: true
+        - label: I have reviewed the example app code
+          required: false

@@ -95,4 +95,15 @@ class AppLifecycleManager {
   void endSession() {
     PolyfenceAnalytics.instance.endSession();
   }
+
+  // Dispose lifecycle manager and remove message handler
+  void dispose() {
+    if (!_isInitialized) return;
+
+    // Remove lifecycle message handler
+    SystemChannels.lifecycle.setMessageHandler(null);
+
+    _isInitialized = false;
+    _currentState = null;
+  }
 }

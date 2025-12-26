@@ -25,6 +25,9 @@ class PolyfenceService {
 
   final PolyfencePlatform _platform = PolyfencePlatform.instance;
 
+  // Disposal guard to prevent use-after-disposal
+  bool _isDisposed = false;
+
   // Event streams for the app
   final StreamController<GeofenceEvent> _eventController =
       StreamController<GeofenceEvent>.broadcast();
@@ -160,6 +163,10 @@ class PolyfenceService {
     Map<String, dynamic>? config,
     AnalyticsConfig? analyticsConfig,
   }) async {
+    if (_isDisposed) {
+      throw StateError('PolyfenceService has been disposed and cannot be reused');
+    }
+
     if (_isInitialized) {
       return;
     }
@@ -205,6 +212,9 @@ class PolyfenceService {
 
   /// Add a zone for monitoring
   Future<void> addZone(Zone zone) async {
+    if (_isDisposed) {
+      throw StateError('PolyfenceService has been disposed and cannot be reused');
+    }
     if (!_isInitialized) throw PolyfenceNotInitializedException();
     final stopwatch = Stopwatch()..start();
 
@@ -234,6 +244,9 @@ class PolyfenceService {
   /// Throws [PolyfenceNotInitializedException] if not initialized.
   /// Throws [PlatformOperationException] if platform error occurs.
   Future<void> removeZone(String zoneId) async {
+    if (_isDisposed) {
+      throw StateError('PolyfenceService has been disposed and cannot be reused');
+    }
     if (!_isInitialized) throw PolyfenceNotInitializedException();
 
     // Remove from cache
@@ -317,6 +330,9 @@ class PolyfenceService {
   /// Throws [PolyfenceNotInitializedException] if not initialized.
   /// Throws [PlatformOperationException] if location services disabled or permissions denied.
   Future<void> startTracking() async {
+    if (_isDisposed) {
+      throw StateError('PolyfenceService has been disposed and cannot be reused');
+    }
     if (!_isInitialized) throw PolyfenceNotInitializedException();
 
     // Check if location services are enabled
@@ -354,6 +370,9 @@ class PolyfenceService {
   /// Throws [PolyfenceNotInitializedException] if not initialized.
   /// Throws [PlatformOperationException] if platform error occurs.
   Future<void> stopTracking() async {
+    if (_isDisposed) {
+      throw StateError('PolyfenceService has been disposed and cannot be reused');
+    }
     if (!_isInitialized) throw PolyfenceNotInitializedException();
 
     try {
@@ -968,17 +987,68 @@ class PolyfenceService {
   PolyfenceConfiguration get currentConfiguration => _currentConfiguration;
 
   /// Dispose resources
-  void dispose() {
-    _platformSubscription?.cancel();
-    _locationSubscription?.cancel();
-    _geofenceSubscription?.cancel();
-    _errorSubscription?.cancel();
-    _performanceSubscription?.cancel();
-    _runtimeStatusController.close();
-    _eventController.close();
-    _locationController.close();
-    _errorController.close();
-    _zones.clear();
+  ///
+  /// Performs comprehensive cleanup of all SDK resources including:
+  /// - Stream subscriptions and controllers
+  /// - Analytics session
+  /// - App lifecycle manager
+  /// - Zone cache
+  ///
+  /// After disposal, the service cannot be reused. Any calls to public methods
+  /// will throw [StateError].
+  Future<void> dispose() async {
+    if (_isDisposed) return; // Prevent double-disposal
+    _isDisposed = true;
+
+    try {
+      // 1. Stop tracking if active (graceful shutdown)
+      if (_isInitialized) {
+        try {
+          await stopTracking();
+        } catch (_) {
+          // Ignore errors during disposal
+        }
+      }
+
+      // 2. Cancel all stream subscriptions
+      await _platformSubscription?.cancel();
+      await _locationSubscription?.cancel();
+      await _geofenceSubscription?.cancel();
+      await _errorSubscription?.cancel();
+      await _performanceSubscription?.cancel();
+
+      // 3. Close all stream controllers
+      await _runtimeStatusController.close();
+      await _eventController.close();
+      await _locationController.close();
+      await _errorController.close();
+      await _statusController.close(); // ← FIX: Was missing
+
+      // 4. Cleanup analytics session
+      try {
+        await PolyfenceAnalytics.instance.endSession();
+      } catch (_) {
+        // Analytics cleanup is best-effort
+      }
+
+      // 5. Dispose app lifecycle manager
+      try {
+        AppLifecycleManager.instance.dispose();
+      } catch (_) {
+        // Lifecycle cleanup is best-effort
+      }
+
+      // 6. Clear zone cache
+      _zones.clear();
+
+      // 7. Reset initialization flag
+      _isInitialized = false;
+
+    } catch (e) {
+      // Log disposal error but don't throw (disposal should never fail)
+      // ignore: avoid_print
+      print('Error during Polyfence disposal: $e');
+    }
   }
 
   void _handlePerformanceEvent(Map<String, dynamic> event) {

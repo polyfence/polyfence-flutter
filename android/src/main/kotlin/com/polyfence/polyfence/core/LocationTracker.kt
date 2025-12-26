@@ -89,7 +89,11 @@ class LocationTracker : Service() {
     // Runtime Status Emission
     private var lastEmittedStatus = mapOf<String, Any>()
     private var lastStatusEmitTime = 0L
-    
+
+    // Permission Monitoring
+    private var permissionCheckHandler: android.os.Handler? = null
+    private val permissionCheckInterval = 60_000L  // 60 seconds
+
     override fun onCreate() {
         super.onCreate()
         
@@ -212,7 +216,10 @@ class LocationTracker : Service() {
         
         // Start error monitoring
         startHealthMonitoring()
-        
+
+        // Start permission monitoring
+        startPermissionMonitoring()
+
         // Use smart GPS configuration for location request
         val priority = smartConfig.getLocationPriority()
         val interval = calculateCurrentInterval()
@@ -253,11 +260,59 @@ class LocationTracker : Service() {
         // Stop error monitoring
         errorRecovery.stopMonitoring()
         healthCheckHandler?.removeCallbacksAndMessages(null)
-        
+
+        // Stop permission monitoring
+        stopPermissionMonitoring()
+
         stopForeground(true)
         stopSelf()
     }
-    
+
+    /**
+     * Start continuous permission monitoring
+     * Checks permissions every 60 seconds while tracking is active
+     */
+    private fun startPermissionMonitoring() {
+        permissionCheckHandler = android.os.Handler(Looper.getMainLooper())
+        permissionCheckHandler?.postDelayed(object : Runnable {
+            override fun run() {
+                if (isRunning && !hasLocationPerms()) {
+                    // Permission was revoked during runtime
+                    Log.w(TAG, "Location permission revoked - stopping tracking gracefully")
+
+                    // Report error to Flutter layer
+                    val errorData = mapOf(
+                        "type" to "permission_revoked",
+                        "message" to "Location permission was revoked by user during tracking",
+                        "platform" to "android",
+                        "timestamp" to System.currentTimeMillis()
+                    )
+                    PolyfencePlugin.sendError(errorData)
+
+                    // Stop tracking gracefully
+                    stopTracking()
+                    return
+                }
+
+                // Schedule next check if still running
+                if (isRunning) {
+                    permissionCheckHandler?.postDelayed(this, permissionCheckInterval)
+                }
+            }
+        }, permissionCheckInterval)
+
+        Log.d(TAG, "Permission monitoring started - checking every ${permissionCheckInterval / 1000}s")
+    }
+
+    /**
+     * Stop continuous permission monitoring
+     */
+    private fun stopPermissionMonitoring() {
+        permissionCheckHandler?.removeCallbacksAndMessages(null)
+        permissionCheckHandler = null
+        Log.d(TAG, "Permission monitoring stopped")
+    }
+
     private fun addZone(intent: Intent) {
         val zoneId = intent.getStringExtra("zoneId") ?: return
         val zoneName = intent.getStringExtra("zoneName") ?: "Unknown Zone"

@@ -53,10 +53,97 @@ When reporting a vulnerability, please include:
    - Use environment variables or secure storage
    - Rotate keys regularly
 
+   **Example: Secure API Key Storage**
+
+   **Option 1: Environment Variables (Recommended for CI/CD)**
+
+   ```dart
+   // Load from environment at build time
+   const String? apiKey = String.fromEnvironment('POLYFENCE_API_KEY');
+
+   await Polyfence.instance.initialize(
+     analyticsConfig: AnalyticsConfig(
+       enabled: apiKey != null,
+       apiKey: apiKey,
+     ),
+   );
+   ```
+
+   Build command:
+   ```bash
+   flutter build apk --dart-define=POLYFENCE_API_KEY=your_key_here
+   ```
+
+   **Option 2: flutter_secure_storage (Recommended for Runtime)**
+
+   ```dart
+   import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+
+   class ApiKeyManager {
+     static const _storage = FlutterSecureStorage();
+
+     static Future<String?> getApiKey() async {
+       return await _storage.read(key: 'polyfence_api_key');
+     }
+
+     static Future<void> saveApiKey(String key) async {
+       await _storage.write(key: 'polyfence_api_key', value: key);
+     }
+   }
+
+   // Usage
+   final apiKey = await ApiKeyManager.getApiKey();
+   await Polyfence.instance.initialize(
+     analyticsConfig: AnalyticsConfig(
+       enabled: apiKey != null,
+       apiKey: apiKey,
+     ),
+   );
+   ```
+
 2. **Location Data**
    - Polyfence stores zones locally (SharedPreferences/UserDefaults)
    - Zone data is NOT encrypted by default
    - For sensitive use cases, encrypt zone data before passing to Polyfence
+
+   **Example: Encrypting Sensitive Zones**
+
+   If your zones contain private locations (home addresses, sensitive facilities), encrypt the coordinates using `flutter_secure_storage`:
+
+   ```dart
+   import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+   import 'package:polyfence/polyfence.dart';
+
+   class SecureZoneManager {
+     static const _storage = FlutterSecureStorage();
+
+     // Store coordinates securely
+     static Future<void> storeSecureZone({
+       required String zoneId,
+       required double latitude,
+       required double longitude,
+     }) async {
+       await _storage.write(
+         key: 'zone_coords_$zoneId',
+         value: '$latitude,$longitude',
+       );
+     }
+
+     // Retrieve coordinates when needed
+     static Future<PolyfenceLocation?> getSecureCoordinates(String zoneId) async {
+       final coords = await _storage.read(key: 'zone_coords_$zoneId');
+       if (coords == null) return null;
+
+       final parts = coords.split(',');
+       return PolyfenceLocation(
+         latitude: double.parse(parts[0]),
+         longitude: double.parse(parts[1]),
+       );
+     }
+   }
+   ```
+
+   **Note:** For most use cases (public venues, offices, stores), zone encryption is unnecessary. The default unencrypted storage is acceptable.
 
 3. **Analytics**
    - Analytics is opt-in only
@@ -84,6 +171,44 @@ When reporting a vulnerability, please include:
 - iOS/Android require "Always" location permission for background geofencing
 - Users should be informed about background tracking
 - **Mitigation**: Clear privacy policy, obvious UI indicators
+
+---
+
+## Privacy Policy Guidance
+
+When submitting apps using Polyfence to the App Store, include the following in your privacy policy:
+
+### Location Data Usage Template
+
+```
+[Your App Name] uses background location services to provide geofence-based
+features. Location data is processed entirely on your device and is never
+transmitted to external servers without your explicit consent.
+
+We use the Polyfence open-source SDK for geofencing. By default, Polyfence:
+- Processes all location data locally on your device
+- Does not transmit location data to any external servers
+- Stores geofence zone definitions locally in device storage
+
+Optional Analytics (if enabled):
+If you enable analytics, aggregated performance metrics (GPS accuracy, battery
+usage, detection latency) are transmitted to [polyfence.io / your backend].
+These metrics do NOT include your actual GPS coordinates or personal location
+history.
+
+You can disable location services at any time in your device Settings.
+```
+
+### Data Retention Template
+
+```
+Geofence zone definitions are stored locally on your device and persist until:
+- You delete the app
+- You clear app data via device Settings
+- You explicitly remove zones within the app
+
+No location data is retained on external servers (unless you've enabled analytics).
+```
 
 ## Security Updates
 

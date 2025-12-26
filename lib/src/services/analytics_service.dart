@@ -194,6 +194,16 @@ class PolyfenceAnalytics {
     required AnalyticsConfig config,
     required String pluginVersion,
   }) async {
+    // Validate HTTPS endpoint if custom endpoint is provided
+    if (config.apiEndpoint != null) {
+      final uri = Uri.tryParse(config.apiEndpoint!);
+      if (uri == null || uri.scheme != 'https') {
+        throw ArgumentError(
+          'Analytics endpoint must use HTTPS for security. Got: ${config.apiEndpoint}',
+        );
+      }
+    }
+
     _config = config;
     _pluginVersion = pluginVersion;
 

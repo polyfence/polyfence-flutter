@@ -112,32 +112,18 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    // End analytics session when app closes
-    polyfence.PolyfenceAnalytics.instance.endSession();
     super.dispose();
   }
 
-  // Handle app lifecycle for analytics
+  // App lifecycle handling (analytics lifecycle managed by plugin when enabled)
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    switch (state) {
-      case AppLifecycleState.resumed:
-        polyfence.PolyfenceAnalytics.instance.startSession();
-        break;
-      case AppLifecycleState.paused:
-      case AppLifecycleState.detached:
-        polyfence.PolyfenceAnalytics.instance.endSession();
-        break;
-      default:
-        break;
-    }
+    // Plugin's AppLifecycleManager handles analytics lifecycle automatically
+    // when analytics is configured. No manual handling needed here.
   }
 
   Future<void> _initializePolyfence() async {
     try {
-      // Initialize analytics
-      polyfence.PolyfenceAnalytics.instance.startSession();
-
       // Check permissions first (Android only)
       if (Platform.isAndroid) {
         final hasPermissions = await ensureAndroidTrackingPermissions();
@@ -147,7 +133,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         }
       }
 
-      // Initialize Polyfence plugin
+      // Initialize Polyfence plugin (analytics disabled by default - plugin handles this)
+      // To enable analytics, see: example/lib/analytics_example.dart
       await polyfence.Polyfence.instance.initialize();
 
       // Load zones from API (may still be down; no fallback)
@@ -159,12 +146,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         final eventType = event.type.name.toUpperCase();
         final zoneName = _getZoneName(event.zoneId);
 
-        // Record analytics for this detection
-        polyfence.PolyfenceAnalytics.instance.recordDetection(
-          detectionTimeMs: DateTime.now().millisecondsSinceEpoch.toDouble(),
-          gpsAccuracy: _gpsAccuracy ?? 0.0,
-          zoneType: 'unknown',
-        );
+        // Note: Analytics are automatically recorded by the plugin when geofence events occur
+        // No need to manually call recordDetection here
 
         _addEvent({
           'timestamp': timestamp,

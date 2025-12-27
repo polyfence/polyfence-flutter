@@ -103,8 +103,8 @@ class LocationTracker: NSObject {
     
     private func setupGeofenceEngine() {
         // Setup geofence engine callback
-        geofenceEngine.setEventCallback { [weak self] zoneId, eventType, location in
-            self?.handleGeofenceEvent(zoneId: zoneId, eventType: eventType, location: location)
+        geofenceEngine.setEventCallback { [weak self] zoneId, eventType, location, detectionTimeMs in
+            self?.handleGeofenceEvent(zoneId: zoneId, eventType: eventType, location: location, detectionTimeMs: detectionTimeMs)
         }
         
         // Configure validation using config (opt for immediate detection to verify pipeline)
@@ -350,7 +350,7 @@ class LocationTracker: NSObject {
     /**
      * Handle geofence events safely on main thread
      */
-    private func handleGeofenceEvent(zoneId: String, eventType: String, location: CLLocation) {
+    private func handleGeofenceEvent(zoneId: String, eventType: String, location: CLLocation, detectionTimeMs: Double) {
         
         // CRITICAL: Only process geofence events if tracking is explicitly enabled
         guard trackingEnabled else {
@@ -360,8 +360,8 @@ class LocationTracker: NSObject {
         // Get zone name from GeofenceEngine
         let zoneName = geofenceEngine.getZoneName(zoneId) ?? zoneId
         
-        // Calculate detection time (simplified - time since last location update)
-        let detectionTimeMs = location.timestamp.timeIntervalSinceNow * -1000.0 // Convert to milliseconds
+        // Use the detection duration passed from GeofenceEngine (already in milliseconds)
+        // This is the actual time it took to detect the geofence event, not GPS age
         
         // Get GPS accuracy
         let gpsAccuracy = location.horizontalAccuracy

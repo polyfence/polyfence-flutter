@@ -112,8 +112,8 @@ class LocationTracker : Service() {
         healthCheckHandler = android.os.Handler(Looper.getMainLooper())
         
         // Setup geofence engine callback
-        geofenceEngine.setEventCallback { zoneId, eventType, location ->
-            handleGeofenceEvent(zoneId, eventType, location)
+        geofenceEngine.setEventCallback { zoneId, eventType, location, detectionTimeMs ->
+            handleGeofenceEvent(zoneId, eventType, location, detectionTimeMs)
         }
 
         
@@ -361,16 +361,12 @@ class LocationTracker : Service() {
         }
     }
     
-private fun handleGeofenceEvent(zoneId: String, eventType: String, location: android.location.Location) {
+private fun handleGeofenceEvent(zoneId: String, eventType: String, location: android.location.Location, detectionTimeMs: Double) {
     // Get zone name from GeofenceEngine
     val zoneName = geofenceEngine.getZoneName(zoneId) ?: zoneId
     
-    // Calculate detection time (simplified - time since last location update)
-    val detectionTimeMs = if (location.time > 0) {
-        (System.currentTimeMillis() - location.time).toDouble()
-    } else {
-        0.0
-    }
+    // Use the detection duration passed from GeofenceEngine (already in milliseconds)
+    // This is the actual time it took to detect the geofence event, not GPS age
     
     // Get GPS accuracy
     val gpsAccuracy = if (location.hasAccuracy()) location.accuracy.toDouble() else 0.0
@@ -380,7 +376,7 @@ private fun handleGeofenceEvent(zoneId: String, eventType: String, location: and
     
     // Terse geofence event log
     val displayName = if (zoneName.isNotEmpty()) zoneName else zoneId
-    Log.i(TAG, "PF: EVENT $eventType zone=$displayName ts=${System.currentTimeMillis()}")
+    Log.i(TAG, "PF: EVENT $eventType zone=$displayName detection=${detectionTimeMs}ms ts=${System.currentTimeMillis()}")
     
     // Show notification with proper zone name
     showGeofenceNotification(eventType, zoneId, zoneName)

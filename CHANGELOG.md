@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **Improved detection time accuracy** (Android & iOS)
+  - Detection time now measures actual algorithm execution time (zone check start to event detection)
+  - Previously used GPS timestamp age, which was inaccurate
+  - Uses `System.nanoTime()` (Android) and `CFAbsoluteTimeGetCurrent()` (iOS) for precise timing
+  - More accurate analytics metrics for performance monitoring
+- **Analytics lifecycle management improvements**
+  - Plugin now automatically manages analytics session lifecycle via `AppLifecycleManager`
+  - Removed need for manual `startSession()`/`endSession()` calls in apps
+  - Analytics events are automatically recorded when geofence events occur
+  - Example apps updated to demonstrate automatic analytics handling
+
+### Fixed
+- Fixed detection time calculation to use actual algorithm execution time instead of GPS timestamp age
+- Removed redundant manual analytics lifecycle management from example apps
+
 ## [0.2.0] - 2025-12-23
 
 ### Added

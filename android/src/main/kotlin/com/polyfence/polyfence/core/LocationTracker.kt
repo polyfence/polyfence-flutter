@@ -79,6 +79,8 @@ class LocationTracker : Service() {
     // Wake Lock Management
     private var wakeLock: PowerManager.WakeLock? = null
     private var isWakeLockAcquired = false
+    private var wakeLockAcquireTime: Long = 0L
+    private val maxWakeLockDuration = 12 * 60 * 60 * 1000L  // 12 hours in milliseconds
     
     // Smart GPS Configuration
     private var smartConfig: SmartGpsConfig = SmartGpsConfig()
@@ -484,10 +486,86 @@ private fun handleGeofenceEvent(zoneId: String, eventType: String, location: and
         releaseWakeLock()
     }
     
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        super.onTaskRemoved(rootIntent)
+        
+        Log.i(TAG, "App task removed - cleaning up wake lock and stopping tracking")
+        
+        // Release wake lock when user swipes app away or force-stops
+        releaseWakeLock()
+        
+        // Stop tracking gracefully
+        if (isRunning) {
+            stopTracking()
+        }
+    }
+    
     // Wake Lock Management Methods
+    
+    /**
+     * Schedule health check to detect and release zombie wake locks
+     * Checks if wake lock has exceeded maximum duration and force-releases if needed
+     * Also handles auto-renewal if tracking continues beyond timeout
+     */
+    private fun scheduleWakeLockHealthCheck() {
+        healthCheckHandler?.removeCallbacksAndMessages(null)
+        
+        // Check every hour, or when approaching timeout (whichever is sooner)
+        val checkInterval = 60 * 60 * 1000L // 1 hour
+        
+        healthCheckHandler?.postDelayed({
+            if (wakeLock?.isHeld == true && isWakeLockAcquired) {
+                val age = System.currentTimeMillis() - wakeLockAcquireTime
+                val remainingTime = maxWakeLockDuration - age
+                
+                // If wake lock is approaching expiration (within 1 hour) and tracking is still active, renew it
+                if (remainingTime < 60 * 60 * 1000L && isRunning) {
+                    Log.i(TAG, "Wake lock approaching timeout (${remainingTime / 1000 / 60}min remaining) - auto-renewing for continued tracking")
+                    
+                    // Release old wake lock and re-acquire with fresh 12-hour timeout
+                    releaseWakeLock()
+                    acquireWakeLock()
+                    return@postDelayed
+                }
+                
+                // If wake lock exceeded timeout (shouldn't happen with Android's built-in timeout, but safety net)
+                if (age > maxWakeLockDuration) {
+                    Log.w(TAG, "Wake lock exceeded ${maxWakeLockDuration / 1000 / 60 / 60}h timeout - force releasing")
+                    
+                    // Report error to Flutter layer
+                    val errorData = mapOf(
+                        "type" to "wake_lock_timeout",
+                        "message" to "Wake lock held beyond timeout - released automatically",
+                        "platform" to "android",
+                        "duration_hours" to (age / 1000 / 60 / 60),
+                        "timestamp" to System.currentTimeMillis()
+                    )
+                    PolyfencePlugin.sendError(errorData)
+                    
+                    // Force release wake lock
+                    releaseWakeLock()
+                    
+                    // If tracking is still active, re-acquire wake lock (auto-renewal)
+                    if (isRunning) {
+                        Log.i(TAG, "Re-acquiring wake lock for continued tracking")
+                        acquireWakeLock()
+                    }
+                } else {
+                    // Wake lock still valid - schedule next check
+                    val nextCheckTime = remainingTime.coerceAtMost(checkInterval)
+                    healthCheckHandler?.postDelayed({
+                        scheduleWakeLockHealthCheck()
+                    }, nextCheckTime)
+                }
+            }
+        }, checkInterval)
+    }
     
     private fun acquireWakeLock() {
         try {
+            // Release any existing lock first (defensive)
+            releaseWakeLock()
+            
             if (wakeLock == null) {
                 val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
                 wakeLock = powerManager.newWakeLock(
@@ -497,11 +575,16 @@ private fun handleGeofenceEvent(zoneId: String, eventType: String, location: and
             }
             
             if (!isWakeLockAcquired) {
-                // Use indefinite wake lock for foreground service
-                // Properly released in releaseWakeLock() when tracking stops
-                wakeLock?.acquire()
+                // Acquire wake lock with 12-hour timeout for battery safety
+                // Auto-released after timeout or when tracking stops
+                wakeLock?.acquire(maxWakeLockDuration)
                 isWakeLockAcquired = true
-                Log.d(TAG, "Wake lock acquired for location tracking")
+                wakeLockAcquireTime = System.currentTimeMillis()
+                
+                Log.i(TAG, "Wake lock acquired with ${maxWakeLockDuration / 1000 / 60 / 60}h timeout")
+                
+                // Schedule health check to monitor wake lock age
+                scheduleWakeLockHealthCheck()
             }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to acquire wake lock: ${e.message}")
@@ -512,9 +595,20 @@ private fun handleGeofenceEvent(zoneId: String, eventType: String, location: and
     private fun releaseWakeLock() {
         try {
             if (isWakeLockAcquired) {
+                val holdDuration = if (wakeLockAcquireTime > 0) {
+                    System.currentTimeMillis() - wakeLockAcquireTime
+                } else {
+                    0L
+                }
+                
                 wakeLock?.release()
                 isWakeLockAcquired = false
-                Log.d(TAG, "Wake lock released")
+                wakeLockAcquireTime = 0L
+                
+                // Cancel health check when wake lock is released
+                healthCheckHandler?.removeCallbacksAndMessages(null)
+                
+                Log.i(TAG, "Wake lock released after ${holdDuration / 1000 / 60}min")
             }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to release wake lock: ${e.message}")

@@ -28,8 +28,8 @@ class GeofenceEngine {
     // GPS accuracy threshold in meters (default: 100m to match Android)
     private var gpsAccuracyThreshold: Double = 100.0
     
-    // Event callbacks
-    private var eventCallback: ((String, String, CLLocation) -> Void)?
+    // Event callbacks - includes detection time in milliseconds
+    private var eventCallback: ((String, String, CLLocation, Double) -> Void)?
     
     // Performance tracking
     private var performanceMetrics: [String: Double] = [:]
@@ -48,8 +48,9 @@ class GeofenceEngine {
     
     /**
      * Set callback for geofence events
+     * Callback receives: zoneId, eventType, location, detectionTimeMs
      */
-    func setEventCallback(_ callback: @escaping (String, String, CLLocation) -> Void) {
+    func setEventCallback(_ callback: @escaping (String, String, CLLocation, Double) -> Void) {
         eventCallback = callback
     }
     
@@ -241,12 +242,12 @@ class GeofenceEngine {
             let stateChanged: Bool
             if useConfirmation {
                 let confidenceStartTime = CFAbsoluteTimeGetCurrent()
-                stateChanged = processWithConfidence(zoneId: zoneId, zone: zone, isInside: isInside, currentState: currentState, currentTime: Date().timeIntervalSince1970, location: location)
+                stateChanged = processWithConfidence(zoneId: zoneId, zone: zone, isInside: isInside, currentState: currentState, currentTime: Date().timeIntervalSince1970, location: location, checkStartTime: zoneStartTime)
                 let confidenceDuration = CFAbsoluteTimeGetCurrent() - confidenceStartTime
                 totalConfidenceTime += confidenceDuration
             } else {
                 // Original logic for immediate detection
-                stateChanged = processImmediate(zoneId: zoneId, zone: zone, isInside: isInside, currentState: currentState, location: location)
+                stateChanged = processImmediate(zoneId: zoneId, zone: zone, isInside: isInside, currentState: currentState, location: location, checkStartTime: zoneStartTime)
                 if stateChanged {
                     // Zone state changed
                 }
@@ -319,7 +320,7 @@ class GeofenceEngine {
     /**
      * Process with confidence validation - returns true if state changed (ported from Android)
      */
-    private func processWithConfidence(zoneId: String, zone: ZoneData, isInside: Bool, currentState: Bool, currentTime: TimeInterval, location: CLLocation) -> Bool {
+    private func processWithConfidence(zoneId: String, zone: ZoneData, isInside: Bool, currentState: Bool, currentTime: TimeInterval, location: CLLocation, checkStartTime: CFAbsoluteTime) -> Bool {
         let confidence = syncQueue.sync { self.zoneConfidence[zoneId] ?? ZoneConfidence() }
         // Persist confidence across calls
         syncQueue.sync { self.zoneConfidence[zoneId] = confidence }
@@ -346,8 +347,11 @@ class GeofenceEngine {
                 self.zoneConfidence[zoneId]?.confirmedState = isInside
             }
             
+            // Calculate detection time: from start of zone check to now (in milliseconds)
+            let detectionTimeMs = (CFAbsoluteTimeGetCurrent() - checkStartTime) * 1000.0
+            
             let eventType = isInside ? "ENTER" : "EXIT"
-            eventCallback?(zoneId, eventType, location)
+            eventCallback?(zoneId, eventType, location, detectionTimeMs)
             
             // Reset confidence after successful event
             syncQueue.sync {
@@ -372,7 +376,7 @@ class GeofenceEngine {
     /**
      * Process immediate detection without confidence validation
      */
-    private func processImmediate(zoneId: String, zone: ZoneData, isInside: Bool, currentState: Bool, location: CLLocation) -> Bool {
+    private func processImmediate(zoneId: String, zone: ZoneData, isInside: Bool, currentState: Bool, location: CLLocation, checkStartTime: CFAbsoluteTime) -> Bool {
         do {
             // Check what happens when we detect a state change
             if isInside != currentState {
@@ -380,8 +384,11 @@ class GeofenceEngine {
                 
                 syncQueue.sync { self.zoneStates[zoneId] = isInside }
                 
+                // Calculate detection time: from start of zone check to now (in milliseconds)
+                let detectionTimeMs = (CFAbsoluteTimeGetCurrent() - checkStartTime) * 1000.0
+                
                 let eventType = isInside ? "ENTER" : "EXIT"
-                eventCallback?(zoneId, eventType, location)
+                eventCallback?(zoneId, eventType, location, detectionTimeMs)
             }
             
             return isInside != currentState

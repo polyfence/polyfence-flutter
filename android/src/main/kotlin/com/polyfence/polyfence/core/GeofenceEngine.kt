@@ -68,8 +68,8 @@ class GeofenceEngine {
     // GPS accuracy threshold in meters (default: 100m for platform parity)
     private var gpsAccuracyThreshold = 100.0f
     
-    // Event callback
-    private var eventCallback: ((String, String, Location) -> Unit)? = null
+    // Event callback - includes detection time in milliseconds
+    private var eventCallback: ((String, String, Location, Double) -> Unit)? = null
     
     
     /**
@@ -148,8 +148,9 @@ fun getZoneName(zoneId: String): String? {
     
     /**
      * Set callback for zone events
+     * Callback receives: zoneId, eventType, location, detectionTimeMs
      */
-    fun setEventCallback(callback: (String, String, Location) -> Unit) {
+    fun setEventCallback(callback: (String, String, Location, Double) -> Unit) {
         eventCallback = callback
     }
     
@@ -172,6 +173,7 @@ fun getZoneName(zoneId: String): String? {
 
         zones.forEach { (zoneId, zone) ->
             zoneCheckCount++
+            val zoneCheckStartTime = System.nanoTime() // Start timing for this zone
             val currentState = zoneStates[zoneId] ?: false
             
             // Precise algorithm timing
@@ -190,12 +192,12 @@ fun getZoneName(zoneId: String): String? {
             val stateChanged: Boolean
             if (useConfirmation) {
                 val confidenceStartTime = System.nanoTime()
-                stateChanged = processWithConfidence(zoneId, zone, isInside, currentState, System.currentTimeMillis(), location)
+                stateChanged = processWithConfidence(zoneId, zone, isInside, currentState, System.currentTimeMillis(), location, zoneCheckStartTime)
                 val confidenceDuration = System.nanoTime() - confidenceStartTime
                 totalConfidenceTime += confidenceDuration
             } else {
                 // Original logic for immediate detection
-                stateChanged = processImmediate(zoneId, zone, isInside, currentState, location)
+                stateChanged = processImmediate(zoneId, zone, isInside, currentState, location, zoneCheckStartTime)
             }
 
         }
@@ -225,7 +227,8 @@ fun getZoneName(zoneId: String): String? {
         isInside: Boolean, 
         currentState: Boolean, 
         currentTime: Long,
-        location: Location
+        location: Location,
+        checkStartTime: Long
     ): Boolean {
         val confidence = zoneConfidence.getOrPut(zoneId) { ZoneConfidence() }
         
@@ -253,8 +256,11 @@ fun getZoneName(zoneId: String): String? {
             zoneStates[zoneId] = isInside
             confidence.confirmedState = isInside
             
+            // Calculate detection time: from start of zone check to now (in milliseconds)
+            val detectionTimeMs = (System.nanoTime() - checkStartTime) / 1_000_000.0
+            
             val eventType = if (isInside) "ENTER" else "EXIT"
-            eventCallback?.invoke(zoneId, eventType, location)
+            eventCallback?.invoke(zoneId, eventType, location, detectionTimeMs)
             
             // Reset confidence after successful event
             confidence.insideCount = 0
@@ -280,12 +286,17 @@ fun getZoneName(zoneId: String): String? {
         zone: ZoneData,
         isInside: Boolean,
         currentState: Boolean,
-        location: Location
+        location: Location,
+        checkStartTime: Long
     ): Boolean {
         if (currentState != isInside) {
             zoneStates[zoneId] = isInside
+            
+            // Calculate detection time: from start of zone check to now (in milliseconds)
+            val detectionTimeMs = (System.nanoTime() - checkStartTime) / 1_000_000.0
+            
             val eventType = if (isInside) "ENTER" else "EXIT"
-            eventCallback?.invoke(zoneId, eventType, location)
+            eventCallback?.invoke(zoneId, eventType, location, detectionTimeMs)
             return true // State changed
         }
         return false // No state change

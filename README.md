@@ -65,7 +65,7 @@ dependencies:
 # polyfence: ^0.2.0
 ```
 
-**Current version:** 0.2.3
+**Current version:** 0.2.4
 
 Then run:
 
@@ -787,8 +787,16 @@ There's no difference. "Demo zones" in the example app are just hardcoded `Zone`
 **Analytics behavior:**
 - Analytics data collection happens automatically (no configuration needed)
 - The plugin automatically records analytics when geofence events occur
-- **Sending is opt-in only** - only sends to API if `enabled: true` in config
+- **Plugin is the master decider for sending** - checks environment variables at build time
+- Apps cannot override plugin's analytics decision - plugin controls all sending
+- **Sending is opt-in only** - plugin checks `POLYFENCE_ANALYTICS_ENABLED` environment variable
 - Requires an explicit API key for sending. Most users never enable sending.
+
+**Plugin-level configuration:**
+```bash
+# Build with analytics enabled at plugin level
+flutter build apk --dart-define=POLYFENCE_ANALYTICS_ENABLED=true --dart-define=POLYFENCE_API_KEY=your_key
+```
 
 **Note:** When analytics is enabled, the plugin automatically manages analytics session lifecycle (start/end sessions based on app lifecycle). Apps don't need to manually call `startSession()` or `endSession()` - the plugin handles this automatically via `AppLifecycleManager`.
 

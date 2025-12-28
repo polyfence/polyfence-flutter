@@ -164,7 +164,8 @@ class PolyfenceService {
     AnalyticsConfig? analyticsConfig,
   }) async {
     if (_isDisposed) {
-      throw StateError('PolyfenceService has been disposed and cannot be reused');
+      throw StateError(
+          'PolyfenceService has been disposed and cannot be reused');
     }
 
     if (_isInitialized) {
@@ -175,9 +176,34 @@ class PolyfenceService {
       await _platform.initialize(licenseKey: licenseKey, config: config);
 
       // Initialize analytics - data collection happens automatically
-      // Plugin controls sending based on enabled: true in config (opt-in)
-      final analyticsConfigToUse = analyticsConfig ?? const AnalyticsConfig(enabled: false);
-      
+      // Plugin is the master decider for sending: checks environment variables
+      // Apps don't need to pass config - plugin decides independently
+      // If app passes analyticsConfig, it is ignored - plugin's decision is final
+      final String analyticsEnabledEnv = const String.fromEnvironment(
+        'POLYFENCE_ANALYTICS_ENABLED',
+        defaultValue: 'false',
+      );
+      final bool pluginLevelEnabled =
+          analyticsEnabledEnv.toLowerCase() == 'true';
+
+      final String apiKeyEnv =
+          const String.fromEnvironment('POLYFENCE_API_KEY', defaultValue: '');
+      final String apiEndpointEnv = const String.fromEnvironment(
+          'POLYFENCE_API_ENDPOINT',
+          defaultValue: '');
+
+      // Plugin is the sole master decider - always uses environment variables
+      // App config is ignored - plugin's decision cannot be overridden
+      final analyticsConfigToUse = AnalyticsConfig(
+        enabled: pluginLevelEnabled,
+        apiKey: apiKeyEnv.isEmpty ? null : apiKeyEnv,
+        apiEndpoint: apiEndpointEnv.isEmpty ? null : apiEndpointEnv,
+        // Preserve app-provided metadata if provided (industryCategory, useCase)
+        // but plugin controls enabled/API settings
+        industryCategory: analyticsConfig?.industryCategory,
+        useCase: analyticsConfig?.useCase,
+      );
+
       // Get plugin version from package info
       final packageInfo = await PackageInfo.fromPlatform();
       await PolyfenceAnalytics.instance.initialize(
@@ -207,14 +233,16 @@ class PolyfenceService {
 
       _isInitialized = true;
     } on PlatformException catch (e) {
-      throw PlatformOperationException('initialize', e.message ?? 'Unknown error');
+      throw PlatformOperationException(
+          'initialize', e.message ?? 'Unknown error');
     }
   }
 
   /// Add a zone for monitoring
   Future<void> addZone(Zone zone) async {
     if (_isDisposed) {
-      throw StateError('PolyfenceService has been disposed and cannot be reused');
+      throw StateError(
+          'PolyfenceService has been disposed and cannot be reused');
     }
     if (!_isInitialized) throw PolyfenceNotInitializedException();
     final stopwatch = Stopwatch()..start();
@@ -246,7 +274,8 @@ class PolyfenceService {
   /// Throws [PlatformOperationException] if platform error occurs.
   Future<void> removeZone(String zoneId) async {
     if (_isDisposed) {
-      throw StateError('PolyfenceService has been disposed and cannot be reused');
+      throw StateError(
+          'PolyfenceService has been disposed and cannot be reused');
     }
     if (!_isInitialized) throw PolyfenceNotInitializedException();
 
@@ -257,7 +286,8 @@ class PolyfenceService {
     try {
       await _platform.removeZone(zoneId);
     } on PlatformException catch (e) {
-      throw PlatformOperationException('removeZone', e.message ?? 'Unknown error');
+      throw PlatformOperationException(
+          'removeZone', e.message ?? 'Unknown error');
     }
   }
 
@@ -283,7 +313,8 @@ class PolyfenceService {
     try {
       await _platform.clearAllZones();
     } on PlatformException catch (e) {
-      throw PlatformOperationException('clearAllZones', e.message ?? 'Unknown error');
+      throw PlatformOperationException(
+          'clearAllZones', e.message ?? 'Unknown error');
     }
   }
 
@@ -332,21 +363,24 @@ class PolyfenceService {
   /// Throws [PlatformOperationException] if location services disabled or permissions denied.
   Future<void> startTracking() async {
     if (_isDisposed) {
-      throw StateError('PolyfenceService has been disposed and cannot be reused');
+      throw StateError(
+          'PolyfenceService has been disposed and cannot be reused');
     }
     if (!_isInitialized) throw PolyfenceNotInitializedException();
 
     // Check if location services are enabled
     final isEnabled = await _platform.isLocationServiceEnabled();
     if (!isEnabled) {
-      throw PlatformOperationException('startTracking', 'Location services not enabled');
+      throw PlatformOperationException(
+          'startTracking', 'Location services not enabled');
     }
 
     // Request permissions if needed
     final hasPermissions = await _platform.requestPermissions();
     if (!hasPermissions) {
       PolyfenceAnalytics.instance.recordError('permission_denied');
-      throw PlatformOperationException('startTracking', 'Location permissions not granted');
+      throw PlatformOperationException(
+          'startTracking', 'Location permissions not granted');
     }
 
     // Start tracking on native platform
@@ -354,7 +388,8 @@ class PolyfenceService {
       await _platform.startTracking();
     } on PlatformException catch (e) {
       PolyfenceAnalytics.instance.recordError('tracking_start_failed');
-      throw PlatformOperationException('startTracking', e.message ?? 'Unknown error');
+      throw PlatformOperationException(
+          'startTracking', e.message ?? 'Unknown error');
     }
   }
 
@@ -372,14 +407,16 @@ class PolyfenceService {
   /// Throws [PlatformOperationException] if platform error occurs.
   Future<void> stopTracking() async {
     if (_isDisposed) {
-      throw StateError('PolyfenceService has been disposed and cannot be reused');
+      throw StateError(
+          'PolyfenceService has been disposed and cannot be reused');
     }
     if (!_isInitialized) throw PolyfenceNotInitializedException();
 
     try {
       await _platform.stopTracking();
     } on PlatformException catch (e) {
-      throw PlatformOperationException('stopTracking', e.message ?? 'Unknown error');
+      throw PlatformOperationException(
+          'stopTracking', e.message ?? 'Unknown error');
     }
   }
 
@@ -498,7 +535,8 @@ class PolyfenceService {
       final config = await _platform.getConfiguration();
       return config;
     } on PlatformException catch (e) {
-      throw PlatformOperationException('configuration', e.message ?? 'Unknown error');
+      throw PlatformOperationException(
+          'configuration', e.message ?? 'Unknown error');
     }
   }
 
@@ -523,7 +561,8 @@ class PolyfenceService {
     try {
       await _platform.updateConfiguration(config);
     } on PlatformException catch (e) {
-      throw PlatformOperationException('updateConfiguration', e.message ?? 'Unknown error');
+      throw PlatformOperationException(
+          'updateConfiguration', e.message ?? 'Unknown error');
     }
   }
 
@@ -545,7 +584,8 @@ class PolyfenceService {
     try {
       await _platform.resetConfiguration();
     } on PlatformException catch (e) {
-      throw PlatformOperationException('resetConfiguration', e.message ?? 'Unknown error');
+      throw PlatformOperationException(
+          'resetConfiguration', e.message ?? 'Unknown error');
     }
   }
 
@@ -577,7 +617,8 @@ class PolyfenceService {
       final result = await _platform.requestPermissions(always: always);
       return result;
     } on PlatformException catch (e) {
-      throw PlatformOperationException('requestPermissions', e.message ?? 'Unknown error');
+      throw PlatformOperationException(
+          'requestPermissions', e.message ?? 'Unknown error');
     }
   }
 
@@ -603,7 +644,8 @@ class PolyfenceService {
       final result = await _platform.isLocationServiceEnabled();
       return result;
     } on PlatformException catch (e) {
-      throw PlatformOperationException('isLocationServiceEnabled', e.message ?? 'Unknown error');
+      throw PlatformOperationException(
+          'isLocationServiceEnabled', e.message ?? 'Unknown error');
     }
   }
 
@@ -637,7 +679,8 @@ class PolyfenceService {
       final result = await _platform.checkBatteryOptimization();
       return Map<String, dynamic>.from(result);
     } on PlatformException catch (e) {
-      throw PlatformOperationException('batteryOptimizationStatus', e.message ?? 'Unknown error');
+      throw PlatformOperationException(
+          'batteryOptimizationStatus', e.message ?? 'Unknown error');
     }
   }
 
@@ -671,7 +714,8 @@ class PolyfenceService {
       final result = await _platform.requestBatteryOptimizationExemption();
       return result;
     } on PlatformException catch (e) {
-      throw PlatformOperationException('requestBatteryOptimizationExemption', e.message ?? 'Unknown error');
+      throw PlatformOperationException(
+          'requestBatteryOptimizationExemption', e.message ?? 'Unknown error');
     }
   }
 
@@ -701,7 +745,8 @@ class PolyfenceService {
       final result = await _platform.getDebugInfo();
       return PolyfenceDebugInfo.fromMap(Map<String, dynamic>.from(result));
     } on PlatformException catch (e) {
-      throw PlatformOperationException('debugInfo', e.message ?? 'Unknown error');
+      throw PlatformOperationException(
+          'debugInfo', e.message ?? 'Unknown error');
     }
   }
 
@@ -763,7 +808,8 @@ class PolyfenceService {
           .map((e) => PolyfenceErrorSummary.fromMap(e))
           .toList();
     } on PlatformException catch (e) {
-      throw PlatformOperationException('errorHistory', e.message ?? 'Unknown error');
+      throw PlatformOperationException(
+          'errorHistory', e.message ?? 'Unknown error');
     }
   }
 
@@ -804,7 +850,8 @@ class PolyfenceService {
       // Update local configuration
       _currentConfiguration = config;
     } on PlatformException catch (e) {
-      throw PlatformOperationException('updateConfiguration', e.message ?? 'Unknown error');
+      throw PlatformOperationException(
+          'updateConfiguration', e.message ?? 'Unknown error');
     }
   }
 
@@ -830,7 +877,8 @@ class PolyfenceService {
       _currentConfiguration = PolyfenceConfiguration.fromMap(result);
       return _currentConfiguration;
     } on PlatformException catch (e) {
-      throw PlatformOperationException('gpsConfiguration', e.message ?? 'Unknown error');
+      throw PlatformOperationException(
+          'gpsConfiguration', e.message ?? 'Unknown error');
     }
   }
 
@@ -1051,7 +1099,6 @@ class PolyfenceService {
       } catch (_) {
         // Platform disposal is best-effort
       }
-
     } catch (e) {
       // Log disposal error but don't throw (disposal should never fail)
       // ignore: avoid_print

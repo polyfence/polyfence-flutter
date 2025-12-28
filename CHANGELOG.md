@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.4] - 2025-12-26
+
+### Changed
+- **Plugin-level analytics decision making**
+  - Plugin is now the sole master decider for analytics sending
+  - Plugin checks environment variables (`POLYFENCE_ANALYTICS_ENABLED`, `POLYFENCE_API_KEY`, `POLYFENCE_API_ENDPOINT`) at build time
+  - Apps no longer control analytics sending - plugin's decision cannot be overridden
+  - Apps can still provide metadata (`industryCategory`, `useCase`) but cannot control `enabled`/`apiKey`/`apiEndpoint`
+  - Enables plugin-level configuration without requiring app code changes
+  - Build with: `--dart-define=POLYFENCE_ANALYTICS_ENABLED=true --dart-define=POLYFENCE_API_KEY=your_key`
+
+### Breaking Changes
+- Apps passing `analyticsConfig(enabled: true)` will have their `enabled` setting ignored
+- Plugin now uses environment variables for analytics configuration instead of app-provided config
+- Apps should remove `analyticsConfig` parameter from `initialize()` calls
+
 ## [0.2.3] - 2025-12-26
 
 ### Changed

@@ -283,13 +283,11 @@ class LocationTracker : Service() {
                     Log.w(TAG, "Location permission revoked - stopping tracking gracefully")
 
                     // Report error to Flutter layer
-                    val errorData = mapOf(
-                        "type" to "permission_revoked",
-                        "message" to "Location permission was revoked by user during tracking",
-                        "platform" to "android",
-                        "timestamp" to System.currentTimeMillis()
+                    PolyfenceErrorManager.reportError(
+                        "permission_revoked",
+                        "Location permission was revoked by user during tracking",
+                        mapOf("platform" to "android", "timestamp" to System.currentTimeMillis())
                     )
-                    PolyfencePlugin.sendError(errorData)
 
                     // Stop tracking gracefully
                     stopTracking()
@@ -533,14 +531,15 @@ private fun handleGeofenceEvent(zoneId: String, eventType: String, location: and
                     Log.w(TAG, "Wake lock exceeded ${maxWakeLockDuration / 1000 / 60 / 60}h timeout - force releasing")
                     
                     // Report error to Flutter layer
-                    val errorData = mapOf(
-                        "type" to "wake_lock_timeout",
-                        "message" to "Wake lock held beyond timeout - released automatically",
-                        "platform" to "android",
-                        "duration_hours" to (age / 1000 / 60 / 60),
-                        "timestamp" to System.currentTimeMillis()
+                    PolyfenceErrorManager.reportError(
+                        "wake_lock_timeout",
+                        "Wake lock held beyond timeout - released automatically",
+                        mapOf(
+                            "platform" to "android",
+                            "duration_hours" to (age / 1000 / 60 / 60),
+                            "timestamp" to System.currentTimeMillis()
+                        )
                     )
-                    PolyfencePlugin.sendError(errorData)
                     
                     // Force release wake lock
                     releaseWakeLock()

@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.2] - 2025-12-26
+
+### Changed
+- **Analytics data collection now automatic**
+  - Analytics always initializes and collects data automatically (no app configuration needed)
+  - Apps no longer need to pass `analyticsConfig` for data collection
+  - Plugin automatically records analytics when geofence events occur
+  - Plugin controls sending: only sends to API if `enabled: true` in config (opt-in)
+  - Apps can still opt-in to sending by passing `analyticsConfig(enabled: true)`
+  - Privacy-first: data collected but not sent unless explicitly opted-in
+
+### Fixed
+- Fixed analytics initialization to always occur (even without config)
+- Fixed analytics data collection to work automatically without app-level gates
+- Apps now automatically collect and pass analytics data to plugin
+
 ## [0.2.1] - 2025-12-26
 
 ### Changed

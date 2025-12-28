@@ -65,7 +65,7 @@ dependencies:
 # polyfence: ^0.2.0
 ```
 
-**Current version:** 0.2.1
+**Current version:** 0.2.2
 
 Then run:
 
@@ -782,9 +782,13 @@ There's no difference. "Demo zones" in the example app are just hardcoded `Zone`
 **No, not by default.** All geofencing logic runs on-device. The plugin has zero network dependencies and makes no external API calls unless you:
 
 1. Explicitly fetch zones from an external API (your choice of API)
-2. Enable optional analytics by passing an `AnalyticsConfig` to `initialize()` with `enabled: true`
+2. Opt-in to analytics sending by passing an `AnalyticsConfig` to `initialize()` with `enabled: true`
 
-Analytics is **opt-in only** and requires an explicit API key. Most users never enable it.
+**Analytics behavior:**
+- Analytics data collection happens automatically (no configuration needed)
+- The plugin automatically records analytics when geofence events occur
+- **Sending is opt-in only** - only sends to API if `enabled: true` in config
+- Requires an explicit API key for sending. Most users never enable sending.
 
 **Note:** When analytics is enabled, the plugin automatically manages analytics session lifecycle (start/end sessions based on app lifecycle). Apps don't need to manually call `startSession()` or `endSession()` - the plugin handles this automatically via `AppLifecycleManager`.
 

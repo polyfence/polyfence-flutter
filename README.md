@@ -785,6 +785,8 @@ There's no difference. "Demo zones" in the example app are just hardcoded `Zone`
 
 Analytics is **opt-in only** and requires an explicit API key. Most users never enable it.
 
+**Note:** When analytics is enabled, the plugin automatically manages analytics session lifecycle (start/end sessions based on app lifecycle). Apps don't need to manually call `startSession()` or `endSession()` - the plugin handles this automatically via `AppLifecycleManager`.
+
 ### How do I switch from standalone to SaaS (or vice versa)?
 
 The plugin API is identical for all deployment modes. To switch:

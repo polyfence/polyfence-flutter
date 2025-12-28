@@ -133,8 +133,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         }
       }
 
-      // Initialize Polyfence plugin (analytics disabled by default - plugin handles this)
-      // To enable analytics, see: example/lib/analytics_example.dart
+      // Initialize Polyfence plugin
+      // Analytics is opt-out by default (privacy-first)
+      // To enable analytics, pass analyticsConfig with enabled: true
       await polyfence.Polyfence.instance.initialize();
 
       // Load zones from API (may still be down; no fallback)

@@ -26,6 +26,7 @@ abstract class PolyfencePlatform extends PlatformInterface {
   Future<void> startTracking();
   Future<void> stopTracking();
   Future<bool> requestPermissions({bool always = false});
+  Future<void> dispose();
 
   /// Check if location services are enabled
   Future<bool> isLocationServiceEnabled();
@@ -206,5 +207,18 @@ class MethodChannelPolyfence extends PolyfencePlatform {
     final result = await _channel
         .invokeMethod<Map<Object?, Object?>>('getCurrentConfiguration');
     return Map<String, dynamic>.from(result ?? {});
+  }
+
+  @override
+  Future<void> dispose() async {
+    // Cleanup platform resources
+    // Reset stream references to allow garbage collection
+    _locationStream = null;
+    _geofenceStream = null;
+    _errorStream = null;
+    _performanceStream = null;
+    
+    // Note: MethodChannel and EventChannels are managed by Flutter framework
+    // They will be cleaned up automatically when plugin is detached
   }
 }

@@ -1044,6 +1044,13 @@ class PolyfenceService {
       // 7. Reset initialization flag
       _isInitialized = false;
 
+      // 8. Notify platform of disposal
+      try {
+        await _platform.dispose();
+      } catch (_) {
+        // Platform disposal is best-effort
+      }
+
     } catch (e) {
       // Log disposal error but don't throw (disposal should never fail)
       // ignore: avoid_print

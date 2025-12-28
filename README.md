@@ -486,7 +486,7 @@ This can reduce GPS usage by 60-80% for users who spend time away from monitored
 
 ### Android Background Operation
 
-- **Wake Lock Management**: Automatically acquires `PARTIAL_WAKE_LOCK` during tracking (indefinite, properly released on stop)
+- **Wake Lock Management**: Automatically acquires `PARTIAL_WAKE_LOCK` during tracking with 12-hour timeout and auto-renewal (properly released on stop or timeout)
 - **Battery Optimization Bypass**: Built-in API to request exemption
 - **Foreground Service**: Uses `FOREGROUND_SERVICE_LOCATION` for background updates
 - **Auto-restart**: Service restarts if killed (limited to 3 attempts with cooldown)
@@ -659,6 +659,7 @@ await Polyfence.instance.stopTracking();
 
 ### Stream Subscription Management
 - Always cancel stream subscriptions in `dispose()` to prevent memory leaks
+- **Note:** The plugin automatically handles all resource cleanup including stream controllers, analytics sessions, and platform resources. Apps don't need to manually manage plugin lifecycle.
 - Example: `_geofenceSubscription?.cancel();`
 
 ### Zone Persistence & Synchronization

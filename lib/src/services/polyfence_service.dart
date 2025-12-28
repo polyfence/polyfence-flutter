@@ -174,18 +174,19 @@ class PolyfenceService {
     try {
       await _platform.initialize(licenseKey: licenseKey, config: config);
 
-      // Initialize analytics if configured
-      if (analyticsConfig != null) {
-        // Get plugin version from package info
-        final packageInfo = await PackageInfo.fromPlatform();
-        await PolyfenceAnalytics.instance.initialize(
-          config: analyticsConfig,
-          pluginVersion: packageInfo.version,
-        );
+      // Initialize analytics - data collection happens automatically
+      // Plugin controls sending based on enabled: true in config (opt-in)
+      final analyticsConfigToUse = analyticsConfig ?? const AnalyticsConfig(enabled: false);
+      
+      // Get plugin version from package info
+      final packageInfo = await PackageInfo.fromPlatform();
+      await PolyfenceAnalytics.instance.initialize(
+        config: analyticsConfigToUse,
+        pluginVersion: packageInfo.version,
+      );
 
-        // Initialize app lifecycle management for analytics
-        AppLifecycleManager.instance.initialize();
-      }
+      // Initialize app lifecycle management for analytics
+      AppLifecycleManager.instance.initialize();
 
       // Listen to SEPARATE streams
       _locationSubscription =

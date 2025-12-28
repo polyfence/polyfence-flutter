@@ -210,16 +210,16 @@ class PolyfenceAnalytics {
     // Get app identifier from package info
     _appIdentifier = await _getAppIdentifier();
 
-    // Start session if analytics is enabled (apiKey is optional)
-    if (config.enabled) {
-      startSession();
-    }
+    // Always start session - data collection happens automatically
+    // Plugin controls sending: only sends if enabled: true (opt-in)
+    startSession();
   }
 
   // Start a new analytics session
+  // Always starts session - data collection happens automatically
+  // Plugin controls sending: only sends if enabled: true (opt-in)
   void startSession() {
-    if (!(_config?.enabled ?? false)) return;
-
+    // Always create session for data collection
     _currentSession = SessionMetrics();
     _currentSession?.startSession();
 
@@ -230,8 +230,9 @@ class PolyfenceAnalytics {
   }
 
   // End current session and send data
+  // Always ends session - plugin controls sending via enabled field
   Future<void> endSession() async {
-    if (!(_config?.enabled ?? false) || _currentSession == null) return;
+    if (_currentSession == null) return;
 
     _currentSession?.endSession();
 
@@ -239,19 +240,26 @@ class PolyfenceAnalytics {
     final finalBattery = await _getBatteryLevel();
     _currentSession?.setBatteryLevel(finalBattery);
 
-    // Send session summary
+    // Send session summary (only if enabled: true - plugin controls opt-in)
     await _sendSessionSummary();
     _currentSession = null;
   }
 
   // Record a zone detection event
+  // Data collection happens automatically - plugin controls sending via enabled field
   void recordDetection({
     required double detectionTimeMs,
     required double gpsAccuracy,
     required String zoneType, // 'circle' or 'polygon'
   }) {
-    if (!(_config?.enabled ?? false)) return;
+    // Always collect data - analytics flows automatically
+    // Plugin controls sending: only sends if enabled: true (opt-in)
+    // Ensure session exists for data collection
+    if (_currentSession == null) {
+      startSession();
+    }
 
+    // Record data (collection happens automatically)
     _currentSession?.recordDetection(
       detectionTimeMs: detectionTimeMs,
       gpsAccuracy: gpsAccuracy,

@@ -20,6 +20,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Example apps updated to demonstrate automatic analytics handling
 
 ### Fixed
+- **Security: Wake lock timeout (Finding 2.2 - HIGH severity)**
+  - Added 12-hour timeout to wake lock with auto-renewal for continued tracking
+  - Added `onTaskRemoved()` handler for defensive cleanup when app is removed
+  - Added health check monitor to detect and handle zombie wake locks
+  - Prevents battery drain from indefinite wake lock holds
+- **Security: Memory leak fixes (Finding 2.1 - HIGH severity)**
+  - Added comprehensive resource cleanup in `dispose()` method
+  - Added `_statusController.close()` to prevent stream controller leaks
+  - Added analytics session cleanup and app lifecycle manager disposal
+  - Added platform disposal method for complete resource cleanup
+  - Prevents memory leaks when apps repeatedly initialize/dispose the plugin
 - Fixed detection time calculation to use actual algorithm execution time instead of GPS timestamp age
 - Removed redundant manual analytics lifecycle management from example apps
 

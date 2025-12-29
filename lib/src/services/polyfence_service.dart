@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
-import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/zone.dart';
 import '../models/location.dart';
@@ -13,6 +12,7 @@ import '../errors/polyfence_exceptions.dart';
 import '../debug/polyfence_debug_info.dart';
 import '../configuration/polyfence_configuration.dart';
 import '../utils/enum_utils.dart';
+import '../version.dart';
 import 'analytics_service.dart';
 import 'app_lifecycle_manager.dart';
 
@@ -175,9 +175,9 @@ class PolyfenceService {
     }
 
     try {
-      // Get plugin version from package info (single source of truth)
-      final packageInfo = await PackageInfo.fromPlatform();
-      final pluginVersion = packageInfo.version;
+      // Get plugin version from version constant (plugin's own version, not app's)
+      // This ensures we always use the plugin's version, not the app's version
+      final pluginVersion = polyfencePluginVersion;
 
       // Pass plugin version to native platforms for debug collectors
       await _platform.initialize(

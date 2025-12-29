@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.1] - 2025-12-29
+
+### Fixed
+- **Plugin version now correctly reported in analytics**
+  - Fixed bug where plugin was sending app's version (e.g., `1.0.0`) instead of plugin's own version (e.g., `0.3.0`)
+  - Plugin now uses version constant from `lib/src/version.dart` instead of `PackageInfo.fromPlatform()`
+  - Version constant automatically synced from `pubspec.yaml` via pre-commit hook
+  - Ensures accurate plugin version tracking in analytics and debug info
+
 ## [0.3.0] - 2025-12-29
 
 ### Changed

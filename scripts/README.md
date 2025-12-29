@@ -53,7 +53,7 @@ If you need to manually sync versions (e.g., after updating `pubspec.yaml`):
 This script will:
 1. Extract version from `pubspec.yaml`
 2. Update `ios/polyfence.podspec`
-3. Update `example/pubspec.yaml` (increments patch version, e.g., 0.2.5 -> 0.2.6)
+3. Update `example/pubspec.yaml` (matches plugin version exactly)
 
 ## Version Flow
 
@@ -70,6 +70,6 @@ Used in debug info, analytics, etc.
 ## Notes
 
 - **No hardcoding**: All versions come from `pubspec.yaml` or are passed from Flutter
-- **Example app**: Version increments patch number (e.g., plugin `0.2.5` -> example `0.2.6`)
+- **Example app**: Version matches plugin version exactly (e.g., both `0.2.5`)
 - **Native code**: Version is stored during initialization, so it's always current
 

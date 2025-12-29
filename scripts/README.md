@@ -53,7 +53,7 @@ If you need to manually sync versions (e.g., after updating `pubspec.yaml`):
 This script will:
 1. Extract version from `pubspec.yaml`
 2. Update `ios/polyfence.podspec`
-3. Update `example/pubspec.yaml` (adds `+1` build number)
+3. Update `example/pubspec.yaml` (increments patch version, e.g., 0.2.5 -> 0.2.6)
 
 ## Version Flow
 

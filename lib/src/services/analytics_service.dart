@@ -11,13 +11,15 @@ import 'package:battery_plus/battery_plus.dart';
 
 class AnalyticsConfig {
   final bool enabled;
+  final bool disableTelemetry; // Simple one-line opt-out
   final String? industryCategory;
   final String? useCase;
   final String? apiEndpoint;
-  final String? apiKey; // Required if enabled
+  final String? apiKey; // Optional - only needed for additional Polyfence.io services
 
   const AnalyticsConfig({
-    this.enabled = false, // Opt-in by default
+    this.enabled = true, // Enabled by default - anonymous plugin telemetry
+    this.disableTelemetry = false, // Set to true to disable all telemetry
     this.industryCategory,
     this.useCase,
     this.apiEndpoint,

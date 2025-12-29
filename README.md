@@ -339,7 +339,7 @@ flowchart TB
     end
 
     subgraph Optional["Optional External Services (Your Choice)"]
-        Analytics["Analytics<br/>(opt-in)"]
+        Analytics["Analytics<br/>(enabled by default, opt-out)"]
         API["Zone API<br/>(your backend)"]
     end
 
@@ -366,7 +366,7 @@ flowchart TB
 🔒 **Privacy First**
 - All geofencing calculations happen on-device using Haversine distance (circles) and Ray-casting (polygons)
 - Zero external API calls by default—everything in the green box stays local
-- Optional services (analytics, zone APIs) are clearly separated and opt-in only
+- Anonymous plugin telemetry enabled by default (easy opt-out), zone APIs are optional
 
 💾 **Automatic Persistence**
 - Zones automatically save to local storage (UserDefaults on iOS, SharedPreferences on Android)

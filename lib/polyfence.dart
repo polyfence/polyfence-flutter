@@ -1,8 +1,8 @@
 /// Privacy-first, on-device geofencing for Flutter.
 ///
 /// Polyfence provides accurate circle and polygon zone detection with true
-/// background operation. By default, no data leaves the device. Optional
-/// analytics is opt-in and requires an API key.
+/// background operation. No location data or PII ever transmitted. Anonymous
+/// plugin telemetry enabled by default (easy opt-out).
 ///
 /// ## Features
 ///

@@ -170,7 +170,12 @@ class PolyfencePlugin: FlutterPlugin, MethodCallHandler, ActivityAware {
     override fun onMethodCall(@NonNull call: MethodCall, @NonNull result: Result) {
         when (call.method) {
             "initialize" -> {
-                
+                // Extract plugin version from config if provided
+                val config = call.arguments<Map<String, Any>>()
+                val version = config?.get("pluginVersion") as? String
+                if (version != null) {
+                    PolyfenceDebugCollector.setPluginVersion(version)
+                }
                 result.success(null)
             }
             

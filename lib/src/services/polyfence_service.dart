@@ -173,7 +173,18 @@ class PolyfenceService {
     }
 
     try {
-      await _platform.initialize(licenseKey: licenseKey, config: config);
+      // Get plugin version from package info (single source of truth)
+      final packageInfo = await PackageInfo.fromPlatform();
+      final pluginVersion = packageInfo.version;
+
+      // Pass plugin version to native platforms for debug collectors
+      await _platform.initialize(
+        licenseKey: licenseKey,
+        config: {
+          ...?config,
+          'pluginVersion': pluginVersion, // Pass version to native
+        },
+      );
 
       // Initialize analytics - data collection happens automatically
       // Plugin is the master decider for sending: checks environment variables
@@ -204,11 +215,9 @@ class PolyfenceService {
         useCase: analyticsConfig?.useCase,
       );
 
-      // Get plugin version from package info
-      final packageInfo = await PackageInfo.fromPlatform();
       await PolyfenceAnalytics.instance.initialize(
         config: analyticsConfigToUse,
-        pluginVersion: packageInfo.version,
+        pluginVersion: pluginVersion,
       );
 
       // Initialize app lifecycle management for analytics

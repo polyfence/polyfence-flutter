@@ -122,6 +122,13 @@ public class PolyfencePlugin: NSObject, FlutterPlugin {
     
     private func initialize(arguments: Any?, result: @escaping FlutterResult) {
         do {
+            // Extract plugin version from config if provided
+            if let args = arguments as? [String: Any],
+               let configDict = args["config"] as? [String: Any],
+               let version = configDict["pluginVersion"] as? String {
+                PolyfenceDebugCollector.shared.setPluginVersion(version)
+            }
+            
             // Initialize configuration
             config = PolyfenceConfig()
             config?.validateAndCorrect()
@@ -419,7 +426,7 @@ extension PolyfencePlugin: FlutterStreamHandler {
                 "lastKnownAccuracy": -1.0,
                 "lastLocationUpdate": Date().timeIntervalSince1970 * 1000,
                 "platformVersion": UIDevice.current.systemVersion,
-                "pluginVersion": "0.2.4"
+                "pluginVersion": PolyfenceDebugCollector.shared.pluginVersion ?? "unknown"
             ],
             "performance": [
                 "uptime": 0,

@@ -17,8 +17,8 @@ echo "Syncing version $PLUGIN_VERSION across all files..."
 # Update iOS podspec
 sed -i '' "s/s.version.*=.*/s.version          = '$PLUGIN_VERSION'/" ios/polyfence.podspec
 
-# Update example app version to match plugin version exactly (no build number)
-EXAMPLE_VERSION="${PLUGIN_VERSION}"
+# Update example app version to match plugin version (with build number)
+EXAMPLE_VERSION="${PLUGIN_VERSION}+1"
 sed -i '' "s/^version:.*/version: $EXAMPLE_VERSION/" example/pubspec.yaml
 
 echo "✅ Version synced successfully!"

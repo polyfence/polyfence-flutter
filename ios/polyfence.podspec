@@ -1,6 +1,6 @@
 Pod::Spec.new do |s|
   s.name             = 'polyfence'
-  s.version          = '0.2.4'
+  s.version          = '0.2.5'
   s.summary          = 'Privacy-first polygon and circle geofencing for Flutter'
   s.description      = <<-DESC
 Privacy-first polygon and circle geofencing for Flutter. True background tracking without external dependencies.

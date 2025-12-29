@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.5] - 2025-12-26
+
+### Fixed
+- **Automatic version syncing from single source of truth**
+  - Plugin version now automatically synced from `pubspec.yaml` (single source of truth)
+  - Version passed from Flutter to native platforms during `initialize()`
+  - Removed all hardcoded versions from Android and iOS debug collectors
+  - Native code now uses version received from Flutter (no hardcoding)
+  - Example app version automatically synced with plugin version via `scripts/sync_version.sh`
+  - All version references now come from `pubspec.yaml` or Flutter
+  - Fixes issue where native code had outdated hardcoded versions (1.0.0, 0.1.0, 0.2.4)
+
+### Added
+- `scripts/sync_version.sh` - Script to sync plugin version across all files
+- `scripts/README.md` - Documentation for version synchronization system
+
 ## [0.2.4] - 2025-12-26
 
 ### Changed

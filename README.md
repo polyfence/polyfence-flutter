@@ -1,6 +1,6 @@
 # <img alt="Polyfence logo" src="https://github.com/user-attachments/assets/35b8fa0a-64e9-4f2a-a162-a4ae2573498d" width="48" height="48" /> Polyfence
 
-**Privacy-first, on-device geofencing for Flutter.** Accurate circle & polygon zone detection with true background operation. By default, no data leaves the device. Optional analytics is **opt‑in** and requires an **API key**.
+**Privacy-first, on-device geofencing for Flutter.** Accurate circle & polygon zone detection with true background operation. No location data or PII ever transmitted. Anonymous plugin telemetry enabled by default ([opt-out](#telemetry-opt-out)).
 
 ![GitHub](https://img.shields.io/badge/github-polyfence--plugin-blue)
 
@@ -65,7 +65,7 @@ dependencies:
 # polyfence: ^0.2.0
 ```
 
-**Current version:** 0.2.5
+**Current version:** 0.3.0
 
 Then run:
 
@@ -779,26 +779,34 @@ There's no difference. "Demo zones" in the example app are just hardcoded `Zone`
 
 ### Does the plugin send any data to external servers?
 
-**No, not by default.** All geofencing logic runs on-device. The plugin has zero network dependencies and makes no external API calls unless you:
+**Yes, anonymous plugin telemetry is sent by default** (easy opt-out). No location data or PII is ever transmitted.
 
-1. Explicitly fetch zones from an external API (your choice of API)
-2. Opt-in to analytics sending by passing an `AnalyticsConfig` to `initialize()` with `enabled: true`
+**What's sent automatically:**
+- Anonymous plugin performance metrics (detection times, battery usage, error counts)
+- App package name and platform (Android/iOS)
+- Plugin version
 
-**Analytics behavior:**
-- Analytics data collection happens automatically (no configuration needed)
-- The plugin automatically records analytics when geofence events occur
-- **Plugin is the master decider for sending** - checks environment variables at build time
-- Apps cannot override plugin's analytics decision - plugin controls all sending
-- **Sending is opt-in only** - plugin checks `POLYFENCE_ANALYTICS_ENABLED` environment variable
-- Requires an explicit API key for sending. Most users never enable sending.
+**What's NEVER sent:**
+- GPS coordinates or location data
+- Zone definitions or boundaries
+- User identifiers or personal information
 
-**Plugin-level configuration:**
-```bash
-# Build with analytics enabled at plugin level
-flutter build apk --dart-define=POLYFENCE_ANALYTICS_ENABLED=true --dart-define=POLYFENCE_API_KEY=your_key
+**See full details:** [Telemetry Reference](docs/TELEMETRY.md)
+
+**Opt-out (one line):**
+```dart
+await Polyfence.instance.initialize(
+  analyticsConfig: AnalyticsConfig(
+    disableTelemetry: true,
+  ),
+);
 ```
 
-**Note:** When analytics is enabled, the plugin automatically manages analytics session lifecycle (start/end sessions based on app lifecycle). Apps don't need to manually call `startSession()` or `endSession()` - the plugin handles this automatically via `AppLifecycleManager`.
+**Other network calls:**
+- If you fetch zones from an external API (your choice)
+- No other network calls are made
+
+**Note:** The plugin automatically manages analytics session lifecycle (start/end sessions based on app lifecycle). Apps don't need to manually call `startSession()` or `endSession()`—the plugin handles this automatically.
 
 ### How do I switch from standalone to SaaS (or vice versa)?
 
@@ -839,13 +847,57 @@ No code changes needed beyond how you obtain the `Zone` objects.
 
 ## 🔒 Privacy & Security
 
-- **On-device only**: All geofencing logic runs locally using native GPS APIs
-- **No data transmission by default**: Zero network calls unless you explicitly fetch zones from an API
-- **Optional analytics**: Analytics is opt-in and requires explicit API key configuration
-- **GDPR/CCPA-friendly by design**: No tracking, no telemetry, no external services by default
-- **Local persistence**: Zones stored in SharedPreferences (Android) / UserDefaults (iOS)—never sent to external servers
+Polyfence is built with privacy as the foundation. Here's what we protect and what we collect:
 
-**Privacy guarantee:** By default, Polyfence never transmits location data, zone definitions, or any user information to external servers. Your data stays on the user's device.
+### What We NEVER Send
+
+- ❌ **GPS coordinates** or location data
+- ❌ **Zone definitions** or boundaries
+- ❌ **User identifiers** (name, email, phone, device ID)
+- ❌ **Personal information** of any kind
+
+**Your users' location data stays on their device. Always.**
+
+### Anonymous Plugin Telemetry (Enabled by Default)
+
+To monitor plugin performance and improve reliability, Polyfence sends **anonymous performance metrics**:
+
+✅ **What's sent:**
+- Plugin version and platform (Android/iOS)
+- App package name (e.g., "com.example.logistics")
+- Performance metrics (detection times, GPS accuracy averages)
+- Battery impact statistics
+- Error counts and types
+- Zone type usage (circle/polygon counts—not locations)
+
+✅ **Why we need this:**
+- Detect performance issues early
+- Optimize battery usage
+- Fix bugs faster
+- Improve reliability across devices
+
+✅ **See exactly what's sent:** [Full Telemetry Reference](docs/TELEMETRY.md)
+
+### Telemetry Opt-Out
+
+Disable telemetry with one line of code:
+
+```dart
+await Polyfence.instance.initialize(
+  analyticsConfig: AnalyticsConfig(
+    disableTelemetry: true, // ← Disable all telemetry
+  ),
+);
+```
+
+### Architecture Guarantees
+
+- **On-device geofencing**: All zone detection runs locally using native GPS APIs
+- **Local persistence**: Zones stored in SharedPreferences (Android) / UserDefaults (iOS)
+- **No tracking**: No user behavior tracking, no cross-app tracking
+- **GDPR/CCPA-friendly**: Anonymous telemetry only, easy opt-out
+
+**Privacy guarantee:** Polyfence never transmits location coordinates, zone definitions, or personal information. Plugin telemetry is anonymous and contains no user data.
 
 ---
 

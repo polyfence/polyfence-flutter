@@ -7,6 +7,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2025-12-29
+
+### Changed
+- **Anonymous plugin telemetry enabled by default**
+  - Telemetry is now enabled by default to monitor plugin performance and improve reliability
+  - Simple one-line opt-out: `AnalyticsConfig(disableTelemetry: true)`
+  - Smart disclosure informs developers (once per install, only debug builds, state-aware)
+  - API key no longer required for telemetry (optional - only needed for additional Polyfence.io services)
+  - Environment variables (`POLYFENCE_ANALYTICS_ENABLED`) can still override runtime config
+  - Comprehensive telemetry documentation added: `docs/TELEMETRY.md`
+
+### Added
+- **New `disableTelemetry` parameter** in `AnalyticsConfig` for simple opt-out
+- **Smart disclosure message** that informs developers about telemetry:
+  - Shows once per install
+  - Shows again if telemetry state changes (enabled/disabled toggled)
+  - Only in debug builds (production logs stay clean)
+  - Uses SharedPreferences to track disclosure state
+- **Complete telemetry reference**: `docs/TELEMETRY.md` with field-by-field payload breakdown
+- **Stakeholder review document**: `SIMPLE_TERMS_TELEMETRY.md` for non-technical review
+
+### Breaking Changes
+- **Telemetry is now enabled by default** (previously opt-in only)
+  - Anonymous plugin performance metrics are sent automatically
+  - No location data or PII is ever transmitted
+  - To disable: pass `analyticsConfig: AnalyticsConfig(disableTelemetry: true)` to `initialize()`
+- Old approach: `AnalyticsConfig(enabled: false)` (opt-in, required API key)
+- New approach: Enabled by default, opt-out with `disableTelemetry: true`, no API key required
+
+### Migration Guide
+- **No action needed** if you're okay with anonymous telemetry (recommended)
+- **To opt-out**: Add `analyticsConfig: AnalyticsConfig(disableTelemetry: true)` to your `initialize()` call
+- **See full details**: Read `docs/TELEMETRY.md` to understand exactly what's sent
+
+### Privacy Commitment
+- **What's sent**: Plugin version, platform, app package name, performance metrics (detection times, GPS accuracy, battery usage), error counts, zone type usage (circle/polygon counts)
+- **What's NEVER sent**: GPS coordinates, location data, zone definitions, user identifiers, personal information
+- **Data retention**: 24 months (2 years) for trend analysis and product improvement
+- **Full transparency**: See `docs/TELEMETRY.md` for complete payload reference
+
 ## [0.2.5] - 2025-12-26
 
 ### Fixed

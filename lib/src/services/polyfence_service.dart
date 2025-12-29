@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/zone.dart';
 import '../models/location.dart';
 import '../models/geofence_event.dart';
@@ -187,15 +189,20 @@ class PolyfenceService {
       );
 
       // Initialize analytics - data collection happens automatically
-      // Plugin is the master decider for sending: checks environment variables
-      // Apps don't need to pass config - plugin decides independently
-      // If app passes analyticsConfig, it is ignored - plugin's decision is final
+      // Anonymous plugin telemetry enabled by default
+      // Apps can opt-out with: AnalyticsConfig(disableTelemetry: true)
+      // No location data or PII ever sent - only plugin performance metrics
+
+      // Check if developer opted out
+      final bool telemetryDisabled = analyticsConfig?.disableTelemetry ?? false;
+
+      // Environment variables can still override for production builds
       final String analyticsEnabledEnv = const String.fromEnvironment(
         'POLYFENCE_ANALYTICS_ENABLED',
-        defaultValue: 'false',
+        defaultValue: '',
       );
-      final bool pluginLevelEnabled =
-          analyticsEnabledEnv.toLowerCase() == 'true';
+      final bool envOverride = analyticsEnabledEnv.isNotEmpty;
+      final bool envEnabled = analyticsEnabledEnv.toLowerCase() == 'true';
 
       final String apiKeyEnv =
           const String.fromEnvironment('POLYFENCE_API_KEY', defaultValue: '');
@@ -203,14 +210,17 @@ class PolyfenceService {
           'POLYFENCE_API_ENDPOINT',
           defaultValue: '');
 
-      // Plugin is the sole master decider - always uses environment variables
-      // App config is ignored - plugin's decision cannot be overridden
+      // Determine final telemetry state:
+      // 1. If env var set → use it (production override)
+      // 2. If developer set disableTelemetry: true → respect it
+      // 3. Otherwise → enabled by default
+      final bool telemetryEnabled = envOverride ? envEnabled : !telemetryDisabled;
+
       final analyticsConfigToUse = AnalyticsConfig(
-        enabled: pluginLevelEnabled,
-        apiKey: apiKeyEnv.isEmpty ? null : apiKeyEnv,
-        apiEndpoint: apiEndpointEnv.isEmpty ? null : apiEndpointEnv,
-        // Preserve app-provided metadata if provided (industryCategory, useCase)
-        // but plugin controls enabled/API settings
+        enabled: telemetryEnabled,
+        disableTelemetry: telemetryDisabled,
+        apiKey: analyticsConfig?.apiKey ?? (apiKeyEnv.isEmpty ? null : apiKeyEnv),
+        apiEndpoint: analyticsConfig?.apiEndpoint ?? (apiEndpointEnv.isEmpty ? null : apiEndpointEnv),
         industryCategory: analyticsConfig?.industryCategory,
         useCase: analyticsConfig?.useCase,
       );
@@ -219,6 +229,10 @@ class PolyfenceService {
         config: analyticsConfigToUse,
         pluginVersion: pluginVersion,
       );
+
+      // Telemetry disclosure: show once per install or when state changes
+      // Only in debug builds to avoid production log spam
+      await _showTelemetryDisclosureIfNeeded(telemetryEnabled);
 
       // Initialize app lifecycle management for analytics
       AppLifecycleManager.instance.initialize();
@@ -1130,6 +1144,76 @@ class PolyfenceService {
       }
     } catch (e) {
       // Failed to parse runtime status
+    }
+  }
+
+  /// Show telemetry disclosure intelligently
+  /// - Once per install
+  /// - Again if telemetry state changes
+  /// - Only in debug builds (production logs stay clean)
+  Future<void> _showTelemetryDisclosureIfNeeded(bool telemetryEnabled) async {
+    // Only show in debug builds
+    if (!kDebugMode) return;
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      const String shownKey = 'polyfence_telemetry_disclosure_shown';
+      const String stateKey = 'polyfence_telemetry_last_state';
+
+      final bool hasShown = prefs.getBool(shownKey) ?? false;
+      final bool? lastState = prefs.getBool(stateKey);
+
+      // Show disclosure if:
+      // 1. Never shown before (first install)
+      // 2. Telemetry state changed (user toggled it)
+      final bool shouldShow = !hasShown || (lastState != null && lastState != telemetryEnabled);
+
+      if (shouldShow) {
+        _logTelemetryDisclosure(telemetryEnabled);
+        await prefs.setBool(shownKey, true);
+        await prefs.setBool(stateKey, telemetryEnabled);
+      }
+    } catch (e) {
+      // If SharedPreferences fails, show disclosure anyway (fail-safe)
+      _logTelemetryDisclosure(telemetryEnabled);
+    }
+  }
+
+  /// Log telemetry disclosure message
+  void _logTelemetryDisclosure(bool enabled) {
+    if (enabled) {
+      // ignore: avoid_print
+      print('''
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[Polyfence] Anonymous plugin telemetry enabled.
+
+What's sent:
+  • Plugin version, platform (Android/iOS), app package name
+  • Performance metrics (detection times, GPS accuracy, battery usage)
+  • Error counts, zone type usage (circle/polygon counts)
+
+What's NEVER sent:
+  • GPS coordinates or location data
+  • Zone definitions or boundaries
+  • User identifiers or personal information
+
+See full details: https://polyfence.io/privacy/telemetry
+
+Disable telemetry (one line):
+  Polyfence.instance.initialize(
+    analyticsConfig: AnalyticsConfig(disableTelemetry: true)
+  );
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+''');
+    } else {
+      // ignore: avoid_print
+      print('''
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[Polyfence] Telemetry disabled.
+
+No analytics data will be sent.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+''');
     }
   }
 }

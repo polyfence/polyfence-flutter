@@ -134,10 +134,16 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       }
 
       // Initialize Polyfence plugin
-      // Analytics data collection happens automatically
-      // Plugin decides sending based on POLYFENCE_ANALYTICS_ENABLED environment variable
-      // Build with: --dart-define=POLYFENCE_ANALYTICS_ENABLED=true --dart-define=POLYFENCE_API_KEY=your_key
+      // Anonymous plugin telemetry enabled by default (no location data or PII sent)
+      // See what's sent: https://github.com/blackabass/polyfence-plugin/blob/main/docs/TELEMETRY.md
       await polyfence.Polyfence.instance.initialize();
+
+      // To disable telemetry (opt-out):
+      // await polyfence.Polyfence.instance.initialize(
+      //   analyticsConfig: polyfence.AnalyticsConfig(
+      //     disableTelemetry: true,
+      //   ),
+      // );
 
       // Load zones from API (may still be down; no fallback)
       await _loadZonesFromAPI();

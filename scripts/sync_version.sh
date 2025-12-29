@@ -21,8 +21,12 @@ sed -i '' "s/s.version.*=.*/s.version          = '$PLUGIN_VERSION'/" ios/polyfen
 EXAMPLE_VERSION="${PLUGIN_VERSION}"
 sed -i '' "s/^version:.*/version: $EXAMPLE_VERSION/" example/pubspec.yaml
 
+# Update Dart version constant
+sed -i '' "s/const String polyfencePluginVersion = '.*';/const String polyfencePluginVersion = '$PLUGIN_VERSION';/" lib/src/version.dart
+
 echo "✅ Version synced successfully!"
 echo "  Plugin version: $PLUGIN_VERSION"
 echo "  Example app version: $EXAMPLE_VERSION"
 echo "  iOS podspec: $PLUGIN_VERSION"
+echo "  Dart version constant: $PLUGIN_VERSION"
 

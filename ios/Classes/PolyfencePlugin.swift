@@ -419,7 +419,7 @@ extension PolyfencePlugin: FlutterStreamHandler {
                 "lastKnownAccuracy": -1.0,
                 "lastLocationUpdate": Date().timeIntervalSince1970 * 1000,
                 "platformVersion": UIDevice.current.systemVersion,
-                "pluginVersion": "0.1.0"
+                "pluginVersion": "0.2.4"
             ],
             "performance": [
                 "uptime": 0,

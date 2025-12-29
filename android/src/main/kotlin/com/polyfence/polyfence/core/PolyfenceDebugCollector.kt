@@ -183,7 +183,7 @@ class PolyfenceDebugCollector {
         }
         
         private fun getPluginVersion(): String {
-            return "1.0.0" // This should come from build config
+            return "0.2.4" // Plugin version - should match pubspec.yaml
         }
         
         private fun getCpuUsage(): Double {

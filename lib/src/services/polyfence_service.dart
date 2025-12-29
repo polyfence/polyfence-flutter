@@ -187,15 +187,14 @@ class PolyfenceService {
       );
 
       // Initialize analytics - data collection happens automatically
-      // Plugin is the master decider for sending: checks environment variables
-      // Apps don't need to pass config - plugin decides independently
-      // If app passes analyticsConfig, it is ignored - plugin's decision is final
+      // Plugin is the master decider for sending: checks environment variables first, then app config
+      // Production: Use environment variables (build-time, secure)
+      // Development: Use app config (runtime, flexible, no rebuild needed)
       final String analyticsEnabledEnv = const String.fromEnvironment(
         'POLYFENCE_ANALYTICS_ENABLED',
-        defaultValue: 'false',
+        defaultValue: '',
       );
-      final bool pluginLevelEnabled =
-          analyticsEnabledEnv.toLowerCase() == 'true';
+      final bool envVarEnabled = analyticsEnabledEnv.toLowerCase() == 'true';
 
       final String apiKeyEnv =
           const String.fromEnvironment('POLYFENCE_API_KEY', defaultValue: '');
@@ -203,14 +202,20 @@ class PolyfenceService {
           'POLYFENCE_API_ENDPOINT',
           defaultValue: '');
 
-      // Plugin is the sole master decider - always uses environment variables
-      // App config is ignored - plugin's decision cannot be overridden
+      // Plugin is the master decider: environment variable takes precedence (production)
+      // If env var not set, fall back to app config (development flexibility)
+      final bool enabled = envVarEnabled || (analyticsConfig?.enabled ?? false);
+      final String? apiKey = apiKeyEnv.isNotEmpty 
+          ? apiKeyEnv 
+          : analyticsConfig?.apiKey;
+      final String? apiEndpoint = apiEndpointEnv.isNotEmpty
+          ? apiEndpointEnv
+          : analyticsConfig?.apiEndpoint;
+
       final analyticsConfigToUse = AnalyticsConfig(
-        enabled: pluginLevelEnabled,
-        apiKey: apiKeyEnv.isEmpty ? null : apiKeyEnv,
-        apiEndpoint: apiEndpointEnv.isEmpty ? null : apiEndpointEnv,
-        // Preserve app-provided metadata if provided (industryCategory, useCase)
-        // but plugin controls enabled/API settings
+        enabled: enabled,
+        apiKey: apiKey,
+        apiEndpoint: apiEndpoint,
         industryCategory: analyticsConfig?.industryCategory,
         useCase: analyticsConfig?.useCase,
       );

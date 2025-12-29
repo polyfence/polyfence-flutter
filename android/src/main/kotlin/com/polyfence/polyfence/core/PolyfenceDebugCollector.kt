@@ -27,6 +27,7 @@ class PolyfenceDebugCollector {
         private var zoneDetectionCount = 0
         private var totalDetectionLatency = 0.0
         private var restartCount = 0
+        private var pluginVersion: String? = null // Stored from Flutter during initialization
         
         fun collectDebugInfo(context: Context): Map<String, Any> {
             return mapOf(
@@ -182,8 +183,15 @@ class PolyfenceDebugCollector {
             return false
         }
         
+        /**
+         * Set plugin version from Flutter (called during initialization)
+         */
+        fun setPluginVersion(version: String) {
+            pluginVersion = version
+        }
+        
         private fun getPluginVersion(): String {
-            return "0.2.4" // Plugin version - should match pubspec.yaml
+            return pluginVersion ?: "unknown" // Use stored version from Flutter, fallback to "unknown"
         }
         
         private fun getCpuUsage(): Double {

@@ -12,8 +12,16 @@ class PolyfenceDebugCollector {
     private var performanceMetrics: [String: Any] = [:]
     private var errorHistory: [[String: Any]] = []
     private var sessionStartTime = Date()
+    var pluginVersion: String? = nil // Stored from Flutter during initialization (exposed for PolyfencePlugin)
     
     private init() {}
+    
+    /**
+     * Set plugin version from Flutter (called during initialization)
+     */
+    func setPluginVersion(_ version: String) {
+        pluginVersion = version
+    }
     
     func collectDebugInfo() -> [String: Any] {
         return [
@@ -37,7 +45,7 @@ class PolyfenceDebugCollector {
             "lastKnownAccuracy": performanceMetrics["lastAccuracy"] as? Double ?? -1.0,
             "lastLocationUpdate": (performanceMetrics["lastLocationUpdate"] as? Date ?? Date()).timeIntervalSince1970 * 1000,
             "platformVersion": UIDevice.current.systemVersion,
-            "pluginVersion": "0.2.4"
+            "pluginVersion": pluginVersion ?? "unknown" // Use stored version from Flutter, fallback to "unknown"
         ]
     }
     

@@ -70,6 +70,6 @@ Used in debug info, analytics, etc.
 ## Notes
 
 - **No hardcoding**: All versions come from `pubspec.yaml` or are passed from Flutter
-- **Example app**: Version is synced but includes `+1` build number (e.g., `0.2.4+1`)
+- **Example app**: Version increments patch number (e.g., plugin `0.2.5` -> example `0.2.6`)
 - **Native code**: Version is stored during initialization, so it's always current
 

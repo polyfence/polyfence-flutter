@@ -1,0 +1,419 @@
+# Polyfence Telemetry Reference
+
+**Last updated:** 2025-12-29
+**Plugin version:** 0.2.5+
+
+---
+
+## Overview
+
+Polyfence sends **anonymous plugin performance telemetry** by default to help us monitor reliability, detect issues early, and improve the plugin across different devices and platforms.
+
+**This document provides complete transparency about what data is collected and how it's used.**
+
+---
+
+## Quick Summary
+
+✅ **What's sent:** Anonymous plugin performance metrics
+❌ **What's NEVER sent:** GPS coordinates, location data, zone definitions, user PII
+🔧 **Opt-out:** One line: `AnalyticsConfig(disableTelemetry: true)`
+📊 **Purpose:** Monitor plugin performance, detect issues, improve reliability
+
+---
+
+## Complete Telemetry Payload
+
+Here's **exactly** what gets sent to our analytics endpoint when a session ends:
+
+### Session Payload Structure
+
+```json
+{
+  // App/Platform Identifiers (NOT user identifiers)
+  "app_identifier": "com.example.logistics",
+  "platform": "android",
+  "plugin_version": "0.2.5",
+
+  // Optional Developer Metadata
+  "industry_category": null,
+  "use_case": null,
+
+  // Performance Metrics
+  "detections_total": 5,
+  "detection_time_avg_ms": 125.5,
+  "detection_time_p95_ms": 200.0,
+  "gps_accuracy_avg_m": 15.2,
+  "battery_drain_avg_pct_per_hr": 2.5,
+  "session_duration_minutes": 30,
+
+  // Zone Usage (types only, no coordinates)
+  "zone_usage": {
+    "circle": 3,
+    "polygon": 2
+  },
+
+  // Error Tracking
+  "error_counts": {
+    "gps_timeout": 1
+  },
+
+  // Plugin Performance
+  "ttfd_ms": 500,
+  "had_detection": true,
+  "detection_latency_ms_p95": 200.0,
+  "service_interruptions": 0,
+  "gps_ok_ratio": 0.95,
+  "sample_events": 10,
+
+  // Battery Optimization Tracking
+  "battery_optimization_disabled": true,
+  "battery_optimization_check_count": 1
+}
+```
+
+---
+
+## Field-by-Field Explanation
+
+### Identifiers
+
+| Field | Type | Example | Description | Why We Need It |
+|-------|------|---------|-------------|----------------|
+| `app_identifier` | string | `"com.example.logistics"` | App package name | Identify which apps use the plugin |
+| `platform` | string | `"android"` or `"ios"` | Operating system | Platform-specific issue detection |
+| `plugin_version` | string | `"0.2.5"` | Plugin version | Track version-specific bugs |
+
+**Important:** `app_identifier` is the app **package name**, not a user identifier. It tells us "Company X's logistics app" but nothing about individual users.
+
+### Performance Metrics
+
+| Field | Type | Example | Description | Why We Need It |
+|-------|------|---------|-------------|----------------|
+| `detections_total` | integer | `5` | Total zone detections | Measure plugin usage |
+| `detection_time_avg_ms` | float | `125.5` | Average detection time (ms) | Monitor performance |
+| `detection_time_p95_ms` | float | `200.0` | 95th percentile latency | Identify slow detections |
+| `gps_accuracy_avg_m` | float | `15.2` | Average GPS accuracy (meters) | Track GPS quality |
+| `battery_drain_avg_pct_per_hr` | float | `2.5` | Battery usage (% per hour) | Optimize battery impact |
+| `session_duration_minutes` | integer | `30` | Session length (minutes) | Context for metrics |
+
+### Zone Usage
+
+| Field | Type | Example | Description | Why We Need It |
+|-------|------|---------|-------------|----------------|
+| `zone_usage` | object | `{"circle": 3, "polygon": 2}` | Zone type counts | Optimize zone type performance |
+
+**Important:** Only zone **types** (circle/polygon) and **counts** are sent. **No zone coordinates, addresses, or names** are transmitted.
+
+### Error Tracking
+
+| Field | Type | Example | Description | Why We Need It |
+|-------|------|---------|-------------|----------------|
+| `error_counts` | object | `{"gps_timeout": 1}` | Error type counts | Identify common failure modes |
+
+**Example error types:**
+- `gps_timeout` - GPS signal lost
+- `gps_permission_denied` - Permission issues
+- `service_killed` - Background service terminated
+
+### Plugin Performance
+
+| Field | Type | Example | Description | Why We Need It |
+|-------|------|---------|-------------|----------------|
+| `ttfd_ms` | integer | `500` | Time to first detection (ms) | Monitor startup performance |
+| `had_detection` | boolean | `true` | Did any detection occur? | Track successful sessions |
+| `detection_latency_ms_p95` | float | `200.0` | P95 detection latency | Identify slow edge cases |
+| `service_interruptions` | integer | `0` | Service restart count | Detect reliability issues |
+| `gps_ok_ratio` | float | `0.95` | GPS accuracy success rate | Monitor GPS quality |
+| `sample_events` | integer | `10` | Event count | Context for metrics |
+
+### Battery Optimization
+
+| Field | Type | Example | Description | Why We Need It |
+|-------|------|---------|-------------|----------------|
+| `battery_optimization_disabled` | boolean | `true` | Is optimization disabled? | Track user configuration |
+| `battery_optimization_check_count` | integer | `1` | Check count | Monitor API usage |
+
+---
+
+## What is NEVER Sent
+
+The following data is **never transmitted** under any circumstances:
+
+### Location Data
+- ❌ GPS coordinates (latitude/longitude)
+- ❌ Zone definitions or boundaries
+- ❌ Zone addresses or names
+- ❌ User location history
+- ❌ Movement patterns
+
+### Personal Information
+- ❌ User names, emails, phone numbers
+- ❌ Device identifiers (IMEI, serial number, advertising ID)
+- ❌ User account information
+- ❌ Cross-app tracking identifiers
+
+### Sensitive Data
+- ❌ Zone configuration details
+- ❌ App-specific business logic
+- ❌ User behavior patterns
+- ❌ Any data that could identify an individual user
+
+---
+
+## When is Telemetry Sent?
+
+### Session Lifecycle
+
+1. **Session Start:** When `Polyfence.instance.initialize()` is called
+2. **Data Collection:** Metrics collected automatically during tracking
+3. **Session End:** When app lifecycle changes (background/terminated)
+4. **Transmission:** Session summary sent to analytics endpoint
+
+### Automatic Session Management
+
+The plugin automatically manages sessions based on app lifecycle:
+
+```
+App Launch → Session Start → Data Collection → App Background → Session End → Send Telemetry
+```
+
+**You don't need to manually manage sessions** - the plugin handles this via `AppLifecycleManager`.
+
+---
+
+## How to Opt-Out
+
+### Disable Telemetry (One Line)
+
+```dart
+import 'package:polyfence/polyfence.dart';
+
+await Polyfence.instance.initialize(
+  analyticsConfig: AnalyticsConfig(
+    disableTelemetry: true, // ← Disable all telemetry
+  ),
+);
+```
+
+### Verify Telemetry is Disabled
+
+When telemetry is disabled, you'll see a different disclosure message:
+
+```
+[Polyfence] Telemetry disabled.
+
+No analytics data will be sent.
+```
+
+**Disclosure behavior:**
+- Shows **once per install** (not every time you run the app)
+- Shows **again if telemetry state changes** (when you enable/disable it)
+- Only shows in **debug builds** (production logs stay clean)
+- Uses SharedPreferences to track disclosure state
+
+This means:
+- ✅ First run (debug): See disclosure
+- ✅ Second run (debug): No message (already shown)
+- ✅ Toggle telemetry: See updated disclosure
+- ✅ Production builds: Zero disclosure messages
+
+---
+
+## How the Data is Used
+
+### Primary Uses
+
+1. **Performance Monitoring**
+   - Detect slow zone detections across devices
+   - Identify platform-specific issues
+   - Track battery impact trends
+
+2. **Error Detection**
+   - Identify common failure patterns
+   - Prioritize bug fixes
+   - Improve error handling
+
+3. **Platform Distribution**
+   - Understand Android vs iOS usage
+   - Prioritize platform-specific work
+   - Optimize for common configurations
+
+4. **Product Decisions**
+   - Measure feature adoption (e.g., polygon vs circle zones)
+   - Identify performance bottlenecks
+   - Guide optimization efforts
+
+### What We Don't Do
+
+- ❌ **No user tracking** - We can't identify individual users
+- ❌ **No selling data** - Telemetry data is never sold or shared with third parties
+- ❌ **No cross-app tracking** - We don't link data across different apps
+- ❌ **No marketing** - Telemetry is not used for advertising or marketing
+
+---
+
+## Data Retention
+
+**Retention Period:** 24 months (2 years)
+
+Telemetry data is automatically deleted after 24 months. We retain data to:
+- Identify long-term trends and patterns
+- Debug issues reported by developers
+- Measure performance improvements over time
+- Track year-over-year trends
+- Compare performance across plugin versions
+- Analyze multi-year adoption patterns
+
+After 24 months, all telemetry data is permanently deleted from our systems.
+
+**Why 24 months?** This duration allows us to:
+- Maintain sufficient history for meaningful trend analysis
+- Compare performance year-over-year with historical context
+- Identify seasonal patterns and long-term trends
+- Support strategic product decisions with deeper insights
+- Correlate performance across major plugin version releases
+
+**You can request earlier deletion:** Contact privacy@polyfence.io to request deletion of your app's telemetry data at any time.
+
+---
+
+## Security & Privacy
+
+### Transmission Security
+
+- **HTTPS Only:** All telemetry is sent over encrypted HTTPS
+- **Idempotency:** Duplicate sessions are automatically deduplicated
+- **Retry Mechanism:** Failed requests are retried automatically (with local storage)
+
+### Privacy Safeguards
+
+- **No PII:** Telemetry contains no personally identifiable information
+- **Anonymous:** Session data cannot be linked to individual users
+- **Aggregated Analysis:** Data is analyzed in aggregate, not per-user
+- **Open Source:** Plugin code is open source—verify what's sent
+
+### API Key (Optional)
+
+Telemetry does **not** require an API key. API keys are only needed for additional Polyfence.io services (zone management, advanced analytics dashboard).
+
+---
+
+## GDPR & CCPA Compliance
+
+### GDPR (Europe)
+
+**Is this compliant?** Yes.
+
+- ✅ **No personal data:** App package name is not personal data
+- ✅ **Legitimate interest:** Improving plugin performance is a valid legal basis
+- ✅ **Easy opt-out:** One-line opt-out mechanism provided
+- ✅ **Transparent:** Full disclosure of data collected
+- ✅ **No location data:** GPS coordinates are never transmitted
+
+**Legal Basis:** Legitimate interest (Article 6(1)(f) GDPR) - improving our plugin's performance and reliability.
+
+### CCPA (California)
+
+**Is this compliant?** Yes.
+
+- ✅ **No personal information:** Telemetry contains no personal information as defined by CCPA
+- ✅ **No selling:** Data is never sold to third parties
+- ✅ **Legitimate use:** Product improvement only
+- ✅ **Easy opt-out:** One-line opt-out mechanism provided
+
+---
+
+## Verification & Transparency
+
+### Verify What's Sent
+
+The plugin is **open source**. You can verify exactly what's sent by reading the code:
+
+**Telemetry code:** [`lib/src/services/analytics_service.dart`](../lib/src/services/analytics_service.dart)
+
+**Key methods:**
+- `_sendSessionSummary()` (line 299) - Sends telemetry payload
+- `toSessionSummary()` (line 118) - Builds session payload
+
+### Test Telemetry Locally
+
+To see what telemetry would be sent:
+
+```dart
+// Enable telemetry in a test app
+await Polyfence.instance.initialize();
+
+// Trigger some detections
+await Polyfence.instance.addZone(Zone.circle(...));
+await Polyfence.instance.startTracking();
+
+// Check analytics service state
+print('Session active: ${PolyfenceAnalytics.instance._currentSession != null}');
+```
+
+**Network inspection:** Use Charles Proxy or Wireshark to inspect network calls and verify the payload.
+
+---
+
+## Frequently Asked Questions
+
+### Can I use Polyfence without sending telemetry?
+
+**Yes.** Set `disableTelemetry: true` in `AnalyticsConfig`.
+
+### Will disabling telemetry affect plugin functionality?
+
+**No.** All plugin features work identically with telemetry enabled or disabled. Telemetry is purely for our monitoring and does not affect zone detection, background tracking, or any other feature.
+
+### Can you identify individual users from telemetry?
+
+**No.** The telemetry contains no user identifiers, device identifiers, or location data. We can only see aggregated metrics per app package name (e.g., "this logistics app had 10 detections with 150ms average latency").
+
+### What if I don't want to share my app package name?
+
+**Opt-out of telemetry.** The app package name is the only app-specific identifier we collect. If you don't want to share it, disable telemetry entirely.
+
+### Do you share telemetry data with third parties?
+
+**No.** Telemetry data is used exclusively for improving the Polyfence plugin. We never sell, share, or provide this data to third parties.
+
+### Can I see what data you've collected from my app?
+
+**Contact us.** While we store telemetry in aggregated form, you can contact us at [support@polyfence.io](mailto:support@polyfence.io) to inquire about data collected from your specific app package.
+
+### How do I know you're not sending location data?
+
+**Verify the code.** The plugin is open source. Read [`analytics_service.dart`](../lib/src/services/analytics_service.dart) and confirm that GPS coordinates are never included in the telemetry payload. You can also use network inspection tools to verify the actual HTTP requests.
+
+---
+
+## Contact & Feedback
+
+### Questions About Telemetry?
+
+- **Email:** [privacy@polyfence.io](mailto:privacy@polyfence.io)
+- **GitHub Issues:** [Report a concern](https://github.com/blackabass/polyfence-plugin/issues)
+
+### Privacy Policy
+
+For the full privacy policy, see: [https://polyfence.io/privacy](https://polyfence.io/privacy)
+
+---
+
+## Changelog
+
+### 2025-12-29 (Version 0.3.0)
+- **Changed:** Telemetry enabled by default (previously opt-in)
+- **Added:** `disableTelemetry` parameter for simple opt-out
+- **Added:** Smart disclosure message (once per install, debug-only, state-aware)
+- **Removed:** API key requirement for telemetry
+- **Updated:** Data retention to 24 months (2 years)
+- **Updated:** Documentation to reflect new telemetry approach
+
+### Previous Versions
+- Telemetry was opt-in and required API key configuration
+
+---
+
+**Summary:** Polyfence telemetry is anonymous, transparent, and opt-out. We collect plugin performance metrics to improve reliability, but we never transmit location data, zone definitions, or personal information.

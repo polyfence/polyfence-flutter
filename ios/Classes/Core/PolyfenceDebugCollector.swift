@@ -37,7 +37,7 @@ class PolyfenceDebugCollector {
             "lastKnownAccuracy": performanceMetrics["lastAccuracy"] as? Double ?? -1.0,
             "lastLocationUpdate": (performanceMetrics["lastLocationUpdate"] as? Date ?? Date()).timeIntervalSince1970 * 1000,
             "platformVersion": UIDevice.current.systemVersion,
-            "pluginVersion": "0.1.0"
+            "pluginVersion": "0.2.4"
         ]
     }
     

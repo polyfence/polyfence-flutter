@@ -1,4 +1,4 @@
-# <img alt="Polyfence logo" src="https://github.com/user-attachments/assets/35b8fa0a-64e9-4f2a-a162-a4ae2573498d" width="48" height="48" /> Polyfence
+# <img src="logo-icon-512.png" alt="PolyFence Logo" width="48" style="vertical-align: middle; margin-right: 10px;"> <span style="vertical-align: middle">Polyfence</span>
 
 **Privacy-first, on-device geofencing for Flutter.** Accurate circle & polygon zone detection with true background operation. No location data or PII ever transmitted. Anonymous plugin telemetry enabled by default ([opt-out](#telemetry-opt-out)).
 

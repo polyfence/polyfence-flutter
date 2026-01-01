@@ -317,13 +317,13 @@ class LocationTracker : Service() {
         val zoneId = intent.getStringExtra("zoneId") ?: return
         val zoneName = intent.getStringExtra("zoneName") ?: "Unknown Zone"
         val zoneData = intent.getSerializableExtra("zoneData") as? Map<String, Any> ?: return
-        
+
         // Add to engine
         geofenceEngine.addZone(zoneId, zoneName, zoneData)
-        
+
         // Save to persistent storage
         zonePersistence.saveZone(zoneId, zoneName, zoneData)
-        
+
     }
     
     private fun removeZone(intent: Intent) {

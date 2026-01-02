@@ -1,0 +1,29 @@
+name: Docs & Secrets Scan
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - 'chore/**'
+
+jobs:
+  doc-scan:
+    name: Docs & Secrets Scan
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run docs scan for local paths & secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "Scanning markdown files for forbidden patterns..."
+          # Patterns: absolute local paths OR private key headers OR AWS key identifiers
+          if git grep -nE "/Users/|C:\\\\\Users\\\\|BEGIN PRIVATE KEY|BEGIN RSA PRIVATE KEY|AKIA[0-9A-Z]{16}" -- "**/*.md"; then
+            echo "Found forbidden patterns in docs. Please remove absolute paths or secrets before merging." >&2
+            exit 1
+          fi
+          echo "Docs scan passed."

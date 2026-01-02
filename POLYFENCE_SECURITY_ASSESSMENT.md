@@ -1407,8 +1407,8 @@ This assessment was conducted in accordance with:
 - CHANGELOG.md - Version history
 
 **Related Assessments:**
-- Backend API Pentest Report: `/Users/Teslon/Documents/Sector7/polyfence/Pentest_Report`
-- Backend Coverage Check: `/Users/Teslon/Documents/Sector7/polyfence/PENTEST_COVERAGE_CHECK.md`
+- Backend API Pentest Report: `artifacts/backend-pentest-report/`
+- Backend Coverage Check: `artifacts/pentest-coverage-check.md`
 
 ---
 

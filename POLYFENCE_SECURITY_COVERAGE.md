@@ -516,8 +516,8 @@ This ITHC used an **SDK-specific threat model**, not end-user application threat
 - **Security Assessment:** `POLYFENCE_SECURITY_ASSESSMENT.md` (detailed findings)
 - **Security Policy:** `SECURITY.md` (current - to be enhanced)
 - **Integration Guide:** `README.md` (current)
-- **Backend Assessment:** `/Users/Teslon/Documents/Sector7/polyfence/Pentest_Report`
-- **Backend Coverage:** `/Users/Teslon/Documents/Sector7/polyfence/PENTEST_COVERAGE_CHECK.md`
+- **Backend Assessment:** `artifacts/backend-pentest-report/`
+- **Backend Coverage:** `artifacts/pentest-coverage-check.md`
 
 ---
 

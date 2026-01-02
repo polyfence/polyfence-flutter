@@ -60,10 +60,10 @@ class ZoneApiService {
       } else {
         throw Exception('Failed to load zones. Status: ${response.statusCode}');
       }
-    } on SocketException {
-      throw Exception('No internet connection');
     } on http.ClientException {
       throw Exception('Network error occurred');
+    } on SocketException {
+      throw Exception('No internet connection');
     } catch (e) {
       throw Exception('Error fetching zones: $e');
     }

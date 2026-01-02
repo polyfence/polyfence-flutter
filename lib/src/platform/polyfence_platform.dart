@@ -18,6 +18,7 @@ abstract class PolyfencePlatform extends PlatformInterface {
 
   Stream<PolyfenceLocation> get onLocationUpdate;
   Stream<Map<String, dynamic>> get onError;
+  Stream<Map<String, dynamic>> get onGeofenceEvent;
 
   Future<void> initialize({String? licenseKey, Map<String, dynamic>? config});
   Future<void> addZone(Zone zone);

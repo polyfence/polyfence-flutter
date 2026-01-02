@@ -240,13 +240,11 @@ class PolyfenceService {
       // Listen to SEPARATE streams
       _locationSubscription =
           _platform.onLocationUpdate.listen(_handleLocationUpdate);
-      _geofenceSubscription = (_platform as MethodChannelPolyfence)
-          .onGeofenceEvent
+      _geofenceSubscription = _platform.onGeofenceEvent
           .listen(_handleGeofenceEvent);
       _errorSubscription =
-          (_platform as MethodChannelPolyfence).onError.listen(_handleError);
-      _performanceSubscription = (_platform as MethodChannelPolyfence)
-          .performanceStream
+          _platform.onError.listen(_handleError);
+      _performanceSubscription = _platform.performanceStream
           .listen((event) {
         _handlePerformanceEvent(event);
         if (event['type'] == 'status') {
@@ -255,9 +253,14 @@ class PolyfenceService {
       });
 
       _isInitialized = true;
-    } on PlatformException catch (e) {
+    } on PlatformException catch (e, stackTrace) {
       throw PlatformOperationException(
-          'initialize', e.message ?? 'Unknown error');
+        'initialize',
+        e.message ?? 'Unknown error',
+        details: {'code': e.code, 'details': e.details},
+        innerException: e,
+        stackTrace: stackTrace,
+      );
     }
   }
 
@@ -278,8 +281,14 @@ class PolyfenceService {
       await _platform.addZone(zone);
 
       stopwatch.stop();
-    } on PlatformException catch (e) {
-      throw PlatformOperationException('addZone', e.message ?? 'Unknown error');
+    } on PlatformException catch (e, stackTrace) {
+      throw PlatformOperationException(
+        'addZone',
+        e.message ?? 'Unknown error',
+        details: {'code': e.code, 'details': e.details, 'zoneId': zone.id},
+        innerException: e,
+        stackTrace: stackTrace,
+      );
     }
   }
 
@@ -308,9 +317,14 @@ class PolyfenceService {
     // Remove from native platform
     try {
       await _platform.removeZone(zoneId);
-    } on PlatformException catch (e) {
+    } on PlatformException catch (e, stackTrace) {
       throw PlatformOperationException(
-          'removeZone', e.message ?? 'Unknown error');
+        'removeZone',
+        e.message ?? 'Unknown error',
+        details: {'code': e.code, 'details': e.details, 'zoneId': zoneId},
+        innerException: e,
+        stackTrace: stackTrace,
+      );
     }
   }
 
@@ -335,9 +349,14 @@ class PolyfenceService {
     // Clear from native platform
     try {
       await _platform.clearAllZones();
-    } on PlatformException catch (e) {
+    } on PlatformException catch (e, stackTrace) {
       throw PlatformOperationException(
-          'clearAllZones', e.message ?? 'Unknown error');
+        'clearAllZones',
+        e.message ?? 'Unknown error',
+        details: {'code': e.code, 'details': e.details},
+        innerException: e,
+        stackTrace: stackTrace,
+      );
     }
   }
 
@@ -409,10 +428,15 @@ class PolyfenceService {
     // Start tracking on native platform
     try {
       await _platform.startTracking();
-    } on PlatformException catch (e) {
+    } on PlatformException catch (e, stackTrace) {
       PolyfenceAnalytics.instance.recordError('tracking_start_failed');
       throw PlatformOperationException(
-          'startTracking', e.message ?? 'Unknown error');
+        'startTracking',
+        e.message ?? 'Unknown error',
+        details: {'code': e.code, 'details': e.details},
+        innerException: e,
+        stackTrace: stackTrace,
+      );
     }
   }
 
@@ -437,75 +461,137 @@ class PolyfenceService {
 
     try {
       await _platform.stopTracking();
-    } on PlatformException catch (e) {
+    } on PlatformException catch (e, stackTrace) {
       throw PlatformOperationException(
-          'stopTracking', e.message ?? 'Unknown error');
+        'stopTracking',
+        e.message ?? 'Unknown error',
+        details: {'code': e.code, 'details': e.details},
+        innerException: e,
+        stackTrace: stackTrace,
+      );
     }
   }
 
   /// Handle geofence events from dedicated geofence channel
   void _handleGeofenceEvent(Map<String, dynamic> eventData) {
-    final zoneId = eventData['zoneId'] as String?;
-    final eventType = eventData['eventType'] as String?;
-    final detectionTimeMs =
-        (eventData['detectionTimeMs'] as num?)?.toDouble() ?? 0.0;
-    final gpsAccuracy = (eventData['gpsAccuracy'] as num?)?.toDouble() ?? 0.0;
+    try {
+      final zoneId = eventData['zoneId'] as String?;
+      final eventTypeRaw = (eventData['eventType'] as String?)?.toUpperCase();
+      final detectionTimeMs =
+          (eventData['detectionTimeMs'] as num?)?.toDouble() ?? 0.0;
+      final gpsAccuracy = (eventData['gpsAccuracy'] as num?)?.toDouble() ?? 0.0;
 
-    // Platform channel type safety: timestamp must be int64 milliseconds
-    // Both iOS and Android send int64, but we validate to catch platform bugs
-    final timestampRaw = eventData['timestamp'];
-    final int timestamp;
-    if (timestampRaw is int) {
-      timestamp = timestampRaw;
-    } else if (timestampRaw is double) {
-      // iOS might send double (TimeInterval), convert to int
-      timestamp = timestampRaw.toInt();
-    } else {
-      throw PlatformOperationException(
-        '_handleGeofenceEvent',
-        'Invalid timestamp type: ${timestampRaw.runtimeType}. Expected int (milliseconds since epoch). Platform may have a bug.',
-      );
-    }
+      // Validate required fields
+      if (zoneId == null || eventTypeRaw == null) {
+        _errorController.add(PolyfenceError(
+          type: PolyfenceErrorType.unknown,
+          message: 'Missing required fields in geofence event',
+          context: {'rawEvent': eventData},
+          timestamp: DateTime.now(),
+        ));
+        return;
+      }
 
-    if (zoneId == null || eventType == null) {
-      return;
-    }
+      // Explicit eventType mapping with validation
+      final GeofenceEventType? geofenceEventType = switch (eventTypeRaw) {
+        'ENTER' => GeofenceEventType.enter,
+        'EXIT' => GeofenceEventType.exit,
+        _ => null,
+      };
 
-    // Get zone from cache
-    final zone = _zones[zoneId];
+      if (geofenceEventType == null) {
+        _errorController.add(PolyfenceError(
+          type: PolyfenceErrorType.unknown,
+          message: 'Unknown geofence eventType: $eventTypeRaw',
+          context: {'zoneId': zoneId, 'eventType': eventTypeRaw},
+          timestamp: DateTime.now(),
+        ));
+        return;
+      }
 
-    // Record analytics for detection
-    if (zone != null) {
-      PolyfenceAnalytics.instance.recordDetection(
-        detectionTimeMs: detectionTimeMs,
-        gpsAccuracy: gpsAccuracy,
-        zoneType: zone.type.name.toLowerCase(), // 'circle' or 'polygon'
-      );
-    }
+      // Platform channel type safety: timestamp must be int64 milliseconds
+      // Both iOS and Android send int64, but we validate to catch platform bugs
+      final timestampRaw = eventData['timestamp'];
+      final int timestamp;
+      if (timestampRaw is int) {
+        timestamp = timestampRaw;
+      } else if (timestampRaw is double) {
+        // iOS might send double (TimeInterval), convert to int
+        timestamp = timestampRaw.toInt();
+      } else {
+        // Don't throw in stream callback - emit error and use fallback
+        _errorController.add(PolyfenceError(
+          type: PolyfenceErrorType.unknown,
+          message: 'Invalid timestamp type: ${timestampRaw.runtimeType}',
+          context: {
+            'zoneId': zoneId,
+            'expected': 'int or double',
+            'received': timestampRaw.runtimeType.toString(),
+          },
+          timestamp: DateTime.now(),
+        ));
+        timestamp = DateTime.now().millisecondsSinceEpoch;
+      }
 
-    // Extract optional coordinates if provided by platform
-    final lat = (eventData['latitude'] as num?)?.toDouble();
-    final lng = (eventData['longitude'] as num?)?.toDouble();
-    final acc = (eventData['accuracy'] as num?)?.toDouble();
+      // Get zone from cache
+      final zone = _zones[zoneId];
 
-    // Create geofence event
-    final geofenceEventType =
-        eventType == 'ENTER' ? GeofenceEventType.enter : GeofenceEventType.exit;
+      // Record analytics for detection
+      if (zone != null) {
+        PolyfenceAnalytics.instance.recordDetection(
+          detectionTimeMs: detectionTimeMs,
+          gpsAccuracy: gpsAccuracy,
+          zoneType: zone.type.name.toLowerCase(), // 'circle' or 'polygon'
+        );
+      }
 
-    final event = GeofenceEvent(
-      zoneId: zoneId,
-      type: geofenceEventType,
-      location: PolyfenceLocation(
-        latitude: lat ?? 0.0,
-        longitude: lng ?? 0.0,
-        accuracy: acc,
+      // Extract optional coordinates if provided by platform
+      final lat = (eventData['latitude'] as num?)?.toDouble();
+      final lng = (eventData['longitude'] as num?)?.toDouble();
+      final acc = (eventData['accuracy'] as num?)?.toDouble();
+
+      // Warn if coordinates are missing (0.0/0.0 is Null Island - unlikely to be intentional)
+      if (lat == null || lng == null) {
+        _errorController.add(PolyfenceError(
+          type: PolyfenceErrorType.unknown,
+          message: 'Missing GPS coordinates in geofence event - using 0.0 fallback',
+          context: {
+            'zoneId': zoneId,
+            'eventType': eventTypeRaw,
+            'hasLatitude': lat != null,
+            'hasLongitude': lng != null,
+          },
+          timestamp: DateTime.now(),
+        ));
+      }
+
+      final event = GeofenceEvent(
+        zoneId: zoneId,
+        type: geofenceEventType,
+        location: PolyfenceLocation(
+          latitude: lat ?? 0.0,
+          longitude: lng ?? 0.0,
+          accuracy: acc,
+          timestamp: DateTime.fromMillisecondsSinceEpoch(timestamp),
+        ),
         timestamp: DateTime.fromMillisecondsSinceEpoch(timestamp),
-      ),
-      timestamp: DateTime.fromMillisecondsSinceEpoch(timestamp),
-      zone: zone,
-    );
+        zone: zone,
+      );
 
-    _eventController.add(event);
+      _eventController.add(event);
+    } catch (e, stackTrace) {
+      // Catch any unexpected errors to prevent stream callback crashes
+      _errorController.add(PolyfenceError(
+        type: PolyfenceErrorType.unknown,
+        message: 'Failed to parse geofence event: $e',
+        context: {
+          'rawEvent': eventData,
+          'error': e.toString(),
+          'stackTrace': stackTrace.toString(),
+        },
+        timestamp: DateTime.now(),
+      ));
+    }
   }
 
   /// Handle location updates from dedicated location channel
@@ -557,9 +643,14 @@ class PolyfenceService {
     try {
       final config = await _platform.getConfiguration();
       return config;
-    } on PlatformException catch (e) {
+    } on PlatformException catch (e, stackTrace) {
       throw PlatformOperationException(
-          'configuration', e.message ?? 'Unknown error');
+        'configuration',
+        e.message ?? 'Unknown error',
+        details: {'code': e.code, 'details': e.details},
+        innerException: e,
+        stackTrace: stackTrace,
+      );
     }
   }
 
@@ -583,9 +674,14 @@ class PolyfenceService {
 
     try {
       await _platform.updateConfiguration(config);
-    } on PlatformException catch (e) {
+    } on PlatformException catch (e, stackTrace) {
       throw PlatformOperationException(
-          'updateConfiguration', e.message ?? 'Unknown error');
+        'updateConfiguration',
+        e.message ?? 'Unknown error',
+        details: {'code': e.code, 'details': e.details},
+        innerException: e,
+        stackTrace: stackTrace,
+      );
     }
   }
 
@@ -606,9 +702,14 @@ class PolyfenceService {
 
     try {
       await _platform.resetConfiguration();
-    } on PlatformException catch (e) {
+    } on PlatformException catch (e, stackTrace) {
       throw PlatformOperationException(
-          'resetConfiguration', e.message ?? 'Unknown error');
+        'resetConfiguration',
+        e.message ?? 'Unknown error',
+        details: {'code': e.code, 'details': e.details},
+        innerException: e,
+        stackTrace: stackTrace,
+      );
     }
   }
 
@@ -639,9 +740,14 @@ class PolyfenceService {
     try {
       final result = await _platform.requestPermissions(always: always);
       return result;
-    } on PlatformException catch (e) {
+    } on PlatformException catch (e, stackTrace) {
       throw PlatformOperationException(
-          'requestPermissions', e.message ?? 'Unknown error');
+        'requestPermissions',
+        e.message ?? 'Unknown error',
+        details: {'code': e.code, 'details': e.details, 'always': always},
+        innerException: e,
+        stackTrace: stackTrace,
+      );
     }
   }
 
@@ -666,9 +772,14 @@ class PolyfenceService {
     try {
       final result = await _platform.isLocationServiceEnabled();
       return result;
-    } on PlatformException catch (e) {
+    } on PlatformException catch (e, stackTrace) {
       throw PlatformOperationException(
-          'isLocationServiceEnabled', e.message ?? 'Unknown error');
+        'isLocationServiceEnabled',
+        e.message ?? 'Unknown error',
+        details: {'code': e.code, 'details': e.details},
+        innerException: e,
+        stackTrace: stackTrace,
+      );
     }
   }
 
@@ -701,9 +812,14 @@ class PolyfenceService {
     try {
       final result = await _platform.checkBatteryOptimization();
       return Map<String, dynamic>.from(result);
-    } on PlatformException catch (e) {
+    } on PlatformException catch (e, stackTrace) {
       throw PlatformOperationException(
-          'batteryOptimizationStatus', e.message ?? 'Unknown error');
+        'batteryOptimizationStatus',
+        e.message ?? 'Unknown error',
+        details: {'code': e.code, 'details': e.details},
+        innerException: e,
+        stackTrace: stackTrace,
+      );
     }
   }
 
@@ -736,9 +852,14 @@ class PolyfenceService {
     try {
       final result = await _platform.requestBatteryOptimizationExemption();
       return result;
-    } on PlatformException catch (e) {
+    } on PlatformException catch (e, stackTrace) {
       throw PlatformOperationException(
-          'requestBatteryOptimizationExemption', e.message ?? 'Unknown error');
+        'requestBatteryOptimizationExemption',
+        e.message ?? 'Unknown error',
+        details: {'code': e.code, 'details': e.details},
+        innerException: e,
+        stackTrace: stackTrace,
+      );
     }
   }
 
@@ -767,9 +888,14 @@ class PolyfenceService {
     try {
       final result = await _platform.getDebugInfo();
       return PolyfenceDebugInfo.fromMap(Map<String, dynamic>.from(result));
-    } on PlatformException catch (e) {
+    } on PlatformException catch (e, stackTrace) {
       throw PlatformOperationException(
-          'debugInfo', e.message ?? 'Unknown error');
+        'debugInfo',
+        e.message ?? 'Unknown error',
+        details: {'code': e.code, 'details': e.details},
+        innerException: e,
+        stackTrace: stackTrace,
+      );
     }
   }
 
@@ -786,8 +912,7 @@ class PolyfenceService {
   /// });
   /// ```
   Stream<PolyfencePerformanceMetrics> get performanceStream {
-    return (_platform as MethodChannelPolyfence)
-        .performanceStream
+    return _platform.performanceStream
         .map((event) => PolyfencePerformanceMetrics.fromMap(event));
   }
 
@@ -830,9 +955,14 @@ class PolyfenceService {
       return (result as List)
           .map((e) => PolyfenceErrorSummary.fromMap(e))
           .toList();
-    } on PlatformException catch (e) {
+    } on PlatformException catch (e, stackTrace) {
       throw PlatformOperationException(
-          'errorHistory', e.message ?? 'Unknown error');
+        'errorHistory',
+        e.message ?? 'Unknown error',
+        details: {'code': e.code, 'details': e.details},
+        innerException: e,
+        stackTrace: stackTrace,
+      );
     }
   }
 
@@ -872,9 +1002,14 @@ class PolyfenceService {
 
       // Update local configuration
       _currentConfiguration = config;
-    } on PlatformException catch (e) {
+    } on PlatformException catch (e, stackTrace) {
       throw PlatformOperationException(
-          'updateConfiguration', e.message ?? 'Unknown error');
+        'updateConfiguration',
+        e.message ?? 'Unknown error',
+        details: {'code': e.code, 'details': e.details},
+        innerException: e,
+        stackTrace: stackTrace,
+      );
     }
   }
 
@@ -899,9 +1034,14 @@ class PolyfenceService {
       final result = await _platform.getCurrentConfiguration();
       _currentConfiguration = PolyfenceConfiguration.fromMap(result);
       return _currentConfiguration;
-    } on PlatformException catch (e) {
+    } on PlatformException catch (e, stackTrace) {
       throw PlatformOperationException(
-          'gpsConfiguration', e.message ?? 'Unknown error');
+        'gpsConfiguration',
+        e.message ?? 'Unknown error',
+        details: {'code': e.code, 'details': e.details},
+        innerException: e,
+        stackTrace: stackTrace,
+      );
     }
   }
 

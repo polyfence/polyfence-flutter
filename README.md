@@ -65,7 +65,7 @@ dependencies:
 # polyfence: ^0.2.0
 ```
 
-**Current version:** 0.3.1
+**Current version:** 0.4.0
 
 Then run:
 
@@ -537,7 +537,10 @@ Polyfence.instance.onError.listen((error) {
 Polyfence throws structured exceptions for better error handling:
 
 - **`PolyfenceNotInitializedException`**: Thrown when plugin methods are called before `initialize()`
-- **`PlatformOperationException`**: Thrown when platform operations fail (includes operation name and error message)
+- **`PlatformOperationException`**: Thrown when platform operations fail
+  - **New in 0.4.0**: Now includes `details` (code/details from platform), `innerException`, and full `stackTrace`
+  - Access diagnostic info: `e.details['code']`, `e.innerException`, `e.stackTrace`
+  - Enhanced `toString()` output with formatted context
 
 **Example:**
 ```dart
@@ -546,10 +549,14 @@ try {
 } on PolyfenceNotInitializedException {
   await Polyfence.instance.initialize();
   await Polyfence.instance.startTracking();
-} on PlatformOperationException catch (e) {
+} on PlatformOperationException catch (e, stackTrace) {
   print('Platform error in ${e.operation}: ${e.message}');
+  print('Platform code: ${e.details?['code']}');
+  print('Full details: ${e.details}');
+  // e.innerException and e.stackTrace also available for debugging
 }
 ```
+
 
 ### Error Types
 

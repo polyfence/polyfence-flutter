@@ -7,6 +7,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-01-02
+
+### Added
+- **Enhanced exception diagnostics**
+  - `PlatformOperationException` now exposes `details`, `innerException`, and `stackTrace` fields
+  - Developers can access full `PlatformException.code` and `details` for debugging
+  - Complete stack traces preserved and accessible in exception objects
+  - Enhanced `toString()` output with formatted details, inner exception, and stack trace
+
+- **Improved error visibility**
+  - Missing GPS coordinates in geofence events now emit warning errors to error stream
+  - Unknown event types emit structured errors instead of silently defaulting
+  - Invalid timestamps emit errors with diagnostic context instead of throwing
+  - All parsing failures emit `PolyfenceError` events for developer visibility
+
+### Fixed
+- **Platform interface architecture improvements**
+  - Added missing `onGeofenceEvent` stream to abstract `PolyfencePlatform` interface
+  - Removed unnecessary type casts to `MethodChannelPolyfence` throughout service layer
+  - Fixes analyzer warnings and enables proper platform interface mocking for tests
+  - Improves testability and maintainability of platform boundary code
+
+- **Defensive event parsing to prevent crashes**
+  - Wrapped `_handleGeofenceEvent` in comprehensive try-catch to prevent stream callback crashes
+  - Added explicit `eventType` validation with switch expression (handles unknown event types gracefully)
+  - Timestamp parsing no longer throws exceptions - emits error and uses fallback instead
+  - All parsing failures emit structured `PolyfenceError` events for developer visibility
+
+- **Code quality improvements**
+  - Fixed dead code warning in `example/lib/zone_api_service.dart` (unreachable catch block)
+  - Reordered exception handlers (`ClientException` before `SocketException` to prevent subtype shadowing)
+
+### Changed
+- **Error stream behavior**
+  - Error stream now receives more events for edge cases (missing coords, unknown event types, invalid timestamps)
+  - Coordinate fallback (0.0/0.0) is still used but now transparent via error emission
+  - Helps developers identify platform data issues instead of silent failures
+
 ## [0.3.1] - 2025-12-29
 
 ### Fixed

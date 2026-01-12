@@ -85,13 +85,24 @@ class PolyfencePlugin: FlutterPlugin, MethodCallHandler, ActivityAware {
         
         /**
          * Send geofence events to dedicated geofence channel
+         * Includes GPS coordinates for apps that need to sync events with backend APIs
          */
-        fun sendGeofenceEvent(zoneId: String, zoneName: String, eventType: String, detectionTimeMs: Double = 0.0, gpsAccuracy: Double = 0.0) {
+        fun sendGeofenceEvent(
+            zoneId: String,
+            zoneName: String,
+            eventType: String,
+            latitude: Double,
+            longitude: Double,
+            detectionTimeMs: Double = 0.0,
+            gpsAccuracy: Double = 0.0
+        ) {
             val event = mapOf(
                 "zoneId" to zoneId,
                 "zoneName" to zoneName,
                 "eventType" to eventType,
                 "timestamp" to System.currentTimeMillis(),
+                "latitude" to latitude,
+                "longitude" to longitude,
                 "detectionTimeMs" to detectionTimeMs,
                 "gpsAccuracy" to gpsAccuracy
             )

@@ -73,3 +73,4 @@ example/android/app/release/
 example/android/app/debug/
 zone_admin/DEPLOYMENT.md
 ANALYTICS_REMOVAL_LOG.md
+android/.gradle/

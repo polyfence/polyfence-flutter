@@ -370,9 +370,17 @@ private fun handleGeofenceEvent(zoneId: String, eventType: String, location: and
     
     // Get GPS accuracy
     val gpsAccuracy = if (location.hasAccuracy()) location.accuracy.toDouble() else 0.0
-    
-    // Send event to Flutter with detection metrics
-    PolyfencePlugin.sendGeofenceEvent(zoneId, zoneName, eventType, detectionTimeMs, gpsAccuracy)
+
+    // Send event to Flutter with detection metrics and GPS coordinates
+    PolyfencePlugin.sendGeofenceEvent(
+        zoneId = zoneId,
+        zoneName = zoneName,
+        eventType = eventType,
+        latitude = location.latitude,
+        longitude = location.longitude,
+        detectionTimeMs = detectionTimeMs,
+        gpsAccuracy = gpsAccuracy
+    )
     
     // Terse geofence event log
     val displayName = if (zoneName.isNotEmpty()) zoneName else zoneId

@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-01-17
+
+### Fixed
+- **Android: Geofence events now include GPS coordinates**
+  - Fixed bug where Android geofence events were missing `latitude` and `longitude` fields
+  - iOS already included these fields, causing platform inconsistency
+  - Apps syncing events to backend APIs can now access location data on both platforms
+  - Resolves DEFECT-001 reported by Roadie mobile app team
+  - Event payload now consistently includes GPS coordinates across both platforms
+
 ## [0.4.0] - 2026-01-02
 
 ### Added

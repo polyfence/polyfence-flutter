@@ -234,12 +234,12 @@ See `example/lib/zone_api_service.dart` for a complete integration example.
 | Limit | Value | Platform |
 | :-- | :-- | :-- |
 | **Maximum zones** | No hard limit | Both |
-| **Maximum polygon points** | 50 per polygon | Both |
+| **Maximum polygon points** | No limit | Both |
 | **Minimum polygon points** | 3 per polygon | Both |
 
 **Notes:**
 - **No zone count limit**: Add as many zones as your use case requires (tested with 100+ zones on both platforms)
-- **Polygon complexity limit**: Maximum 50 points per polygon to ensure efficient ray-casting performance
+- **No polygon limit**: Large polygons (1000+ points) are supported. Server-side simplification using Douglas-Peucker algorithm optimizes complex polygons for mobile clients
 - **Performance considerations**: Modern devices handle 100+ zones efficiently. Battery impact scales with GPS frequency, not zone count
 - These limits apply per device, not per app instance
 

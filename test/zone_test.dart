@@ -57,31 +57,13 @@ void main() {
       );
     });
 
-    test('Zone.polygon rejects polygon with more than 50 points', () {
+    test('Zone.polygon accepts large polygons (no upper limit)', () {
+      // Large polygons are simplified server-side, so no client-side limit
       final polygon = List.generate(
-        51,
+        1000,
         (i) => PolyfenceLocation(
-          latitude: 37.422 + (i * 0.001),
-          longitude: -122.084 + (i * 0.001),
-        ),
-      );
-
-      expect(
-        () => Zone.polygon(
-          id: 'test-polygon',
-          name: 'Test Polygon',
-          polygon: polygon,
-        ),
-        throwsArgumentError,
-      );
-    });
-
-    test('Zone.polygon accepts polygon with exactly 50 points', () {
-      final polygon = List.generate(
-        50,
-        (i) => PolyfenceLocation(
-          latitude: 37.422 + (i * 0.001),
-          longitude: -122.084 + (i * 0.001),
+          latitude: 37.422 + (i * 0.0001),
+          longitude: -122.084 + (i * 0.0001),
         ),
       );
 
@@ -91,7 +73,7 @@ void main() {
         polygon: polygon,
       );
 
-      expect(zone.polygon?.length, 50);
+      expect(zone.polygon?.length, 1000);
     });
 
     test('Zone rejects empty ID', () {

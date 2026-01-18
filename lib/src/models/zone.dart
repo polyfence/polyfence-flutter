@@ -6,10 +6,10 @@ enum ZoneType { circle, polygon }
 ///
 /// **Zone Limits:**
 /// - Maximum zones: No hard limit (both platforms)
-/// - Maximum polygon points: 50 per polygon
 /// - Minimum polygon points: 3
 ///
-/// The polygon point limit ensures efficient ray-casting performance.
+/// Note: Large polygons are automatically simplified server-side using Douglas-Peucker
+/// algorithm before being sent to mobile clients.
 class Zone {
   final String id;
   final String name;
@@ -36,9 +36,7 @@ class Zone {
       if (polygon!.length < 3) {
         throw ArgumentError('Polygon must have at least 3 points');
       }
-      if (polygon!.length > 50) {
-        throw ArgumentError('Polygon cannot have more than 50 points');
-      }
+      // No upper limit - server-side simplification handles large polygons
     }
   }
 
@@ -83,7 +81,6 @@ class Zone {
   ///
   /// **Requirements:**
   /// - Minimum 3 points (forms a triangle)
-  /// - Maximum 50 points per polygon
   ///
   /// **Example:**
   /// ```dart
@@ -100,7 +97,7 @@ class Zone {
   /// ```
   ///
   /// Throws [ArgumentError] if `id` or `name` is empty, or if polygon has
-  /// less than 3 or more than 50 points.
+  /// less than 3 points.
   factory Zone.polygon({
     required String id,
     required String name,

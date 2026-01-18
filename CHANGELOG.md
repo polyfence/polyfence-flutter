@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-01-18
+
+### Changed
+- **Removed 50-point polygon limit**
+  - Polygons can now have any number of points (previously limited to 50)
+  - Enables support for complex Clean Air Zones (Birmingham: 2575 pts, Sheffield: 2216 pts, Tyneside: 169 pts, Portsmouth: 66 pts)
+  - Server-side simplification using Douglas-Peucker algorithm handles large polygons automatically
+  - No client-side performance impact for complex boundaries
+
+### Added
+- **PolygonSimplifier utility**
+  - New `PolygonSimplifier` class with Douglas-Peucker algorithm for optional client-side polygon simplification
+  - Useful for apps that want to reduce polygon complexity before sending to server
+  - Tolerance-based simplification preserves polygon shape while reducing point count
+  - Example: `PolygonSimplifier.simplify(points, tolerance: 0.0001)`
+
+### Breaking Changes
+- Apps that relied on the 50-point validation error will no longer receive errors for large polygons
+- Update client code if you were catching `ArgumentError` for polygon point limits
+
 ## [0.5.0] - 2026-01-17
 
 ### Fixed

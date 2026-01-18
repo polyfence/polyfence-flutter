@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-01-18
+
+### Changed
+- **Removed 50-point polygon limit**
+  - Plugin no longer rejects polygons with more than 50 vertices
+  - Large zones like Birmingham CAZ (2575 points), Sheffield CAZ (2216 points) now work correctly
+  - Server-side Douglas-Peucker simplification handles accuracy at ETL time for very large polygons (>10K points)
+
+### Added
+- **Douglas-Peucker polygon simplifier utility**
+  - New `PolygonSimplifier` class available for optional client-side polygon simplification
+  - Exported via `package:polyfence/polyfence.dart`
+  - Useful for apps that need to reduce polygon complexity before display or processing
+
 ## [0.5.0] - 2026-01-17
 
 ### Fixed
@@ -275,6 +289,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Known Limitations
 - iOS notification delivery requires Critical Alert entitlement for optimal performance
-- Large polygons (>50 vertices) may impact performance
 - Maximum recommended zones: 50 active simultaneously
 

@@ -1,7 +1,7 @@
 # Polyfence Telemetry Reference
 
-**Last updated:** 2025-12-29
-**Plugin version:** 0.3.0+
+**Last updated:** 2026-01-23
+**Plugin version:** 0.7.0+
 
 ---
 

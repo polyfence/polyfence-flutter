@@ -335,6 +335,7 @@ flowchart TB
             GPS["<b>GPS Tracker</b><br/>CoreLocation<br/>Play Services"]
             Engine["<b>Geofence Engine</b><br/>Haversine<br/>Ray-casting"]
             Storage["<b>Storage</b><br/>Local Only"]
+            Notify["<b>Notifications</b><br/>Built-in Alerts<br/>(configurable)"]
         end
     end
 
@@ -351,6 +352,7 @@ flowchart TB
     Service -->|"⑥ Stream"| App
 
     Engine <-.->|"Persists & Restores"| Storage
+    Engine -.->|"If enabled"| Notify
 
     Service -.->|"If enabled"| Analytics
     App -.->|"Optional"| API
@@ -359,6 +361,7 @@ flowchart TB
     style Optional fill:#fff3e0,stroke:#f57c00,stroke-width:2px
     style Engine fill:#c8e6c9,stroke:#388e3c,stroke-width:2px
     style Storage fill:#c8e6c9,stroke:#388e3c,stroke-width:2px
+    style Notify fill:#fff9c4,stroke:#f9a825,stroke-width:2px
 ```
 
 **Architecture Highlights:**
@@ -372,6 +375,11 @@ flowchart TB
 - Zones automatically save to local storage (UserDefaults on iOS, SharedPreferences on Android)
 - Survive app kills, crashes, and device restarts
 - No manual database management needed
+
+🔔 **Built-in Notifications**
+- Optional "Entered Zone" / "Exited Zone" alerts (enabled by default)
+- Disable via `config: {'disableAlertNotifications': true}` for custom notifications
+- Foreground service notification remains active for background GPS
 
 📡 **Event Flow**
 1. Your app adds zones via `addZone()`

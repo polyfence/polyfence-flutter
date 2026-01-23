@@ -150,6 +150,13 @@ class PolyfenceService {
   /// ```dart
   /// await Polyfence.instance.initialize();
   ///
+  /// // With custom notification behavior:
+  /// await Polyfence.instance.initialize(
+  ///   config: {
+  ///     'disableAlertNotifications': true, // Suppress built-in zone alerts
+  ///   },
+  /// );
+  ///
   /// // With analytics (opt-in):
   /// await Polyfence.instance.initialize(
   ///   analyticsConfig: AnalyticsConfig(

@@ -187,6 +187,11 @@ class PolyfencePlugin: FlutterPlugin, MethodCallHandler, ActivityAware {
                 if (version != null) {
                     PolyfenceDebugCollector.setPluginVersion(version)
                 }
+                
+                // Handle disableAlertNotifications config
+                val disableAlerts = config?.get("disableAlertNotifications") as? Boolean ?: false
+                LocationTracker.setAlertNotificationsEnabled(!disableAlerts)
+                
                 result.success(null)
             }
             

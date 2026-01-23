@@ -139,6 +139,13 @@ public class PolyfencePlugin: NSObject, FlutterPlugin {
             // Initialize location tracker
             locationTracker = LocationTracker()
             
+            // Handle disableAlertNotifications config
+            if let args = arguments as? [String: Any],
+               let configDict = args["config"] as? [String: Any],
+               let disableAlerts = configDict["disableAlertNotifications"] as? Bool {
+                locationTracker?.setAlertNotificationsEnabled(!disableAlerts)
+            }
+            
             // Setup callbacks
             locationTracker?.setLocationCallback { [weak self] locationData in
                 self?.locationSink?(locationData)

@@ -48,6 +48,9 @@ class LocationTracker : Service() {
         // Smart GPS Configuration
         private var currentSmartConfig: SmartGpsConfig = SmartGpsConfig()
         
+        // Alert Notifications Control
+        private var alertNotificationsEnabled = true
+        
         /**
          * Update smart GPS configuration
          */
@@ -61,6 +64,14 @@ class LocationTracker : Service() {
          */
         fun getCurrentSmartConfiguration(): SmartGpsConfig {
             return currentSmartConfig
+        }
+        
+        /**
+         * Set whether alert notifications should be shown
+         */
+        fun setAlertNotificationsEnabled(enabled: Boolean) {
+            alertNotificationsEnabled = enabled
+            Log.d(TAG, "Alert notifications ${if (enabled) "enabled" else "disabled"}")
         }
     }
     
@@ -404,6 +415,7 @@ private fun handleGeofenceEvent(zoneId: String, eventType: String, location: and
     
     private fun showGeofenceNotification(eventType: String, zoneId: String, zoneName: String) {
     if (!isRunning) return
+    if (!alertNotificationsEnabled) return  // Respect disableAlertNotifications config
     val title = if (eventType == "ENTER") "Entered Zone" else "Exited Zone"
     val message = zoneName // Use zone name instead of ID
     

@@ -57,6 +57,9 @@ class LocationTracker: NSObject {
     private var lastEmittedStatus: [String: Any] = [:]
     private var lastStatusEmitTime: TimeInterval = 0
     
+    // Alert Notifications Control
+    private var alertNotificationsEnabled: Bool = true
+    
     override init() {
         super.init()
         setupLocationManager()
@@ -266,6 +269,14 @@ class LocationTracker: NSObject {
     }
     
     /**
+     * Set whether alert notifications should be shown
+     */
+    func setAlertNotificationsEnabled(_ enabled: Bool) {
+        alertNotificationsEnabled = enabled
+        NSLog("[LocationTracker] Alert notifications \(enabled ? "enabled" : "disabled")")
+    }
+    
+    /**
      * Request permissions using the same CLLocationManager instance
      */
     func requestPermissions(always: Bool = false) {
@@ -415,6 +426,7 @@ class LocationTracker: NSObject {
      */
     private func showGeofenceNotification(eventType: String, zoneId: String, zoneName: String) {
         guard isRunning else { return }
+        guard alertNotificationsEnabled else { return }  // Respect disableAlertNotifications config
         let title = eventType == "ENTER" ? "Entered Zone" : "Exited Zone"
         let message = zoneName // Use zone name instead of ID
         

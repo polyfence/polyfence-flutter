@@ -65,7 +65,7 @@ dependencies:
 # polyfence: ^0.2.0
 ```
 
-**Current version:** 0.6.0
+**Current version:** 0.7.0
 
 Then run:
 
@@ -382,13 +382,35 @@ flowchart TB
 
 ---
 
-## ⚙️ GPS Configuration Options
+## ⚙️ Configuration Options
 
-Polyfence provides flexible GPS configuration to balance accuracy and battery life for your specific use case:
+Polyfence provides flexible configuration to balance accuracy, battery life, and notification behavior.
 
-### Quick Configuration
+### Alert Notifications
+
+By default, Polyfence shows built-in "Entered Zone" / "Exited Zone" notifications. If your app implements custom notifications, you can disable these:
 
 ```dart
+await Polyfence.instance.initialize(
+  config: {
+    'disableAlertNotifications': true,  // Suppress built-in zone alerts
+  },
+);
+```
+
+**Use cases:**
+- Custom notifications with app-specific context (e.g., charge estimates, duration)
+- Apps that handle zone events silently
+- Different notification styles or grouping
+
+**Note:** The foreground service notification remains active (required for background GPS).
+
+### GPS Configuration
+
+Quick GPS configuration options:
+
+```dart
+
 // Maximum accuracy (current default behavior)
 await Polyfence.instance.setAccuracyProfile(PolyfenceAccuracyProfile.maxAccuracy);
 

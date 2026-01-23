@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-01-23
+
+### Added
+- **Configurable alert notifications** - New `disableAlertNotifications` config option
+  - Apps can now suppress built-in "Entered Zone" / "Exited Zone" notifications
+  - Enables custom notification implementations with app-specific context
+  - Foreground service notification remains active for background GPS
+  - Usage: `initialize(config: {'disableAlertNotifications': true})`
+
+### Changed
+- Alert notifications now respect `disableAlertNotifications` flag on both Android and iOS
+- Defaults to `false` (notifications enabled) to maintain backward compatibility
+
 ## [0.6.0] - 2026-01-18
 
 ### Changed

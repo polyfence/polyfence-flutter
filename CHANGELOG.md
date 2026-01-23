@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.1] - 2026-01-24
+
+### Fixed
+- **Android config parsing** for `disableAlertNotifications`
+  - Dart sends config nested under `config`; Android now reads the nested map correctly
+  - Ensures built-in alert notifications can be disabled on Android as intended
+- iOS already read the nested config; no changes required
+
 ## [0.7.0] - 2026-01-23
 
 ### Added

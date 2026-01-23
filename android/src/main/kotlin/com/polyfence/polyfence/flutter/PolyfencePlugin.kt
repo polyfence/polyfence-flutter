@@ -181,14 +181,18 @@ class PolyfencePlugin: FlutterPlugin, MethodCallHandler, ActivityAware {
     override fun onMethodCall(@NonNull call: MethodCall, @NonNull result: Result) {
         when (call.method) {
             "initialize" -> {
-                // Extract plugin version from config if provided
-                val config = call.arguments<Map<String, Any>>()
+                // Arguments structure from Flutter:
+                // { "licenseKey": ..., "config": { ... } }
+                val args = call.arguments<Map<String, Any>>()
+                val config = args?.get("config") as? Map<String, Any>
+
+                // Extract plugin version from nested config
                 val version = config?.get("pluginVersion") as? String
                 if (version != null) {
                     PolyfenceDebugCollector.setPluginVersion(version)
                 }
                 
-                // Handle disableAlertNotifications config
+                // Handle disableAlertNotifications from nested config
                 val disableAlerts = config?.get("disableAlertNotifications") as? Boolean ?: false
                 LocationTracker.setAlertNotificationsEnabled(!disableAlerts)
                 

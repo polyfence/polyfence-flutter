@@ -65,7 +65,7 @@ dependencies:
 # polyfence: ^0.2.0
 ```
 
-**Current version:** 0.7.0
+**Current version:** 0.7.1
 
 Then run:
 

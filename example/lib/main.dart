@@ -138,11 +138,20 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       // See what's sent: https://github.com/blackabass/polyfence-plugin/blob/main/docs/TELEMETRY.md
       await polyfence.Polyfence.instance.initialize();
 
+      // Configuration examples:
+      
       // To disable telemetry (opt-out):
       // await polyfence.Polyfence.instance.initialize(
       //   analyticsConfig: polyfence.AnalyticsConfig(
       //     disableTelemetry: true,
       //   ),
+      // );
+      
+      // To disable built-in alert notifications (for custom notifications):
+      // await polyfence.Polyfence.instance.initialize(
+      //   config: {
+      //     'disableAlertNotifications': true,
+      //   },
       // );
 
       // Load zones from API (may still be down; no fallback)

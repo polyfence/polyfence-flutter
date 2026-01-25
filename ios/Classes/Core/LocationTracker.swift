@@ -32,6 +32,17 @@ class LocationTracker: NSObject {
     private var trackingEnabled: Bool = false
     private var fallbackTimer: Timer?
     private let geofenceQueue = DispatchQueue(label: "polyfence.geofence", qos: .userInitiated)
+
+    // P9: Track last location where zone check was performed
+    private var lastZoneCheckLocation: CLLocation?
+    private let minMovementForZoneCheckMeters: CLLocationDistance = 5.0  // Only recheck zones if moved >5m
+
+    // P4: Defer GPS start until zones exist
+    private var gpsStartDeferred: Bool = false
+
+    // P11: Throttle Flutter callbacks when stationary
+    private var lastFlutterCallbackTime: TimeInterval = 0
+    private let stationaryFlutterCallbackInterval: TimeInterval = 30.0  // 30s when stationary
     // CPU usage tracking state
     private var prevCpuTotal: UInt32 = 0
     private var prevCpuIdle: UInt32 = 0
@@ -72,9 +83,10 @@ class LocationTracker: NSObject {
     private func setupLocationManager() {
         locationManager = CLLocationManager()
         locationManager?.delegate = self
-        locationManager?.desiredAccuracy = kCLLocationAccuracyBest
-        locationManager?.distanceFilter = 10.0 // balance battery and updates
-        locationManager?.pausesLocationUpdatesAutomatically = false
+        // P2/P3: Use smartConfig defaults for initial setup (BALANCED profile by default)
+        locationManager?.desiredAccuracy = smartConfig.getCLLocationAccuracy()
+        locationManager?.distanceFilter = smartConfig.getDistanceFilter()
+        locationManager?.pausesLocationUpdatesAutomatically = smartConfig.shouldPauseAutomatically()
         locationManager?.activityType = .otherNavigation
         
         if #available(iOS 9.0, *) {
@@ -226,10 +238,17 @@ class LocationTracker: NSObject {
                 try self.geofenceEngine.addZone(zoneId: zoneId, zoneName: zoneName, zoneData: zoneData)
                 // Save to persistent storage
                 self.zonePersistence?.saveZone(zoneId: zoneId, zoneName: zoneName, zoneData: zoneData)
-                
+
                 // Check CLLocationManager health after zone addition
                 DispatchQueue.main.async {
                     self.checkLocationManagerHealth()
+
+                    // P4: If GPS was deferred, start it now that we have zones
+                    if self.gpsStartDeferred && self.isRunning {
+                        NSLog("[LocationTracker] P4: First zone added - starting deferred GPS")
+                        self.gpsStartDeferred = false
+                        self.startGpsUpdates()
+                    }
                 }
             } catch {
                 // Failed to add zone
@@ -315,20 +334,40 @@ class LocationTracker: NSObject {
         guard let locationManager = locationManager else { return }
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
-            locationManager.startUpdatingLocation()
-            locationManager.requestLocation()
-            if let lastKnown = locationManager.location {
-                self.lastLocationTime = Date().timeIntervalSince1970
-                self.sendLocationToFlutter(location: lastKnown)
-            }
-            if #available(iOS 9.0, *) {
-                locationManager.startMonitoringSignificantLocationChanges()
-            }
-            // Restore zones from storage
+
+            // Restore zones from storage FIRST (before deciding whether to start GPS)
             self.restoreZonesFromStorage()
-            // Start a fallback timer to keep requesting location until fixes flow
-            self.startFallbackTimer()
+
+            // P4: Only start GPS if zones exist, otherwise defer
+            if !self.geofenceEngine.hasZones() {
+                NSLog("[LocationTracker] P4: No zones registered - deferring GPS start until zones are added")
+                self.gpsStartDeferred = true
+                return
+            }
+
+            self.startGpsUpdates()
         }
+    }
+
+    /**
+     * P4: Start actual GPS updates (called when zones exist)
+     */
+    private func startGpsUpdates() {
+        guard let locationManager = locationManager else { return }
+
+        locationManager.startUpdatingLocation()
+        locationManager.requestLocation()
+        if let lastKnown = locationManager.location {
+            self.lastLocationTime = Date().timeIntervalSince1970
+            self.sendLocationToFlutter(location: lastKnown)
+        }
+        if #available(iOS 9.0, *) {
+            locationManager.startMonitoringSignificantLocationChanges()
+        }
+        // Start a fallback timer to keep requesting location until fixes flow
+        self.startFallbackTimer()
+
+        NSLog("[LocationTracker] GPS updates started with profile: \(smartConfig.accuracyProfile)")
     }
 
     /**
@@ -586,20 +625,35 @@ class LocationTracker: NSObject {
     }
 
     /**
-     * Start a fallback timer to request single-shot locations if stale
+     * P7: Start a fallback timer to request single-shot locations if stale
+     * Changed from repeating (15s) to non-repeating (30s) - only fires when truly needed
      */
     private func startFallbackTimer() {
         fallbackTimer?.invalidate()
-        fallbackTimer = Timer.scheduledTimer(withTimeInterval: 15.0, repeats: true) { [weak self] _ in
+        // P7: Non-repeating timer at 30s - reschedules itself only after location received
+        fallbackTimer = Timer.scheduledTimer(withTimeInterval: 30.0, repeats: false) { [weak self] _ in
             guard let self = self, self.isRunning else { return }
             let now = Date().timeIntervalSince1970
             let secondsSinceLast = now - self.lastLocationTime
-            if secondsSinceLast > 20.0 {
-                // Fallback requesting location
+            if secondsSinceLast > 30.0 {
+                // P7: Only request if truly stale (30s without update)
+                print("\(Self.TAG): Fallback timer triggered - requesting location")
                 self.locationManager?.requestLocation()
             }
+            // P7: Reschedule for next check
+            self.startFallbackTimer()
         }
         RunLoop.main.add(fallbackTimer!, forMode: .common)
+    }
+
+    /**
+     * P7: Reset fallback timer after receiving a location update
+     * Called from locationManager:didUpdateLocations to prevent unnecessary fallback triggers
+     */
+    private func resetFallbackTimer() {
+        if isRunning {
+            startFallbackTimer()
+        }
     }
     
     /**
@@ -644,20 +698,44 @@ extension LocationTracker: CLLocationManagerDelegate {
         // Update health tracking
         lastLocationTime = Date().timeIntervalSince1970
         consecutiveGpsFailures = 0
-        
-        // Send location to Flutter
-        do {
+
+        // P7: Reset fallback timer since we received a valid location
+        resetFallbackTimer()
+
+        // P11: Throttle Flutter callbacks when stationary to reduce overhead
+        let currentTime = Date().timeIntervalSince1970
+        let timeSinceLastCallback = currentTime - lastFlutterCallbackTime
+        let shouldSendToFlutter: Bool
+        if isStationary {
+            // When stationary, only send updates every 30s
+            shouldSendToFlutter = timeSinceLastCallback >= stationaryFlutterCallbackInterval
+        } else {
+            // When moving, send every update
+            shouldSendToFlutter = true
+        }
+
+        if shouldSendToFlutter {
             sendLocationToFlutter(location: location)
-        } catch {
-            return
+            lastFlutterCallbackTime = currentTime
         }
         
         // Emit status periodically
-        
-        // Run geofence check on geofence queue to avoid concurrency issues
-        geofenceQueue.async { [weak self] in
-            guard let self = self else { return }
-            self.geofenceEngine.checkLocation(location)
+
+        // P9: Only check geofences if moved significantly since last check
+        let shouldCheckZones: Bool
+        if let lastLoc = lastZoneCheckLocation {
+            shouldCheckZones = location.distance(from: lastLoc) > minMovementForZoneCheckMeters
+        } else {
+            shouldCheckZones = true  // Always check on first location
+        }
+
+        if shouldCheckZones {
+            // Run geofence check on geofence queue to avoid concurrency issues
+            geofenceQueue.async { [weak self] in
+                guard let self = self else { return }
+                self.geofenceEngine.checkLocation(location)
+            }
+            lastZoneCheckLocation = location
         }
     }
     

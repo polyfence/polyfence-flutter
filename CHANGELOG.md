@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-01-25
+
+### Added
+- **Comprehensive battery drain optimizations** - Major improvements targeting Samsung and high-drain Android devices
+  - **P1: Distance filter per profile** - GPS updates now filtered by movement distance (0m/10m/25m/10m for MAX_ACCURACY/BALANCED/BATTERY_OPTIMAL/ADAPTIVE)
+  - **P4: Deferred GPS start** - GPS doesn't start until zones are registered, saving battery when no zones exist (Android & iOS)
+  - **P5: Samsung/OEM device detection** - Detects Samsung, Xiaomi, Huawei, OPPO, Vivo, OnePlus devices with aggressive battery management
+  - **P6: Consolidated health timers** - Reduced Android timers from 4 to 2 (combined 60s health check replaces separate GPS/permission checks)
+  - **P7: Non-repeating fallback timer** - iOS fallback timer changed from 15s repeating to 30s non-repeating
+  - **P9: Zone check throttling** - Skip geofence checks if device moved <5 meters (Android & iOS)
+  - **P10: Profile-based wake lock duration** - Wake lock timeout tied to accuracy profile (4-12 hours based on profile)
+  - **P11: Flutter callback throttling** - Throttle location callbacks to 30s when stationary (Android & iOS)
+
+### Changed
+- **P2: Default profile changed to BALANCED** - Both Android and iOS now default to BALANCED instead of MAX_ACCURACY for better battery life out of the box
+- **P3: iOS pausesLocationUpdatesAutomatically** - Now respects profile configuration (enabled for BALANCED/BATTERY_OPTIMAL/ADAPTIVE)
+
+### Performance
+- Estimated 40-50% reduction in battery drain on Android devices
+- Samsung Galaxy devices should see significant improvement due to distance filter + device detection
+- iOS devices benefit from deferred GPS start, zone check throttling, and callback throttling
+
 ## [0.7.1] - 2026-01-23
 
 ### Fixed

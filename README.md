@@ -65,7 +65,7 @@ dependencies:
 # polyfence: ^0.2.0
 ```
 
-**Current version:** 0.7.1
+**Current version:** 0.8.0
 
 Then run:
 
@@ -332,10 +332,10 @@ flowchart TB
 
         subgraph Native["Platform Layer (iOS/Android)"]
             direction LR
-            GPS["<b>GPS Tracker</b><br/>CoreLocation<br/>Play Services"]
-            Engine["<b>Geofence Engine</b><br/>Haversine<br/>Ray-casting"]
+            GPS["<b>GPS Tracker</b><br/>CoreLocation<br/>Play Services<br/><i>Distance Filter</i>"]
+            Engine["<b>Geofence Engine</b><br/>Haversine • Ray-casting<br/><i>Zone Check Throttle</i>"]
             Storage["<b>Storage</b><br/>Local Only"]
-            Notify["<b>Notifications</b><br/>Built-in Alerts<br/>(configurable)"]
+            Battery["<b>Battery Optimizer</b><br/>Deferred GPS Start<br/>Profile-based Settings"]
         end
     end
 
@@ -345,14 +345,14 @@ flowchart TB
     end
 
     App -->|"① Add zones"| Service
-    Service -->|"② Platform call"| GPS
-    GPS -->|"③ Location"| Engine
-    Engine -->|"④ Detect"| Engine
-    Engine -->|"⑤ Events"| Service
-    Service -->|"⑥ Stream"| App
+    Service -->|"② Platform call"| Battery
+    Battery -->|"③ Start when ready"| GPS
+    GPS -->|"④ Location"| Engine
+    Engine -->|"⑤ Detect"| Engine
+    Engine -->|"⑥ Events"| Service
+    Service -->|"⑦ Stream"| App
 
     Engine <-.->|"Persists & Restores"| Storage
-    Engine -.->|"If enabled"| Notify
 
     Service -.->|"If enabled"| Analytics
     App -.->|"Optional"| API
@@ -361,7 +361,8 @@ flowchart TB
     style Optional fill:#fff3e0,stroke:#f57c00,stroke-width:2px
     style Engine fill:#c8e6c9,stroke:#388e3c,stroke-width:2px
     style Storage fill:#c8e6c9,stroke:#388e3c,stroke-width:2px
-    style Notify fill:#fff9c4,stroke:#f9a825,stroke-width:2px
+    style Battery fill:#bbdefb,stroke:#1976d2,stroke-width:2px
+    style GPS fill:#c8e6c9,stroke:#388e3c,stroke-width:2px
 ```
 
 **Architecture Highlights:**
@@ -512,15 +513,32 @@ This can reduce GPS usage by 60-80% for users who spend time away from monitored
 
 ---
 
-## 🔋 Background Reliability
+## 🔋 Background Reliability & Battery Optimization
+
+### Battery-Saving Features (v0.8.0+)
+
+Polyfence includes comprehensive battery optimizations that reduce drain by an estimated 40-50%:
+
+| Feature | Description | Platforms |
+|---------|-------------|-----------|
+| **Deferred GPS Start** | GPS doesn't start until zones are registered | Android & iOS |
+| **Distance Filter** | Only receive updates when device moves (10m for BALANCED profile) | Android & iOS |
+| **Zone Check Throttling** | Skip geofence checks if moved <5 meters | Android & iOS |
+| **Callback Throttling** | Reduce Flutter callbacks to 30s when stationary | Android & iOS |
+| **Profile-based Wake Lock** | Wake lock duration tied to accuracy profile (4-12 hours) | Android |
+| **Consolidated Timers** | Reduced health check timers from 4 to 2 | Android |
+| **OEM Device Detection** | Detects Samsung/Xiaomi/Huawei for optimized defaults | Android |
+
+**Default Profile**: BALANCED (provides good accuracy with reasonable battery impact)
 
 ### Android Background Operation
 
-- **Wake Lock Management**: Automatically acquires `PARTIAL_WAKE_LOCK` during tracking with 12-hour timeout and auto-renewal (properly released on stop or timeout)
+- **Wake Lock Management**: Automatically acquires `PARTIAL_WAKE_LOCK` with profile-based timeout (4-12 hours based on accuracy profile) and auto-renewal
 - **Battery Optimization Bypass**: Built-in API to request exemption
 - **Foreground Service**: Uses `FOREGROUND_SERVICE_LOCATION` for background updates
 - **Auto-restart**: Service restarts if killed (limited to 3 attempts with cooldown)
 - **GPS Recovery**: Automatically recovers from GPS failures (up to 5 consecutive attempts before giving up)
+- **Samsung/OEM Support**: Detects devices with aggressive battery management and logs device info for debugging
 
 ### iOS Background Operation
 
@@ -528,6 +546,7 @@ This can reduce GPS usage by 60-80% for users who spend time away from monitored
 - **Background Location Updates**: Uses `allowsBackgroundLocationUpdates`
 - **Significant Location Changes**: Falls back when appropriate
 - **App Lifecycle Integration**: Handles state transitions
+- **Pauses Location Updates**: Automatically pauses location updates when stationary (for BALANCED/BATTERY_OPTIMAL profiles)
 
 ### Battery Optimization (Android)
 

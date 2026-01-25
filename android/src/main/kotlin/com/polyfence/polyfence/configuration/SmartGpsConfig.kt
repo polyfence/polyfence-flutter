@@ -1,5 +1,6 @@
 package com.polyfence.polyfence.configuration
 
+import android.os.Build
 import android.util.Log
 import com.google.android.gms.location.Priority
 import java.util.Locale
@@ -9,7 +10,7 @@ import java.util.Locale
  * Provides flexible GPS accuracy/battery profiles for different use cases
  */
 data class SmartGpsConfig(
-    val accuracyProfile: AccuracyProfile = AccuracyProfile.MAX_ACCURACY,
+    val accuracyProfile: AccuracyProfile = AccuracyProfile.BALANCED,  // P2: Changed from MAX_ACCURACY for better battery
     val updateStrategy: UpdateStrategy = UpdateStrategy.CONTINUOUS,
     val proximitySettings: ProximitySettings? = null,
     val movementSettings: MovementSettings? = null,
@@ -52,9 +53,16 @@ data class SmartGpsConfig(
     }
     
     /**
-     * Get distance filter for GPS updates (Android doesn't have this, return 0)
+     * Get distance filter for GPS updates in meters
+     * P1: Android now has per-profile distance filter (parity with iOS)
+     * Only receive updates when device moves more than this distance
      */
-    fun getDistanceFilter(): Float = 0f
+    fun getDistanceFilter(): Float = when (accuracyProfile) {
+        AccuracyProfile.MAX_ACCURACY -> 0f       // Every update for maximum precision
+        AccuracyProfile.BALANCED -> 10f          // 10 meters - good balance
+        AccuracyProfile.BATTERY_OPTIMAL -> 25f   // 25 meters - prioritize battery
+        AccuracyProfile.ADAPTIVE -> 10f          // 10 meters base
+    }
     
     /**
      * Whether to wait for accurate location
@@ -176,15 +184,56 @@ data class BatterySettings(
 }
 
 /**
+ * P5: Device detection utilities for manufacturer-specific optimizations
+ */
+object DeviceOptimization {
+    /**
+     * Check if device is Samsung (aggressive battery management)
+     */
+    fun isSamsungDevice(): Boolean {
+        return Build.MANUFACTURER.equals("samsung", ignoreCase = true)
+    }
+
+    /**
+     * Check if device has aggressive battery management (Samsung, Xiaomi, Huawei, etc.)
+     */
+    fun hasAggressiveBatteryManagement(): Boolean {
+        val manufacturer = Build.MANUFACTURER.lowercase(Locale.US)
+        return manufacturer in listOf("samsung", "xiaomi", "huawei", "oppo", "vivo", "oneplus")
+    }
+
+    /**
+     * Get recommended default profile based on device manufacturer
+     * Samsung and similar devices with aggressive battery management
+     * should use BALANCED by default to avoid excessive drain
+     */
+    fun getRecommendedDefaultProfile(): SmartGpsConfig.AccuracyProfile {
+        return if (hasAggressiveBatteryManagement()) {
+            SmartGpsConfig.AccuracyProfile.BALANCED
+        } else {
+            SmartGpsConfig.AccuracyProfile.BALANCED  // Always BALANCED as new default
+        }
+    }
+
+    /**
+     * Log device info for debugging battery issues
+     */
+    fun logDeviceInfo(tag: String) {
+        Log.d(tag, "Device: ${Build.MANUFACTURER} ${Build.MODEL}, Android ${Build.VERSION.RELEASE}")
+        Log.d(tag, "Aggressive battery management: ${hasAggressiveBatteryManagement()}")
+    }
+}
+
+/**
  * Companion object for creating SmartGpsConfig from Flutter data
  */
 object SmartGpsConfigFactory {
-    
+
     fun fromMap(map: Map<String, Any>): SmartGpsConfig {
         val accuracyProfile = parseEnum(
             map["accuracyProfile"] as? String,
             SmartGpsConfig.AccuracyProfile.values(),
-            SmartGpsConfig.AccuracyProfile.MAX_ACCURACY
+            SmartGpsConfig.AccuracyProfile.BALANCED  // P2: Changed default fallback to BALANCED
         )
         
         val updateStrategy = parseEnum(

@@ -19,6 +19,7 @@ import com.polyfence.polyfence.utils.PolyfenceConfig
 import com.polyfence.polyfence.utils.PolyfenceErrorRecovery
 import com.polyfence.polyfence.configuration.SmartGpsConfig
 import com.polyfence.polyfence.configuration.SmartGpsConfigFactory
+import com.polyfence.polyfence.configuration.DeviceOptimization
 import com.polyfence.polyfence.core.GeofenceEngine.LatLng
 import com.polyfence.polyfence.core.GeofenceEngine.ZoneType
 import kotlin.math.*
@@ -91,25 +92,48 @@ class LocationTracker : Service() {
     private var wakeLock: PowerManager.WakeLock? = null
     private var isWakeLockAcquired = false
     private var wakeLockAcquireTime: Long = 0L
-    private val maxWakeLockDuration = 12 * 60 * 60 * 1000L  // 12 hours in milliseconds
-    
+    // P10: Wake lock duration now tied to accuracy profile (calculated dynamically)
+
+    /**
+     * P10: Get wake lock duration based on accuracy profile
+     * More aggressive profiles get shorter wake locks to limit battery impact
+     */
+    private fun getWakeLockDuration(): Long = when (smartConfig.accuracyProfile) {
+        SmartGpsConfig.AccuracyProfile.MAX_ACCURACY -> 12 * 60 * 60 * 1000L   // 12 hours - max tracking
+        SmartGpsConfig.AccuracyProfile.BALANCED -> 8 * 60 * 60 * 1000L        // 8 hours - balanced
+        SmartGpsConfig.AccuracyProfile.BATTERY_OPTIMAL -> 4 * 60 * 60 * 1000L // 4 hours - battery priority
+        SmartGpsConfig.AccuracyProfile.ADAPTIVE -> 6 * 60 * 60 * 1000L        // 6 hours - adaptive
+    }
+
     // Smart GPS Configuration
     private var smartConfig: SmartGpsConfig = SmartGpsConfig()
     private var currentGpsInterval: Long = 5000L
     private var isStationary: Boolean = false
+
+    // P9: Track last location where zone check was performed
+    private var lastZoneCheckLocation: android.location.Location? = null
+    private val MIN_MOVEMENT_FOR_ZONE_CHECK_METERS = 5.0f  // Only recheck zones if moved >5m
     private var lastKnownLocation: android.location.Location? = null
     
     // Runtime Status Emission
     private var lastEmittedStatus = mapOf<String, Any>()
     private var lastStatusEmitTime = 0L
 
-    // Permission Monitoring
-    private var permissionCheckHandler: android.os.Handler? = null
-    private val permissionCheckInterval = 60_000L  // 60 seconds
+    // P6: Consolidated health monitoring (replaces separate permission/GPS checks)
+    // Combined health check runs every 60s instead of separate 30s GPS + 60s permission checks
+    private var combinedHealthCheckHandler: android.os.Handler? = null
+    private val combinedHealthCheckInterval = 60_000L  // 60 seconds (unified interval)
+
+    // P11: Throttle Flutter callbacks when stationary
+    private var lastFlutterCallbackTime = 0L
+    private val stationaryFlutterCallbackInterval = 30_000L  // 30s when stationary (vs every update when moving)
 
     override fun onCreate() {
         super.onCreate()
-        
+
+        // P5: Log device info for debugging battery issues on Samsung/etc
+        DeviceOptimization.logDeviceInfo(TAG)
+
         // Initialize configuration
         config = PolyfenceConfig(this)
         config.validateAndCorrect()
@@ -210,6 +234,9 @@ class LocationTracker : Service() {
         return (fine || coarse) && bgOk && fgsOk
     }
     
+    // P4: Track if GPS start is deferred waiting for zones
+    private var gpsStartDeferred = false
+
     private fun startTracking() {
         // Verify permissions before starting foreground service
         if (!hasLocationPerms()) {
@@ -217,32 +244,46 @@ class LocationTracker : Service() {
             stopSelf()
             return
         }
-        
+
         isRunning = true
         startForeground(NOTIFICATION_ID, createTrackingNotification())
-        
+
         // Acquire wake lock before starting location requests
         acquireWakeLock()
-        
+
         // Restore zones from storage ONLY when tracking starts
         restoreZonesFromStorage()
-        
-        // Start error monitoring
-        startHealthMonitoring()
 
-        // Start permission monitoring
-        startPermissionMonitoring()
+        // P6: Start combined health monitoring (replaces separate GPS + permission checks)
+        startCombinedHealthMonitoring()
+
+        // P4: Only start GPS if zones exist, otherwise defer
+        if (!geofenceEngine.hasZones()) {
+            Log.d(TAG, "P4: No zones registered - deferring GPS start until zones are added")
+            gpsStartDeferred = true
+            return
+        }
+
+        startGpsUpdates()
+    }
+
+    /**
+     * P4: Start GPS location updates (extracted for deferred start)
+     */
+    private fun startGpsUpdates() {
+        gpsStartDeferred = false
 
         // Use smart GPS configuration for location request
         val priority = smartConfig.getLocationPriority()
         val interval = calculateCurrentInterval()
-        
+
         val locationRequest = LocationRequest.Builder(priority, interval)
             .setMinUpdateIntervalMillis(interval / 2)
             .setMaxUpdateDelayMillis(interval * 2)
             .setWaitForAccurateLocation(smartConfig.shouldWaitForAccurateLocation())
+            .setMinUpdateDistanceMeters(smartConfig.getDistanceFilter())  // P1: Apply distance filter from profile
             .build()
-        
+
         try {
             val callback = locationCallback ?: run {
                 Log.e(TAG, "LocationCallback is null - cannot start location updates")
@@ -253,6 +294,7 @@ class LocationTracker : Service() {
                 callback,
                 Looper.getMainLooper()
             )
+            Log.d(TAG, "GPS updates started with profile: ${smartConfig.accuracyProfile}")
         } catch (e: SecurityException) {
             Log.e(TAG, "Location permission denied: ${e.message}")
             errorRecovery.handlePermissionLoss()
@@ -274,54 +316,78 @@ class LocationTracker : Service() {
         errorRecovery.stopMonitoring()
         healthCheckHandler?.removeCallbacksAndMessages(null)
 
-        // Stop permission monitoring
-        stopPermissionMonitoring()
+        // P6: Stop combined health monitoring
+        stopCombinedHealthMonitoring()
 
         stopForeground(true)
         stopSelf()
     }
 
     /**
-     * Start continuous permission monitoring
-     * Checks permissions every 60 seconds while tracking is active
+     * P6: Combined health monitoring - consolidates GPS health + permission checks
+     * Runs every 60 seconds instead of separate 30s GPS + 60s permission timers
+     * Reduces timer overhead from 4 timers to 2 (this + wake lock check)
      */
-    private fun startPermissionMonitoring() {
-        permissionCheckHandler = android.os.Handler(Looper.getMainLooper())
-        permissionCheckHandler?.postDelayed(object : Runnable {
+    private fun startCombinedHealthMonitoring() {
+        combinedHealthCheckHandler = android.os.Handler(Looper.getMainLooper())
+        combinedHealthCheckHandler?.postDelayed(object : Runnable {
             override fun run() {
-                if (isRunning && !hasLocationPerms()) {
-                    // Permission was revoked during runtime
-                    Log.w(TAG, "Location permission revoked - stopping tracking gracefully")
+                if (!isRunning) return
 
-                    // Report error to Flutter layer
+                // === Permission Check (was separate 60s timer) ===
+                if (!hasLocationPerms()) {
+                    Log.w(TAG, "P6: Location permission revoked - stopping tracking gracefully")
                     PolyfenceErrorManager.reportError(
                         "permission_revoked",
                         "Location permission was revoked by user during tracking",
                         mapOf("platform" to "android", "timestamp" to System.currentTimeMillis())
                     )
-
-                    // Stop tracking gracefully
                     stopTracking()
                     return
                 }
 
-                // Schedule next check if still running
+                // === GPS Health Check (was separate 30s timer) ===
+                val currentTime = System.currentTimeMillis()
+                val timeSinceLastLocation = currentTime - lastLocationTime
+
+                if (timeSinceLastLocation > 120_000L && lastLocationTime > 0) {
+                    Log.w(TAG, "P6: GPS health check - no location for ${timeSinceLastLocation / 1000}s")
+
+                    if (consecutiveGpsFailures in 3..5) {
+                        Log.w(TAG, "P6: Triggering GPS recovery")
+                        errorRecovery.handleGpsFailure()
+                    }
+                }
+
+                // === System Health Snapshot (was separate 12min timer, now piggybacks) ===
+                try {
+                    val bm = getSystemService(Context.BATTERY_SERVICE) as BatteryManager
+                    val level = bm.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY).toDouble()
+                    val isCharging = bm.isCharging
+                    val gpsActive = timeSinceLastLocation < 60_000
+
+                    Log.d(TAG, "P6: Health - battery=${level}%, charging=$isCharging, gps=$gpsActive")
+                } catch (e: Exception) {
+                    Log.e(TAG, "P6: Health snapshot failed: ${e.message}")
+                }
+
+                // Schedule next combined check
                 if (isRunning) {
-                    permissionCheckHandler?.postDelayed(this, permissionCheckInterval)
+                    combinedHealthCheckHandler?.postDelayed(this, combinedHealthCheckInterval)
                 }
             }
-        }, permissionCheckInterval)
+        }, combinedHealthCheckInterval)
 
-        Log.d(TAG, "Permission monitoring started - checking every ${permissionCheckInterval / 1000}s")
+        Log.d(TAG, "P6: Combined health monitoring started - checking every ${combinedHealthCheckInterval / 1000}s")
     }
 
     /**
-     * Stop continuous permission monitoring
+     * P6: Stop combined health monitoring
      */
-    private fun stopPermissionMonitoring() {
-        permissionCheckHandler?.removeCallbacksAndMessages(null)
-        permissionCheckHandler = null
-        Log.d(TAG, "Permission monitoring stopped")
+    private fun stopCombinedHealthMonitoring() {
+        combinedHealthCheckHandler?.removeCallbacksAndMessages(null)
+        combinedHealthCheckHandler = null
+        Log.d(TAG, "P6: Combined health monitoring stopped")
     }
 
     private fun addZone(intent: Intent) {
@@ -335,6 +401,11 @@ class LocationTracker : Service() {
         // Save to persistent storage
         zonePersistence.saveZone(zoneId, zoneName, zoneData)
 
+        // P4: Start GPS if it was deferred waiting for zones
+        if (gpsStartDeferred && isRunning && geofenceEngine.hasZones()) {
+            Log.d(TAG, "P4: First zone added - starting deferred GPS updates")
+            startGpsUpdates()
+        }
     }
     
     private fun removeZone(intent: Intent) {
@@ -533,22 +604,23 @@ private fun handleGeofenceEvent(zoneId: String, eventType: String, location: and
         
         healthCheckHandler?.postDelayed({
             if (wakeLock?.isHeld == true && isWakeLockAcquired) {
+                val wakeLockDuration = getWakeLockDuration()  // P10: Use profile-based duration
                 val age = System.currentTimeMillis() - wakeLockAcquireTime
-                val remainingTime = maxWakeLockDuration - age
-                
+                val remainingTime = wakeLockDuration - age
+
                 // If wake lock is approaching expiration (within 1 hour) and tracking is still active, renew it
                 if (remainingTime < 60 * 60 * 1000L && isRunning) {
-                    Log.i(TAG, "Wake lock approaching timeout (${remainingTime / 1000 / 60}min remaining) - auto-renewing for continued tracking")
-                    
-                    // Release old wake lock and re-acquire with fresh 12-hour timeout
+                    Log.i(TAG, "P10: Wake lock approaching timeout (${remainingTime / 1000 / 60}min remaining) - auto-renewing")
+
+                    // Release old wake lock and re-acquire with profile-based timeout
                     releaseWakeLock()
                     acquireWakeLock()
                     return@postDelayed
                 }
-                
+
                 // If wake lock exceeded timeout (shouldn't happen with Android's built-in timeout, but safety net)
-                if (age > maxWakeLockDuration) {
-                    Log.w(TAG, "Wake lock exceeded ${maxWakeLockDuration / 1000 / 60 / 60}h timeout - force releasing")
+                if (age > wakeLockDuration) {
+                    Log.w(TAG, "P10: Wake lock exceeded ${wakeLockDuration / 1000 / 60 / 60}h timeout - force releasing")
                     
                     // Report error to Flutter layer
                     PolyfenceErrorManager.reportError(
@@ -594,13 +666,14 @@ private fun handleGeofenceEvent(zoneId: String, eventType: String, location: and
             }
             
             if (!isWakeLockAcquired) {
-                // Acquire wake lock with 12-hour timeout for battery safety
-                // Auto-released after timeout or when tracking stops
-                wakeLock?.acquire(maxWakeLockDuration)
+                // P10: Acquire wake lock with profile-based timeout for battery safety
+                // More aggressive profiles get shorter wake locks
+                val wakeLockDuration = getWakeLockDuration()
+                wakeLock?.acquire(wakeLockDuration)
                 isWakeLockAcquired = true
                 wakeLockAcquireTime = System.currentTimeMillis()
-                
-                Log.i(TAG, "Wake lock acquired with ${maxWakeLockDuration / 1000 / 60 / 60}h timeout")
+
+                Log.i(TAG, "P10: Wake lock acquired with ${wakeLockDuration / 1000 / 60 / 60}h timeout (profile: ${smartConfig.accuracyProfile})")
                 
                 // Schedule health check to monitor wake lock age
                 scheduleWakeLockHealthCheck()
@@ -657,12 +730,32 @@ private fun handleGeofenceEvent(zoneId: String, eventType: String, location: and
                 
                 // Reset error recovery attempts on successful location
                 errorRecovery.resetRestartAttempts()
-                
-                // Send to Flutter
-                sendLocationToFlutter(location)
-                
-                // Check geofences (only when tracking is active)
-                geofenceEngine.checkLocation(location)
+
+                // P11: Throttle Flutter callbacks when stationary to reduce overhead
+                val currentTime = System.currentTimeMillis()
+                val timeSinceLastCallback = currentTime - lastFlutterCallbackTime
+                val shouldSendToFlutter = if (isStationary) {
+                    // When stationary, only send updates every 30s
+                    timeSinceLastCallback >= stationaryFlutterCallbackInterval
+                } else {
+                    // When moving, send every update
+                    true
+                }
+
+                if (shouldSendToFlutter) {
+                    sendLocationToFlutter(location)
+                    lastFlutterCallbackTime = currentTime
+                }
+
+                // P9: Only check geofences if moved significantly since last check
+                val shouldCheckZones = lastZoneCheckLocation?.let { lastLoc ->
+                    location.distanceTo(lastLoc) > MIN_MOVEMENT_FOR_ZONE_CHECK_METERS
+                } ?: true  // Always check on first location
+
+                if (shouldCheckZones) {
+                    geofenceEngine.checkLocation(location)
+                    lastZoneCheckLocation = location
+                }
             }
         }
         
@@ -683,62 +776,9 @@ private fun handleGeofenceEvent(zoneId: String, eventType: String, location: and
     }
 }
     
-    private fun startHealthMonitoring() {
-        // Existing health checks
-        healthCheckHandler?.removeCallbacksAndMessages(null)
-        healthCheckHandler?.postDelayed(object : Runnable {
-            override fun run() {
-                if (!isRunning) return
-                try {
-                    // Collect battery/charging
-                    val bm = getSystemService(Context.BATTERY_SERVICE) as android.os.BatteryManager
-                    val level = bm.getIntProperty(android.os.BatteryManager.BATTERY_PROPERTY_CAPACITY).toDouble()
-                    val isCharging = bm.isCharging
+    // P6: Old startHealthMonitoring() and checkGpsHealth() removed
+    // Functionality consolidated into startCombinedHealthMonitoring()
 
-                    // GPS active heuristic: receiving updates recently
-                    val gpsActive = (System.currentTimeMillis() - lastLocationTime) < 60_000
-
-                    val health = mapOf(
-                        "type" to "system_health",
-                        "battery_level" to level,
-                        "is_charging" to isCharging,
-                        "gps_active" to gpsActive,
-                        "timestamp" to System.currentTimeMillis(),
-                        "gps_status" to if (gpsActive) "active" else "idle"
-                    )
-                } catch (e: Exception) {
-                    Log.e(TAG, "Health snapshot failed: ${e.message}")
-                }
-                // Re-schedule ~12 minutes
-                healthCheckHandler?.postDelayed(this, 12 * 60 * 1000L)
-            }
-        }, 12 * 60 * 1000L)
-    }
-    
-    private fun checkGpsHealth() {
-    healthCheckHandler?.postDelayed({
-        if (isRunning) {
-            val currentTime = System.currentTimeMillis()
-            val timeSinceLastLocation = currentTime - lastLocationTime
-            
-            // Only trigger health check restart if NO recent restart attempts
-            if (timeSinceLastLocation > 120000L && lastLocationTime > 0) {
-                Log.w(TAG, "GPS health check failed - no location for ${timeSinceLastLocation}ms")
-                
-                // Only trigger if not too many failures
-                if (consecutiveGpsFailures >= 3 && consecutiveGpsFailures <= 5) {
-                    Log.w(TAG, "Health check triggering GPS recovery")
-                    errorRecovery.handleGpsFailure()
-                } else {
-                }
-            }
-            
-            // Schedule next health check
-            checkGpsHealth()
-        }
-    }, 30000L)
-}
-    
     // Recovery Actions
     
     private fun handleGpsRestart() {
@@ -861,11 +901,12 @@ private fun handleGeofenceEvent(zoneId: String, eventType: String, location: and
     private fun updateLocationRequest() {
         val priority = smartConfig.getLocationPriority()
         val interval = calculateCurrentInterval()
-        
+
         val locationRequest = LocationRequest.Builder(priority, interval)
             .setMinUpdateIntervalMillis(interval / 2)
             .setMaxUpdateDelayMillis(interval * 2)
             .setWaitForAccurateLocation(smartConfig.shouldWaitForAccurateLocation())
+            .setMinUpdateDistanceMeters(smartConfig.getDistanceFilter())  // P1: Apply distance filter from profile
             .build()
         
         // Stop current location updates

@@ -21,9 +21,8 @@ class ZoneApiService {
     // Check if API key is configured
     if (AppConfig.apiKey == null || AppConfig.apiKey!.isEmpty) {
       throw Exception(
-        'API key not configured. Please set AppConfig.apiKey in config.dart.\n'
-        'Get your free API key from: https://polyfence.io/auth/login'
-      );
+          'API key not configured. Please set AppConfig.apiKey in config.dart.\n'
+          'Get your free API key from: https://polyfence.io/auth/login');
     }
 
     try {

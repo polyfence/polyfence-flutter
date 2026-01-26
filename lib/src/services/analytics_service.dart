@@ -15,7 +15,8 @@ class AnalyticsConfig {
   final String? industryCategory;
   final String? useCase;
   final String? apiEndpoint;
-  final String? apiKey; // Optional - only needed for additional Polyfence.io services
+  final String?
+      apiKey; // Optional - only needed for additional Polyfence.io services
 
   const AnalyticsConfig({
     this.enabled = true, // Enabled by default - anonymous plugin telemetry
@@ -325,7 +326,7 @@ class PolyfenceAnalytics {
         'Content-Type': 'application/json',
         'Idempotency-Key': idempotencyKey,
       };
-      
+
       // Only add x-api-key header if apiKey is provided
       if (_config?.apiKey != null && _config!.apiKey!.isNotEmpty) {
         headers['x-api-key'] = _config!.apiKey!;
@@ -419,7 +420,7 @@ class PolyfenceAnalytics {
             'Content-Type': 'application/json',
             'Idempotency-Key': idempotencyKey,
           };
-          
+
           // Only add x-api-key header if apiKey is provided
           if (_config?.apiKey != null && _config!.apiKey!.isNotEmpty) {
             headers['x-api-key'] = _config!.apiKey!;

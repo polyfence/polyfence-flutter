@@ -48,8 +48,7 @@ class GeofenceAlgorithms {
       final p2Lon = p2['longitude']!;
 
       if (((p1Lat > y) != (p2Lat > y)) &&
-          (x <
-              (p2Lon - p1Lon) * (y - p1Lat) / (p2Lat - p1Lat) + p1Lon)) {
+          (x < (p2Lon - p1Lon) * (y - p1Lat) / (p2Lat - p1Lat) + p1Lon)) {
         intersections++;
       }
     }
@@ -93,8 +92,10 @@ void main() {
       const lat2 = 37.423;
       const lon2 = -122.085;
 
-      final distance1 = GeofenceAlgorithms.haversineDistance(lat1, lon1, lat2, lon2);
-      final distance2 = GeofenceAlgorithms.haversineDistance(lat2, lon2, lat1, lon1);
+      final distance1 =
+          GeofenceAlgorithms.haversineDistance(lat1, lon1, lat2, lon2);
+      final distance2 =
+          GeofenceAlgorithms.haversineDistance(lat2, lon2, lat1, lon1);
 
       expect(distance1, closeTo(distance2, 0.1));
     });
@@ -186,4 +187,3 @@ void main() {
     });
   });
 }
-

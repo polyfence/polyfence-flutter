@@ -20,4 +20,3 @@ class AppConfig {
   /// - See: https://docs.flutter.dev/deployment/obfuscate
   static const String? apiKey = null;
 }
-

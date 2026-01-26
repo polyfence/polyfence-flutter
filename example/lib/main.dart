@@ -96,7 +96,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   double? _gpsAccuracy;
   double _currentSpeed = 0.0;
   polyfence.PolyfenceAccuracyProfile _currentProfile =
-      polyfence.PolyfenceAccuracyProfile.maxAccuracy;
+      polyfence.PolyfenceAccuracyProfile.balanced;
 
   // Error tracking
   final List<GeofenceEvent> _errors = [];
@@ -139,14 +139,14 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       await polyfence.Polyfence.instance.initialize();
 
       // Configuration examples:
-      
+
       // To disable telemetry (opt-out):
       // await polyfence.Polyfence.instance.initialize(
       //   analyticsConfig: polyfence.AnalyticsConfig(
       //     disableTelemetry: true,
       //   ),
       // );
-      
+
       // To disable built-in alert notifications (for custom notifications):
       // await polyfence.Polyfence.instance.initialize(
       //   config: {

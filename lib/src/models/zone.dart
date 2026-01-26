@@ -30,7 +30,7 @@ class Zone {
   }) {
     if (id.isEmpty) throw ArgumentError('Zone ID required');
     if (name.isEmpty) throw ArgumentError('Zone name required');
-    
+
     // Validate polygon points
     if (type == ZoneType.polygon && polygon != null) {
       if (polygon!.length < 3) {
@@ -130,8 +130,8 @@ class Zone {
       id: json['id'],
       name: json['name'],
       type: ZoneType.values.firstWhere((e) => e.name == json['type']),
-      center: json['center'] != null 
-          ? PolyfenceLocation.fromJson(json['center']) 
+      center: json['center'] != null
+          ? PolyfenceLocation.fromJson(json['center'])
           : null,
       radius: json['radius']?.toDouble(),
       polygon: json['polygon'] != null

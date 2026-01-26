@@ -23,8 +23,8 @@ class EnumUtils {
         channelValue.toUpperCase().replaceAll(RegExp(r'[^A-Z0-9]'), '');
 
     for (final candidate in values) {
-      final candidateNormalized = toChannelFormat(candidate.name)
-          .replaceAll('_', '');
+      final candidateNormalized =
+          toChannelFormat(candidate.name).replaceAll('_', '');
 
       if (candidateNormalized == normalized) {
         return candidate;

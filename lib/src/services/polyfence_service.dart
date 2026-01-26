@@ -184,7 +184,7 @@ class PolyfenceService {
     try {
       // Get plugin version from version constant (plugin's own version, not app's)
       // This ensures we always use the plugin's version, not the app's version
-      final pluginVersion = polyfencePluginVersion;
+      const pluginVersion = polyfencePluginVersion;
 
       // Pass plugin version to native platforms for debug collectors
       await _platform.initialize(
@@ -204,16 +204,16 @@ class PolyfenceService {
       final bool telemetryDisabled = analyticsConfig?.disableTelemetry ?? false;
 
       // Environment variables can still override for production builds
-      final String analyticsEnabledEnv = const String.fromEnvironment(
+      const String analyticsEnabledEnv = String.fromEnvironment(
         'POLYFENCE_ANALYTICS_ENABLED',
         defaultValue: '',
       );
       final bool envOverride = analyticsEnabledEnv.isNotEmpty;
       final bool envEnabled = analyticsEnabledEnv.toLowerCase() == 'true';
 
-      final String apiKeyEnv =
-          const String.fromEnvironment('POLYFENCE_API_KEY', defaultValue: '');
-      final String apiEndpointEnv = const String.fromEnvironment(
+      const String apiKeyEnv =
+          String.fromEnvironment('POLYFENCE_API_KEY', defaultValue: '');
+      const String apiEndpointEnv = String.fromEnvironment(
           'POLYFENCE_API_ENDPOINT',
           defaultValue: '');
 

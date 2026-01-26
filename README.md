@@ -56,13 +56,7 @@ Polyfence cuts through the complexity of background geofencing with a privacy-ce
 ```yaml
 # pubspec.yaml
 dependencies:
-  polyfence:
-    git:
-      url: https://github.com/blackabass/polyfence-plugin.git
-      ref: main
-
-# Available on pub.dev (coming soon):
-# polyfence: ^0.2.0
+  polyfence: ^0.8.0
 ```
 
 **Current version:** 0.8.0

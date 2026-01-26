@@ -74,3 +74,10 @@ example/android/app/debug/
 zone_admin/DEPLOYMENT.md
 ANALYTICS_REMOVAL_LOG.md
 android/.gradle/
+
+# Internal docs (keep locally, don't publish)
+.claude/
+POLYFENCE_SECURITY_ASSESSMENT.md
+REMEDIATION_PLAN.md
+self_serve_analytics.sql
+PUBLISH_CHECKLIST.md

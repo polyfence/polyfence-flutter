@@ -79,6 +79,7 @@ class MethodChannelPolyfence extends PolyfencePlatform {
   }
 
   // Separate geofence event stream
+  @override
   Stream<Map<String, dynamic>> get onGeofenceEvent {
     // Use lazy initialization: create stream only once
     return _geofenceStream ??= _geofenceChannel

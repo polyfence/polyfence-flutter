@@ -10,7 +10,7 @@
 
 ---
 
-## 🎯 No Backend Required
+## No Backend Required
 
 **Polyfence works 100% standalone.** No account signup, no API key, no external services needed.
 
@@ -35,23 +35,23 @@ All three approaches use the **same plugin API**—switch anytime without code c
 
 ---
 
-## ✨ Why Polyfence?
+## Why Polyfence?
 
 Polyfence cuts through the complexity of background geofencing with a privacy-centric API that **just works**.
 
 | Feature | Polyfence | Other plugins |
 | :-- | :-- | :-- |
-| 🔒 Data privacy | **On-device only** | External/cloud services |
-| 🌐 Zone types | **Circles & Polygons** | Often circles only |
-| 📱 Background | **True background (iOS & Android)** | Often limited |
-| 📦 Dependencies | **Minimal** (Play Services Location on Android) | Heavy analytics/cloud SDKs |
-| 🚨 Error handling | **Structured error streams** | Basic logging only |
-| 🔍 Debug tools | **Comprehensive debug API** | Limited or none |
-| 🔋 Battery optimization | **Built-in bypass requests** | Manual implementation |
+| Data privacy | **On-device only** | External/cloud services |
+| Zone types | **Circles & Polygons** | Often circles only |
+| Background | **True background (iOS & Android)** | Often limited |
+| Dependencies | **Minimal** (Play Services Location on Android) | Heavy analytics/cloud SDKs |
+| Error handling | **Structured error streams** | Basic logging only |
+| Debug tools | **Comprehensive debug API** | Limited or none |
+| Battery optimization | **Built-in bypass requests** | Manual implementation |
 
 ---
 
-## 🚀 Installation
+## Installation
 
 ```yaml
 # pubspec.yaml
@@ -67,11 +67,11 @@ Then run:
 flutter pub get
 ```
 
-> **💡 New to Polyfence?** Try the example app first: `cd example && flutter run` (works immediately, no setup needed)
+> **New to Polyfence?** Try the example app first: `cd example && flutter run` (works immediately, no setup needed)
 
 ---
 
-## ⚡ Quick Start
+## Quick Start
 
 ### Standalone Mode (No Backend)
 
@@ -223,7 +223,7 @@ See `example/lib/zone_api_service.dart` for a complete integration example.
 
 ---
 
-## 📊 Zone Limits
+## Zone Limits
 
 | Limit | Value | Platform |
 | :-- | :-- | :-- |
@@ -239,7 +239,7 @@ See `example/lib/zone_api_service.dart` for a complete integration example.
 
 ---
 
-## ⚙️ Platform Setup
+## Platform Setup
 
 ### Android — `android/app/src/main/AndroidManifest.xml`
 
@@ -309,7 +309,7 @@ if (granted) {
 
 ---
 
-## 🏗 How It Works
+## How It Works
 
 ```mermaid
 flowchart TB
@@ -361,22 +361,22 @@ flowchart TB
 
 **Architecture Highlights:**
 
-🔒 **Privacy First**
+**Privacy First**
 - All geofencing calculations happen on-device using Haversine distance (circles) and Ray-casting (polygons)
 - Zero external API calls by default—everything in the green box stays local
 - Anonymous plugin telemetry enabled by default (easy opt-out), zone APIs are optional
 
-💾 **Automatic Persistence**
+**Automatic Persistence**
 - Zones automatically save to local storage (UserDefaults on iOS, SharedPreferences on Android)
 - Survive app kills, crashes, and device restarts
 - No manual database management needed
 
-🔔 **Built-in Notifications**
+**Built-in Notifications**
 - Optional "Entered Zone" / "Exited Zone" alerts (enabled by default)
 - Disable via `config: {'disableAlertNotifications': true}` for custom notifications
 - Foreground service notification remains active for background GPS
 
-📡 **Event Flow**
+**Event Flow**
 1. Your app adds zones via `addZone()`
 2. GPS tracker monitors device location
 3. Geofence engine checks if location crosses zone boundaries
@@ -385,7 +385,7 @@ flowchart TB
 
 ---
 
-## ⚙️ Configuration Options
+## Configuration Options
 
 Polyfence provides flexible configuration to balance accuracy, battery life, and notification behavior.
 
@@ -507,7 +507,7 @@ This can reduce GPS usage by 60-80% for users who spend time away from monitored
 
 ---
 
-## 🔋 Background Reliability & Battery Optimization
+## Background Reliability & Battery Optimization
 
 ### Battery-Saving Features (v0.8.0+)
 
@@ -553,7 +553,7 @@ if (status['isOptimized'] == true && status['canRequest'] == true) {
 
 ---
 
-## 🚨 Error Handling & Recovery
+## Error Handling & Recovery
 
 ### Error Stream
 
@@ -614,7 +614,7 @@ try {
 
 ---
 
-## 🔍 Debug Information API
+## Debug Information API
 
 ### Get System Status
 
@@ -649,7 +649,7 @@ final recentErrors = await Polyfence.instance.errorHistory(
 
 ---
 
-## 🔧 Common Tasks
+## Common Tasks
 
 ### Add/Remove Zones
 
@@ -684,7 +684,7 @@ await Polyfence.instance.stopTracking();
 
 ---
 
-## ⚠️ Common Gotchas
+## Common Gotchas
 
 ### iOS "Always" Permission
 - iOS requires **manual** "Always" permission enablement in Settings after the first "While in use" grant
@@ -722,7 +722,7 @@ await Polyfence.instance.stopTracking();
 
 ---
 
-## 🧪 Example App
+## Example App
 
 A complete example app is included in the `example/` directory.
 
@@ -757,7 +757,7 @@ To fetch zones from polyfence.io instead of hardcoding:
 - ✅ **Error stream handling**
 
 <details>
-  <summary>📸 Example App Screenshots</summary>
+  <summary>Example App Screenshots</summary>
 
   <p>
     <img alt="Zone map view" src="https://github.com/user-attachments/assets/cc15ec76-819f-4d83-a1c1-dc83d8715da9" width="240" />
@@ -769,7 +769,7 @@ To fetch zones from polyfence.io instead of hardcoding:
 
 ---
 
-## ❓ FAQ
+## FAQ
 
 ### Do I need a polyfence.io account to use this plugin?
 
@@ -895,16 +895,16 @@ No code changes needed beyond how you obtain the `Zone` objects.
 
 ---
 
-## 🔒 Privacy & Security
+## Privacy & Security
 
 Polyfence is built with privacy as the foundation. Here's what we protect and what we collect:
 
 ### What We NEVER Send
 
-- ❌ **GPS coordinates** or location data
-- ❌ **Zone definitions** or boundaries
-- ❌ **User identifiers** (name, email, phone, device ID)
-- ❌ **Personal information** of any kind
+- **GPS coordinates** or location data
+- **Zone definitions** or boundaries
+- **User identifiers** (name, email, phone, device ID)
+- **Personal information** of any kind
 
 **Your users' location data stays on their device. Always.**
 
@@ -912,7 +912,7 @@ Polyfence is built with privacy as the foundation. Here's what we protect and wh
 
 To monitor plugin performance and improve reliability, Polyfence sends **anonymous performance metrics**:
 
-✅ **What's sent:**
+**What's sent:**
 - Plugin version and platform (Android/iOS)
 - App package name (e.g., "com.example.logistics")
 - Performance metrics (detection times, GPS accuracy averages)
@@ -920,13 +920,13 @@ To monitor plugin performance and improve reliability, Polyfence sends **anonymo
 - Error counts and types
 - Zone type usage (circle/polygon counts—not locations)
 
-✅ **Why we need this:**
+**Why we need this:**
 - Detect performance issues early
 - Optimize battery usage
 - Fix bugs faster
 - Improve reliability across devices
 
-✅ **See exactly what's sent:** [Full Telemetry Reference](docs/TELEMETRY.md)
+**See exactly what's sent:** [Full Telemetry Reference](docs/TELEMETRY.md)
 
 ### Telemetry Opt-Out
 
@@ -951,7 +951,7 @@ await Polyfence.instance.initialize(
 
 ---
 
-## 🧰 Compatibility
+## Compatibility
 
 | Platform | Min | Target | Notes |
 |----------|-----|--------|-------|
@@ -960,7 +960,7 @@ await Polyfence.instance.initialize(
 
 ---
 
-## 📚 Documentation
+## Documentation
 
 - **CHANGELOG**: See [CHANGELOG.md](CHANGELOG.md) for version history and recent improvements
 - **Quick Start**: See [Quick Start](#-quick-start) section above
@@ -969,7 +969,7 @@ await Polyfence.instance.initialize(
 
 ---
 
-## 🙋 Support
+## Support
 
 - **Plugin Issues**: [GitHub Issues](https://github.com/blackabass/polyfence-plugin/issues)
 - **Questions & Discussions**: Open an issue with the `question` label
@@ -977,6 +977,6 @@ await Polyfence.instance.initialize(
 
 ---
 
-## 📜 License
+## License
 
 MIT — see [LICENSE](LICENSE)

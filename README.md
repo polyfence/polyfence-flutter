@@ -10,6 +10,29 @@
 
 ---
 
+## Requirements
+
+| Requirement | Version |
+|-------------|---------|
+| **Flutter** | 3.10.0+ |
+| **Dart SDK** | 3.0.0+ |
+| **Android** | API 21+ (Android 5.0) |
+| **iOS** | 12.0+ |
+
+---
+
+## Platform Support
+
+| Feature | Android | iOS |
+|---------|---------|-----|
+| Circle geofences | Yes | Yes |
+| Polygon geofences | Yes | Yes |
+| Background tracking | Yes (foreground service) | Yes ("Always" permission) |
+| Battery optimization bypass | Yes | N/A |
+| GPS accuracy profiles | Yes | Partial (iOS manages GPS) |
+
+---
+
 ## No Backend Required
 
 **Polyfence works 100% standalone.** No account signup, no API key, no external services needed.

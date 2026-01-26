@@ -76,7 +76,8 @@ class PolygonSimplifier {
     final end = points.length - 1;
 
     for (int i = 1; i < end; i++) {
-      final distance = _perpendicularDistance(points[i], points[0], points[end]);
+      final distance =
+          _perpendicularDistance(points[i], points[0], points[end]);
       if (distance > maxDistance) {
         maxDistance = distance;
         maxIndex = i;
@@ -177,7 +178,8 @@ class PolygonSimplifier {
     // Find optimal tolerance
     final tolerance = _findOptimalTolerance(
       pointsToSimplify,
-      targetPoints - (isClosed ? 1 : 0), // Reserve 1 point for closing if needed
+      targetPoints -
+          (isClosed ? 1 : 0), // Reserve 1 point for closing if needed
     );
 
     // Simplify
@@ -190,8 +192,10 @@ class PolygonSimplifier {
 
     // Re-close polygon if it was originally closed
     if (isClosed && preserveEndpoints) {
-      if (simplified[0].latitude != simplified[simplified.length - 1].latitude ||
-          simplified[0].longitude != simplified[simplified.length - 1].longitude) {
+      if (simplified[0].latitude !=
+              simplified[simplified.length - 1].latitude ||
+          simplified[0].longitude !=
+              simplified[simplified.length - 1].longitude) {
         simplified.add(simplified[0]);
       }
     }

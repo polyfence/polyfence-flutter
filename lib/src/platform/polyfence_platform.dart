@@ -74,7 +74,8 @@ class MethodChannelPolyfence extends PolyfencePlatform {
     // In Dart's single-threaded model, ??= is atomic and safe
     return _locationStream ??= _locationChannel
         .receiveBroadcastStream('location')
-        .map((data) => PolyfenceLocation.fromJson(Map<String, dynamic>.from(data)));
+        .map((data) =>
+            PolyfenceLocation.fromJson(Map<String, dynamic>.from(data)));
   }
 
   // Separate geofence event stream
@@ -218,7 +219,7 @@ class MethodChannelPolyfence extends PolyfencePlatform {
     _geofenceStream = null;
     _errorStream = null;
     _performanceStream = null;
-    
+
     // Note: MethodChannel and EventChannels are managed by Flutter framework
     // They will be cleaned up automatically when plugin is detached
   }

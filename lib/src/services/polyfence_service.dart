@@ -221,13 +221,16 @@ class PolyfenceService {
       // 1. If env var set → use it (production override)
       // 2. If developer set disableTelemetry: true → respect it
       // 3. Otherwise → enabled by default
-      final bool telemetryEnabled = envOverride ? envEnabled : !telemetryDisabled;
+      final bool telemetryEnabled =
+          envOverride ? envEnabled : !telemetryDisabled;
 
       final analyticsConfigToUse = AnalyticsConfig(
         enabled: telemetryEnabled,
         disableTelemetry: telemetryDisabled,
-        apiKey: analyticsConfig?.apiKey ?? (apiKeyEnv.isEmpty ? null : apiKeyEnv),
-        apiEndpoint: analyticsConfig?.apiEndpoint ?? (apiEndpointEnv.isEmpty ? null : apiEndpointEnv),
+        apiKey:
+            analyticsConfig?.apiKey ?? (apiKeyEnv.isEmpty ? null : apiKeyEnv),
+        apiEndpoint: analyticsConfig?.apiEndpoint ??
+            (apiEndpointEnv.isEmpty ? null : apiEndpointEnv),
         industryCategory: analyticsConfig?.industryCategory,
         useCase: analyticsConfig?.useCase,
       );
@@ -247,12 +250,10 @@ class PolyfenceService {
       // Listen to SEPARATE streams
       _locationSubscription =
           _platform.onLocationUpdate.listen(_handleLocationUpdate);
-      _geofenceSubscription = _platform.onGeofenceEvent
-          .listen(_handleGeofenceEvent);
-      _errorSubscription =
-          _platform.onError.listen(_handleError);
-      _performanceSubscription = _platform.performanceStream
-          .listen((event) {
+      _geofenceSubscription =
+          _platform.onGeofenceEvent.listen(_handleGeofenceEvent);
+      _errorSubscription = _platform.onError.listen(_handleError);
+      _performanceSubscription = _platform.performanceStream.listen((event) {
         _handlePerformanceEvent(event);
         if (event['type'] == 'status') {
           _statusController.add(event);
@@ -561,7 +562,8 @@ class PolyfenceService {
       if (lat == null || lng == null) {
         _errorController.add(PolyfenceError(
           type: PolyfenceErrorType.unknown,
-          message: 'Missing GPS coordinates in geofence event - using 0.0 fallback',
+          message:
+              'Missing GPS coordinates in geofence event - using 0.0 fallback',
           context: {
             'zoneId': zoneId,
             'eventType': eventTypeRaw,
@@ -1313,7 +1315,8 @@ class PolyfenceService {
       // Show disclosure if:
       // 1. Never shown before (first install)
       // 2. Telemetry state changed (user toggled it)
-      final bool shouldShow = !hasShown || (lastState != null && lastState != telemetryEnabled);
+      final bool shouldShow =
+          !hasShown || (lastState != null && lastState != telemetryEnabled);
 
       if (shouldShow) {
         _logTelemetryDisclosure(telemetryEnabled);

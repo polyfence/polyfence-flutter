@@ -268,7 +268,8 @@ class _EventsCardState extends State<EventsCard>
                   ),
                 ),
                 const SizedBox(width: 8),
-                const Text('•', style: TextStyle(color: AppTheme.mutedForeground)),
+                const Text('•',
+                    style: TextStyle(color: AppTheme.mutedForeground)),
                 const SizedBox(width: 8),
                 Text(
                   isEnter ? 'ENTER' : 'EXIT',
@@ -279,7 +280,8 @@ class _EventsCardState extends State<EventsCard>
                   ),
                 ),
                 const SizedBox(width: 8),
-                const Text('•', style: TextStyle(color: AppTheme.mutedForeground)),
+                const Text('•',
+                    style: TextStyle(color: AppTheme.mutedForeground)),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(

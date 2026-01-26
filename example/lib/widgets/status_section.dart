@@ -41,7 +41,7 @@ class _StatusSectionState extends State<StatusSection> {
     await Clipboard.setData(
       ClipboardData(text: widget.location!.toFormattedString()),
     );
-    
+
     // Show visual feedback on iOS only (Android has system feedback)
     if (mounted && Platform.isIOS) {
       ScaffoldMessenger.of(context).showSnackBar(

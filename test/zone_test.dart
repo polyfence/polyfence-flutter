@@ -81,7 +81,8 @@ void main() {
         () => Zone.circle(
           id: '',
           name: 'Test',
-          center: const PolyfenceLocation(latitude: 37.422, longitude: -122.084),
+          center:
+              const PolyfenceLocation(latitude: 37.422, longitude: -122.084),
           radius: 100.0,
         ),
         throwsArgumentError,
@@ -93,7 +94,8 @@ void main() {
         () => Zone.circle(
           id: 'test',
           name: '',
-          center: const PolyfenceLocation(latitude: 37.422, longitude: -122.084),
+          center:
+              const PolyfenceLocation(latitude: 37.422, longitude: -122.084),
           radius: 100.0,
         ),
         throwsArgumentError,
@@ -138,4 +140,3 @@ void main() {
     });
   });
 }
-

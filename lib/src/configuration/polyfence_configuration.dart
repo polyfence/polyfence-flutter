@@ -100,7 +100,8 @@ class PolyfenceConfiguration {
 
   /// Convert to map for platform communication
   Map<String, dynamic> toMap() {
-    final accuracyProfileValue = EnumUtils.toChannelFormat(accuracyProfile.name);
+    final accuracyProfileValue =
+        EnumUtils.toChannelFormat(accuracyProfile.name);
     final updateStrategyValue = EnumUtils.toChannelFormat(updateStrategy.name);
 
     return {
@@ -136,7 +137,8 @@ class PolyfenceConfiguration {
       batterySettings: map['batterySettings'] != null
           ? BatterySettings.fromMap(map['batterySettings'])
           : null,
-      gpsAccuracyThreshold: (map['gpsAccuracyThreshold'] as num?)?.toDouble() ?? 100.0,
+      gpsAccuracyThreshold:
+          (map['gpsAccuracyThreshold'] as num?)?.toDouble() ?? 100.0,
       enableDebugLogging: map['enableDebugLogging'] ?? false,
     );
   }

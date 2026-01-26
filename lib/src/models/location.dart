@@ -1,12 +1,47 @@
+/// A geographic location with optional metadata.
+///
+/// Used throughout Polyfence to represent GPS coordinates for zone centers,
+/// polygon vertices, and device positions.
+///
+/// **Example:**
+/// ```dart
+/// final location = PolyfenceLocation(
+///   latitude: 51.5074,
+///   longitude: -0.1278,
+///   accuracy: 10.0,
+/// );
+/// ```
 class PolyfenceLocation {
+  /// Latitude in degrees (-90 to 90).
   final double latitude;
+
+  /// Longitude in degrees (-180 to 180).
   final double longitude;
+
+  /// Altitude in meters above sea level, if available.
   final double? altitude;
+
+  /// Horizontal accuracy in meters. Lower is better.
+  ///
+  /// Typical values:
+  /// - GPS: 3-15m
+  /// - Wi-Fi: 15-40m
+  /// - Cell: 100-3000m
   final double? accuracy;
+
+  /// When this location was recorded.
   final DateTime? timestamp;
+
+  /// Speed in meters per second, if available.
   final double? speed;
+
+  /// GPS update interval in milliseconds, if applicable.
   final int? interval;
 
+  /// Creates a location with the given coordinates.
+  ///
+  /// [latitude] and [longitude] are required. All other fields are optional
+  /// and typically populated by GPS readings.
   const PolyfenceLocation({
     required this.latitude,
     required this.longitude,

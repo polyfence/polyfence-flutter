@@ -1243,7 +1243,7 @@ class PolyfenceService {
       await _eventController.close();
       await _locationController.close();
       await _errorController.close();
-      await _statusController.close(); // ← FIX: Was missing
+      await _statusController.close();
 
       // 4. Cleanup analytics session
       try {

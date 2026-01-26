@@ -1,15 +1,50 @@
 import 'location.dart';
 import 'zone.dart';
 
-enum GeofenceEventType { enter, exit, dwell }
+/// The type of geofence event that occurred.
+enum GeofenceEventType {
+  /// Device entered a zone boundary.
+  enter,
 
+  /// Device exited a zone boundary.
+  exit,
+
+  /// Device has remained inside a zone (not currently implemented).
+  dwell,
+}
+
+/// A geofence event triggered when a device enters or exits a zone.
+///
+/// Events are emitted through [PolyfenceService.onGeofenceEvent] when the
+/// device crosses a zone boundary.
+///
+/// **Example:**
+/// ```dart
+/// Polyfence.instance.onGeofenceEvent.listen((event) {
+///   if (event.type == GeofenceEventType.enter) {
+///     print('Entered ${event.zone?.name ?? event.zoneId}');
+///   }
+/// });
+/// ```
 class GeofenceEvent {
+  /// The unique identifier of the zone that triggered this event.
   final String zoneId;
+
+  /// Whether this was an entry or exit event.
   final GeofenceEventType type;
+
+  /// The device location when the event was detected.
   final PolyfenceLocation location;
+
+  /// When the event was detected.
   final DateTime timestamp;
+
+  /// The full zone object, if available.
+  ///
+  /// May be `null` if the zone was removed before the event was processed.
   final Zone? zone;
 
+  /// Creates a geofence event.
   const GeofenceEvent({
     required this.zoneId,
     required this.type,

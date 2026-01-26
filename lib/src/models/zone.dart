@@ -129,7 +129,10 @@ class Zone {
     return Zone(
       id: json['id'],
       name: json['name'],
-      type: ZoneType.values.firstWhere((e) => e.name == json['type']),
+      type: ZoneType.values.firstWhere(
+        (e) => e.name == json['type'],
+        orElse: () => ZoneType.circle,
+      ),
       center: json['center'] != null
           ? PolyfenceLocation.fromJson(json['center'])
           : null,

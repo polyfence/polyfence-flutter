@@ -66,7 +66,10 @@ class GeofenceEvent {
   factory GeofenceEvent.fromJson(Map<String, dynamic> json) {
     return GeofenceEvent(
       zoneId: json['zoneId'],
-      type: GeofenceEventType.values.firstWhere((e) => e.name == json['type']),
+      type: GeofenceEventType.values.firstWhere(
+        (e) => e.name == json['type'],
+        orElse: () => GeofenceEventType.enter,
+      ),
       location: PolyfenceLocation.fromJson(json['location']),
       timestamp: DateTime.fromMillisecondsSinceEpoch(json['timestamp']),
       zone: json['zone'] != null ? Zone.fromJson(json['zone']) : null,

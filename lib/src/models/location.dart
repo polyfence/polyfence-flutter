@@ -38,6 +38,13 @@ class PolyfenceLocation {
   /// GPS update interval in milliseconds, if applicable.
   final int? interval;
 
+  /// Whether coordinates were missing and defaulted to 0.0.
+  ///
+  /// When `true`, the latitude/longitude values are synthetic (0.0, 0.0)
+  /// because the platform failed to provide valid coordinates. Check this
+  /// flag to detect and handle invalid location data appropriately.
+  final bool isFallback;
+
   /// Creates a location with the given coordinates.
   ///
   /// [latitude] and [longitude] are required. All other fields are optional
@@ -50,6 +57,7 @@ class PolyfenceLocation {
     this.timestamp,
     this.speed,
     this.interval,
+    this.isFallback = false,
   });
 
   Map<String, dynamic> toJson() {
@@ -61,6 +69,7 @@ class PolyfenceLocation {
       'timestamp': timestamp?.millisecondsSinceEpoch,
       'speed': speed,
       'interval': interval,
+      'isFallback': isFallback,
     };
   }
 
@@ -70,6 +79,9 @@ class PolyfenceLocation {
         ? DateTime.fromMillisecondsSinceEpoch(tsNum.round())
         : null;
 
+    final latMissing = json['latitude'] == null;
+    final lngMissing = json['longitude'] == null;
+
     return PolyfenceLocation(
       latitude: (json['latitude'] as num?)?.toDouble() ?? 0.0,
       longitude: (json['longitude'] as num?)?.toDouble() ?? 0.0,
@@ -78,6 +90,7 @@ class PolyfenceLocation {
       timestamp: ts,
       speed: (json['speed'] as num?)?.toDouble(),
       interval: (json['interval'] as num?)?.toInt(),
+      isFallback: latMissing || lngMissing || (json['isFallback'] == true),
     );
   }
 

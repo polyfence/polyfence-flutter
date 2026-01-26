@@ -129,7 +129,6 @@ class PolyfenceService {
   Stream<Map<String, dynamic>> get statusStream => _statusController.stream;
 
   bool _isInitialized = false;
-  StreamSubscription<dynamic>? _platformSubscription;
   StreamSubscription<dynamic>? _locationSubscription;
   StreamSubscription<dynamic>? _geofenceSubscription;
   StreamSubscription<dynamic>? _errorSubscription;
@@ -213,9 +212,8 @@ class PolyfenceService {
 
       const String apiKeyEnv =
           String.fromEnvironment('POLYFENCE_API_KEY', defaultValue: '');
-      const String apiEndpointEnv = String.fromEnvironment(
-          'POLYFENCE_API_ENDPOINT',
-          defaultValue: '');
+      const String apiEndpointEnv =
+          String.fromEnvironment('POLYFENCE_API_ENDPOINT', defaultValue: '');
 
       // Determine final telemetry state:
       // 1. If env var set → use it (production override)
@@ -1232,7 +1230,6 @@ class PolyfenceService {
       }
 
       // 2. Cancel all stream subscriptions
-      await _platformSubscription?.cancel();
       await _locationSubscription?.cancel();
       await _geofenceSubscription?.cancel();
       await _errorSubscription?.cancel();
@@ -1273,8 +1270,7 @@ class PolyfenceService {
       }
     } catch (e) {
       // Log disposal error but don't throw (disposal should never fail)
-      // ignore: avoid_print
-      print('Error during Polyfence disposal: $e');
+      debugPrint('Polyfence: Error during disposal: $e');
     }
   }
 
@@ -1332,8 +1328,7 @@ class PolyfenceService {
   /// Log telemetry disclosure message
   void _logTelemetryDisclosure(bool enabled) {
     if (enabled) {
-      // ignore: avoid_print
-      print('''
+      debugPrint('''
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 [Polyfence] Anonymous plugin telemetry enabled.
 
@@ -1356,8 +1351,7 @@ Disable telemetry (one line):
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ''');
     } else {
-      // ignore: avoid_print
-      print('''
+      debugPrint('''
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 [Polyfence] Telemetry disabled.
 

@@ -94,7 +94,122 @@ flutter pub get
 
 ---
 
-## Quick Start
+## Getting Started (Step-by-Step)
+
+### Step 1: Add Dependency
+
+```yaml
+# pubspec.yaml
+dependencies:
+  polyfence: ^0.8.0
+```
+
+```bash
+flutter pub get
+```
+
+### Step 2: Configure Platform Permissions
+
+**Android** — Add to `android/app/src/main/AndroidManifest.xml`:
+```xml
+<uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+<uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+<uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
+<uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+<uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
+```
+
+**iOS** — Add to `ios/Runner/Info.plist`:
+```xml
+<key>NSLocationWhenInUseUsageDescription</key>
+<string>This app needs location access to detect when you enter or exit zones.</string>
+<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+<string>Background location is required for continuous zone monitoring.</string>
+<key>UIBackgroundModes</key>
+<array>
+  <string>location</string>
+</array>
+```
+
+### Step 3: Initialize the Plugin
+
+```dart
+import 'package:polyfence/polyfence.dart';
+
+await Polyfence.instance.initialize();
+```
+
+### Step 4: Request Permissions
+
+```dart
+final hasPermission = await Polyfence.instance.requestPermissions(always: true);
+if (!hasPermission) {
+  // Handle permission denied
+  return;
+}
+```
+
+### Step 5: Add Zones
+
+```dart
+// Circle zone
+await Polyfence.instance.addZone(Zone.circle(
+  id: 'office',
+  name: 'Office',
+  center: PolyfenceLocation(latitude: 37.422, longitude: -122.084),
+  radius: 150,
+));
+
+// Polygon zone
+await Polyfence.instance.addZone(Zone.polygon(
+  id: 'campus',
+  name: 'Campus',
+  polygon: [
+    PolyfenceLocation(latitude: 37.422, longitude: -122.084),
+    PolyfenceLocation(latitude: 37.423, longitude: -122.085),
+    PolyfenceLocation(latitude: 37.424, longitude: -122.083),
+  ],
+));
+```
+
+### Step 6: Listen for Events
+
+```dart
+Polyfence.instance.onGeofenceEvent.listen((event) {
+  if (event.type == GeofenceEventType.enter) {
+    print('Entered: ${event.zoneId}');
+  } else if (event.type == GeofenceEventType.exit) {
+    print('Exited: ${event.zoneId}');
+  }
+});
+```
+
+### Step 7: Start Tracking
+
+```dart
+await Polyfence.instance.startTracking();
+```
+
+### Step 8: Handle Errors (Optional)
+
+```dart
+Polyfence.instance.onError.listen((error) {
+  switch (error.type) {
+    case PolyfenceErrorType.gpsPermissionDenied:
+      // Guide user to settings
+      break;
+    case PolyfenceErrorType.gpsServiceDisabled:
+      // Prompt to enable GPS
+      break;
+    default:
+      print('Error: ${error.message}');
+  }
+});
+```
+
+---
+
+## Quick Start (Full Example)
 
 ### Standalone Mode (No Backend)
 

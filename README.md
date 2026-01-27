@@ -552,10 +552,10 @@ Quick GPS configuration options:
 
 ```dart
 
-// Maximum accuracy (current default behavior)
+// Maximum accuracy (highest battery usage)
 await Polyfence.instance.setAccuracyProfile(PolyfenceAccuracyProfile.maxAccuracy);
 
-// Balanced accuracy/battery for most applications
+// Balanced accuracy/battery (DEFAULT - recommended for most apps)
 await Polyfence.instance.setAccuracyProfile(PolyfenceAccuracyProfile.balanced);
 
 // Battery-optimized for background monitoring
@@ -623,7 +623,7 @@ await Polyfence.instance.updateGpsConfiguration(
 | **Battery Optimal** | Low Power | 30 seconds (Android) | Low | Background monitoring, casual use |
 | **Adaptive** | Dynamic | Dynamic (Android) | Variable | Apps with varying accuracy needs |
 
-> **Platform Note:** Update intervals apply to Android only. iOS manages GPS frequency automatically for optimal battery life.
+> **Platform Note:** Both platforms respect accuracy profiles. Android uses explicit update intervals; iOS uses `desiredAccuracy` and `distanceFilter` settings which CoreLocation optimizes automatically.
 
 ### Proximity-Based Optimization
 

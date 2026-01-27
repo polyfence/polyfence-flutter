@@ -20,54 +20,43 @@ class GpsProfileCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppTheme.card,
         border: Border.all(color: AppTheme.border),
-        borderRadius: BorderRadius.circular(10), // radius-lg
+        borderRadius: BorderRadius.circular(AppTheme.radiusLg),
       ),
       child: Column(
         children: [
-          // Header Section
-          Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 16, // lg padding
-              vertical: 12, // md padding
-            ),
-            decoration: const BoxDecoration(
-              border: Border(
-                bottom: BorderSide(color: AppTheme.border),
-              ),
-            ),
-            child: Row(
-              children: [
-                const Icon(LucideIcons.settings,
-                    size: 20, color: AppTheme.mutedForeground),
-                const SizedBox(width: 8), // sm gap
-                Text(
-                  'GPS Profile',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w500,
-                        fontSize: 16, // text-base
-                      ),
-                ),
-              ],
-            ),
-          ),
-
-          // Body Container
+          // All content in one padded container (no header border)
           Padding(
-            padding: const EdgeInsets.all(16), // lg padding
+            padding: const EdgeInsets.all(16),
             child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Description Text
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    description,
-                    style: const TextStyle(
-                      fontSize: 14, // text-sm
-                      color: AppTheme.mutedForeground,
+                // Header Row
+                Row(
+                  children: [
+                    Icon(LucideIcons.settings,
+                        size: 20, color: AppTheme.mutedForeground),
+                    const SizedBox(width: 8),
+                    const Text(
+                      'GPS Profile',
+                      style: TextStyle(
+                        fontSize: 16, // text-base (match Tracking Active)
+                        fontWeight: FontWeight.w500, // font-medium
+                        color: AppTheme.foreground, // text-gray-900
+                      ),
                     ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+
+                // Description Text
+                Text(
+                  description,
+                  style: const TextStyle(
+                    fontSize: 14, // text-sm
+                    color: Color(0xFF4B5563), // text-gray-600
                   ),
                 ),
-                const SizedBox(height: 12), // md spacing
+                const SizedBox(height: 12),
 
                 // Profile Grid - 4 columns
                 Row(
@@ -158,11 +147,11 @@ class _ProfileButton extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w500,
+                fontSize: 12, // text-xs
+                fontWeight: FontWeight.w500, // font-medium
                 color: isActive
-                    ? AppTheme.primaryForeground
-                    : AppTheme.secondaryForeground,
+                    ? AppTheme.primaryForeground // text-white
+                    : const Color(0xFF374151), // text-gray-700
               ),
             ),
           ],

@@ -28,13 +28,6 @@ class StatusSection extends StatefulWidget {
 }
 
 class _StatusSectionState extends State<StatusSection> {
-  Color _getAccuracyColor() {
-    if (widget.accuracy == null) return AppTheme.muted;
-    if (widget.accuracy! < 20) return AppTheme.success;
-    if (widget.accuracy! < 50) return AppTheme.warning;
-    return AppTheme.error;
-  }
-
   Future<void> _copyToClipboard() async {
     if (widget.location == null) return;
 
@@ -58,8 +51,9 @@ class _StatusSectionState extends State<StatusSection> {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFFF5F4FF), // Light purple tint inspired by brand
+        color: AppTheme.lavenderBackground,
         borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+        border: Border.all(color: AppTheme.lavenderBorder),
       ),
       padding: const EdgeInsets.all(AppTheme.spacingLg),
       child: Column(
@@ -75,7 +69,11 @@ class _StatusSectionState extends State<StatusSection> {
               const SizedBox(width: AppTheme.spacingSm),
               Text(
                 widget.isTracking ? 'Tracking Active' : 'Tracking Stopped',
-                style: Theme.of(context).textTheme.labelLarge,
+                style: const TextStyle(
+                  fontSize: 16, // text-base
+                  fontWeight: FontWeight.w500, // font-medium
+                  color: AppTheme.foreground, // text-gray-900
+                ),
               ),
             ],
           ),
@@ -94,11 +92,12 @@ class _StatusSectionState extends State<StatusSection> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
+                  const Text(
                     'Current Position',
-                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                          color: AppTheme.mutedForeground,
-                        ),
+                    style: TextStyle(
+                      fontSize: 14, // text-sm
+                      color: Color(0xFF4B5563), // text-gray-600
+                    ),
                   ),
                   const SizedBox(height: 4),
                   Row(
@@ -109,18 +108,17 @@ class _StatusSectionState extends State<StatusSection> {
                             ? Text(
                                 widget.location!.toFormattedString(),
                                 style: const TextStyle(
-                                  fontFamily: 'monospace',
-                                  fontSize: 16,
+                                  fontSize: 14, // text-sm
+                                  color: Color(0xFF6B7280), // text-gray-500
+                                  fontStyle: FontStyle.italic,
                                   fontFeatures: [FontFeature.tabularFigures()],
                                 ),
                               )
                             : Text(
                                 widget.locationStatus ?? 'Waiting for GPS...',
                                 style: const TextStyle(
-                                  fontFamily: 'monospace',
-                                  fontSize: 16,
-                                  fontFeatures: [FontFeature.tabularFigures()],
-                                  color: AppTheme.mutedForeground,
+                                  fontSize: 14, // text-sm
+                                  color: Color(0xFF6B7280), // text-gray-500
                                   fontStyle: FontStyle.italic,
                                 ),
                               ),
@@ -145,26 +143,25 @@ class _StatusSectionState extends State<StatusSection> {
               Expanded(
                 child: _MetricTile(
                   label: 'Accuracy',
-                  value: widget.accuracy != null
+                  value: widget.isTracking && widget.accuracy != null
                       ? '±${widget.accuracy!.round()}m'
                       : '—',
-                  dotColor: _getAccuracyColor(),
                 ),
               ),
               Expanded(
                 child: _MetricTile(
-                  label: 'km/h',
-                  value: widget.speed.toStringAsFixed(1),
-                  dotColor: widget.speed > 0 ? AppTheme.info : AppTheme.muted,
+                  label: 'Speed',
+                  value: widget.isTracking
+                      ? widget.speed.toStringAsFixed(1)
+                      : '—',
                 ),
               ),
               Expanded(
                 child: _MetricTile(
                   label: 'Updates',
-                  value: widget.gpsProfile.intervalText,
-                  dotColor: widget.isTracking
-                      ? AppTheme.mutedForeground
-                      : AppTheme.muted,
+                  value: widget.isTracking
+                      ? widget.gpsProfile.intervalText
+                      : '—',
                 ),
               ),
             ],
@@ -246,12 +243,10 @@ class _PulsingDotState extends State<_PulsingDot>
 class _MetricTile extends StatelessWidget {
   final String label;
   final String value;
-  final Color dotColor;
 
   const _MetricTile({
     required this.label,
     required this.value,
-    required this.dotColor,
   });
 
   @override
@@ -259,30 +254,21 @@ class _MetricTile extends StatelessWidget {
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 8,
-              height: 8,
-              decoration: BoxDecoration(
-                color: dotColor,
-                shape: BoxShape.circle,
-              ),
-            ),
-            const SizedBox(width: 6),
-            Text(
-              value,
-              style: Theme.of(context).textTheme.labelLarge,
-            ),
-          ],
+        Text(
+          value,
+          style: const TextStyle(
+            fontSize: 18, // text-lg
+            fontWeight: FontWeight.w600, // font-semibold
+            color: AppTheme.foreground, // text-gray-900
+          ),
         ),
         const SizedBox(height: 4),
         Text(
           label,
-          style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                color: AppTheme.mutedForeground,
-              ),
+          style: const TextStyle(
+            fontSize: 12, // text-xs
+            color: Color(0xFF4B5563), // text-gray-600
+          ),
         ),
       ],
     );

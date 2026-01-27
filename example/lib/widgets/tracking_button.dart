@@ -25,18 +25,17 @@ class TrackingButton extends StatelessWidget {
           padding: const EdgeInsets.all(AppTheme.spacingLg),
           child: SizedBox(
             width: double.infinity,
-            height: 56,
+            height: 48,
             child: ElevatedButton(
               onPressed: onPressed,
               style: ElevatedButton.styleFrom(
                 backgroundColor:
                     isTracking ? AppTheme.destructive : AppTheme.primary,
-                foregroundColor: isTracking
-                    ? AppTheme.destructiveForeground
-                    : AppTheme.primaryForeground,
-                elevation: 2,
+                foregroundColor: AppTheme.primaryForeground,
+                elevation: 4,
+                shadowColor: Colors.black.withValues(alpha: 0.25),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+                  borderRadius: BorderRadius.circular(24), // rounded-full (pill)
                 ),
               ),
               child: Row(
@@ -87,7 +86,7 @@ class _TrackingDotState extends State<_TrackingDot>
       CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
     );
 
-    if (!widget.isTracking) {
+    if (widget.isTracking) {
       _controller.repeat(reverse: true);
     }
   }
@@ -95,9 +94,9 @@ class _TrackingDotState extends State<_TrackingDot>
   @override
   void didUpdateWidget(_TrackingDot oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (!widget.isTracking && oldWidget.isTracking) {
+    if (widget.isTracking && !oldWidget.isTracking) {
       _controller.repeat(reverse: true);
-    } else if (widget.isTracking && !oldWidget.isTracking) {
+    } else if (!widget.isTracking && oldWidget.isTracking) {
       _controller.stop();
       _controller.reset();
     }
@@ -112,15 +111,7 @@ class _TrackingDotState extends State<_TrackingDot>
   @override
   Widget build(BuildContext context) {
     return widget.isTracking
-        ? Container(
-            width: 8,
-            height: 8,
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              shape: BoxShape.circle,
-            ),
-          )
-        : FadeTransition(
+        ? FadeTransition(
             opacity: _animation,
             child: Container(
               width: 8,
@@ -129,6 +120,14 @@ class _TrackingDotState extends State<_TrackingDot>
                 color: Colors.white,
                 shape: BoxShape.circle,
               ),
+            ),
+          )
+        : Container(
+            width: 8,
+            height: 8,
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              shape: BoxShape.circle,
             ),
           );
   }

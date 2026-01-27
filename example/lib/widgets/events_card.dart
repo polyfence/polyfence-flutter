@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../models/app_models.dart';
 import '../theme/app_theme.dart';
+import 'common/count_badge.dart';
 
 class EventsCard extends StatefulWidget {
   final List<GeofenceEvent> events;
@@ -29,6 +30,33 @@ class _EventsCardState extends State<EventsCard>
     return '${timestamp.hour.toString().padLeft(2, '0')}:'
         '${timestamp.minute.toString().padLeft(2, '0')}:'
         '${timestamp.second.toString().padLeft(2, '0')}';
+  }
+
+  String _getDateGroup(DateTime timestamp) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final eventDay = DateTime(timestamp.year, timestamp.month, timestamp.day);
+    final diffDays = today.difference(eventDay).inDays;
+
+    if (diffDays == 0) return 'Today';
+    if (diffDays == 1) return 'Yesterday';
+
+    // Format as "Jan 24"
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+    ];
+    return '${months[timestamp.month - 1]} ${timestamp.day}';
+  }
+
+  Map<String, List<GeofenceEvent>> _groupEventsByDate() {
+    final Map<String, List<GeofenceEvent>> grouped = {};
+    for (final event in widget.events) {
+      final dateKey = _getDateGroup(event.timestamp);
+      grouped.putIfAbsent(dateKey, () => []);
+      grouped[dateKey]!.add(event);
+    }
+    return grouped;
   }
 
   @override
@@ -68,93 +96,59 @@ class _EventsCardState extends State<EventsCard>
       decoration: BoxDecoration(
         color: AppTheme.card,
         border: Border.all(color: AppTheme.border),
-        borderRadius: BorderRadius.circular(10), // radius-lg
+        borderRadius: BorderRadius.circular(AppTheme.radiusLg),
       ),
       child: Column(
         children: [
-          // Header - Tappable to expand/collapse
+          // Expandable Header (same pattern as ZonesCard)
           InkWell(
             onTap: _toggleExpanded,
             child: Container(
+              constraints: const BoxConstraints(minHeight: 44),
               padding: const EdgeInsets.symmetric(
-                horizontal: 16, // lg padding
-                vertical: 10, // tighter header
+                horizontal: AppTheme.spacingLg,
+                vertical: 10, // py-2.5: 10+24+10 = 44px touch target
               ),
-              constraints:
-                  const BoxConstraints(minHeight: 44), // WCAG touch target
               decoration: BoxDecoration(
                 border: _isExpanded
-                    ? const Border(
-                        bottom: BorderSide(color: AppTheme.border),
-                      )
+                    ? const Border(bottom: BorderSide(color: AppTheme.border))
                     : null,
               ),
               child: Row(
                 children: [
-                  // Left side: Icon + Title + Badge
-                  Expanded(
-                    child: Row(
-                      children: [
-                        const Icon(
-                          LucideIcons.zap,
-                          size: 20,
-                          color: AppTheme.mutedForeground,
-                        ),
-                        const SizedBox(width: 8), // sm gap
-                        Text(
-                          'Events',
-                          style:
-                              Theme.of(context).textTheme.titleMedium?.copyWith(
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                        ),
-                        const SizedBox(width: 8), // sm gap
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8, // sm padding
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: AppTheme.secondary,
-                            borderRadius: BorderRadius.circular(6), // radius-sm
-                          ),
-                          child: Text(
-                            '${widget.events.length}',
-                            style: const TextStyle(
-                              fontSize: 12, // text-xs
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ),
-                      ],
+                  const Icon(
+                    LucideIcons.activity,
+                    size: 20,
+                    color: AppTheme.mutedForeground,
+                  ),
+                  const SizedBox(width: AppTheme.spacingSm),
+                  const Text(
+                    'Events',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                      color: AppTheme.foreground,
                     ),
                   ),
-                  // Right side: Clear button + Expand/Collapse icon
-                  Row(
-                    children: [
-                      if (widget.events.isNotEmpty) ...[
-                        IconButton(
-                          onPressed: widget.onClear,
-                          icon: const Icon(LucideIcons.trash2, size: 16),
-                          constraints: const BoxConstraints(
-                            minWidth: 36,
-                            minHeight: 36,
-                          ),
-                          padding: EdgeInsets.zero,
-                          style: IconButton.styleFrom(
-                            backgroundColor: Colors.transparent,
-                          ),
-                        ),
-                        const SizedBox(width: 8), // sm gap
-                      ],
-                      Icon(
-                        _isExpanded
-                            ? LucideIcons.chevronUp
-                            : LucideIcons.chevronDown,
-                        size: 20,
-                        color: AppTheme.mutedForeground,
+                  const SizedBox(width: AppTheme.spacingSm),
+                  CountBadge(count: widget.events.length),
+                  const Spacer(),
+                  if (widget.events.isNotEmpty)
+                    IconButton(
+                      onPressed: widget.onClear,
+                      icon: const Icon(LucideIcons.trash2, size: 16),
+                      constraints: const BoxConstraints.tightFor(
+                        width: 36,
+                        height: 36,
                       ),
-                    ],
+                      tooltip: 'Clear all events',
+                    ),
+                  Icon(
+                    _isExpanded
+                        ? LucideIcons.chevronUp
+                        : LucideIcons.chevronDown,
+                    size: 20,
+                    color: AppTheme.mutedForeground,
                   ),
                 ],
               ),
@@ -164,34 +158,9 @@ class _EventsCardState extends State<EventsCard>
           // Content - Only visible when expanded
           SizeTransition(
             sizeFactor: _expandAnimation,
-            child: Column(
-              children: [
-                // Event List
-                widget.events.isEmpty
-                    ? _buildEmptyState()
-                    : Column(
-                        children: [
-                          ...widget.events.asMap().entries.map((entry) {
-                            final index = entry.key;
-                            final event = entry.value;
-                            final isLast = index == widget.events.length - 1;
-                            return Column(
-                              children: [
-                                _buildEventItem(event),
-                                if (!isLast)
-                                  const Divider(
-                                    height: 1,
-                                    color: AppTheme.border,
-                                  ),
-                              ],
-                            );
-                          }),
-                          // Add consistent bottom padding
-                          const SizedBox(height: 16),
-                        ],
-                      ),
-              ],
-            ),
+            child: widget.events.isEmpty
+                ? _buildEmptyState()
+                : _buildGroupedEventList(),
           ),
         ],
       ),
@@ -199,29 +168,57 @@ class _EventsCardState extends State<EventsCard>
   }
 
   Widget _buildEmptyState() {
-    return Padding(
-      padding: const EdgeInsets.all(16), // lg padding
-      child: Column(
-        children: [
-          const Text(
-            'No events yet',
-            style: TextStyle(
-              fontSize: 14, // text-sm
-              color: AppTheme.mutedForeground,
-            ),
-          ),
-          const SizedBox(height: 8), // sm gap
-          Text(
-            widget.trackingStatus == TrackingStatus.active
-                ? 'Enter or exit a geofence to generate events'
-                : 'Start tracking to monitor zone activity',
-            style: const TextStyle(
-              fontSize: 12, // text-xs
-              color: AppTheme.mutedForeground,
-            ),
-          ),
-        ],
+    return const Padding(
+      padding: EdgeInsets.symmetric(vertical: 32, horizontal: 16),
+      child: Text(
+        'No events recorded yet. Start tracking to see geofence entries and exits.',
+        textAlign: TextAlign.center, // text-center
+        style: TextStyle(
+          fontSize: 14, // text-sm
+          color: Color(0xFF6B7280), // text-gray-500
+        ),
       ),
+    );
+  }
+
+  Widget _buildGroupedEventList() {
+    final grouped = _groupEventsByDate();
+    final dateKeys = grouped.keys.toList();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        ...dateKeys.asMap().entries.map((entry) {
+          final dateKey = entry.value;
+          final events = grouped[dateKey]!;
+
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Date Header
+              Padding(
+                padding: const EdgeInsets.only(
+                  left: 16,
+                  right: 16,
+                  top: 12,
+                  bottom: 8,
+                ),
+                child: Text(
+                  dateKey,
+                  style: const TextStyle(
+                    fontSize: 14, // text-sm
+                    fontWeight: FontWeight.w600, // font-semibold
+                    color: Color(0xFF374151), // text-gray-700
+                  ),
+                ),
+              ),
+              // Events for this date
+              ...events.map((event) => _buildEventItem(event)),
+            ],
+          );
+        }),
+        const SizedBox(height: 8),
+      ],
     );
   }
 
@@ -230,12 +227,13 @@ class _EventsCardState extends State<EventsCard>
 
     return Container(
       padding: const EdgeInsets.symmetric(
-        horizontal: 16, // lg padding
-        vertical: 10, // py-2.5 equivalent
+        horizontal: AppTheme.spacingLg, // 16px - consistent left edge with headers
+        vertical: 10, // py-2.5
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
+          // Circle with arrow icon (original style)
           Container(
             width: 24,
             height: 24,
@@ -259,39 +257,47 @@ class _EventsCardState extends State<EventsCard>
                 Text(
                   _formatTime(event.timestamp),
                   style: const TextStyle(
-                    fontSize: 12,
+                    fontSize: 14, // text-sm
                     fontWeight: FontWeight.w400,
-                    height: 1.5,
-                    fontFamily: 'monospace',
-                    color: AppTheme.mutedForeground,
-                    fontFeatures: [FontFeature.tabularFigures()],
+                    color: Color(0xFF4B5563), // text-gray-600
+                    fontFeatures: [FontFeature.tabularFigures()], // tabular-nums
                   ),
                 ),
                 const SizedBox(width: 8),
-                const Text('•',
-                    style: TextStyle(color: AppTheme.mutedForeground)),
+                const Text(
+                  '•',
+                  style: TextStyle(
+                    fontSize: 14, // text-sm
+                    color: Color(0xFF9CA3AF), // text-gray-400
+                  ),
+                ),
                 const SizedBox(width: 8),
                 Text(
                   isEnter ? 'ENTER' : 'EXIT',
                   style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    height: 1.5,
+                    fontSize: 14, // text-sm
+                    fontWeight: FontWeight.w400,
+                    color: Color(0xFF374151), // text-gray-700
                   ),
                 ),
                 const SizedBox(width: 8),
-                const Text('•',
-                    style: TextStyle(color: AppTheme.mutedForeground)),
+                const Text(
+                  '•',
+                  style: TextStyle(
+                    fontSize: 14, // text-sm
+                    color: Color(0xFF9CA3AF), // text-gray-400
+                  ),
+                ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     event.zoneName,
                     style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w400,
-                      height: 1.5,
+                      fontSize: 14, // text-sm
+                      fontWeight: FontWeight.w500, // font-medium, matches zone list
+                      color: AppTheme.foreground, // text-gray-900
                     ),
-                    overflow: TextOverflow.ellipsis,
+                    overflow: TextOverflow.ellipsis, // truncate
                   ),
                 ),
               ],

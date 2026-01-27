@@ -2,13 +2,17 @@ import 'package:flutter/material.dart';
 
 class AppTheme {
   // Brand Colors
-  static const Color primary = Color(0xFF667EEA);
+  static const Color primary = Color(0xFF5B6FEE);
   static const Color primaryForeground = Color(0xFFFFFFFF);
 
+  // Lavender (Status Card)
+  static const Color lavenderBackground = Color(0xFFF5F5FF);
+  static const Color lavenderBorder = Color(0xFFE5E5FF);
+
   // Light Theme Colors
-  static const Color background = Color(0xFFFFFFFF);
+  static const Color background = Color(0xFFF9FAFB); // bg-gray-50 - subtle gray for card contrast
   static const Color foreground = Color(0xFF252525);
-  static const Color card = Color(0xFFFFFFFF);
+  static const Color card = Color(0xFFFFFFFF); // white cards float on gray background
   static const Color cardForeground = Color(0xFF252525);
 
   static const Color secondary = Color(0xFFF0F0F3);
@@ -20,7 +24,7 @@ class AppTheme {
   static const Color accent = Color(0xFFE9EBEF);
   static const Color accentForeground = Color(0xFF030213);
 
-  static const Color destructive = Color(0xFFD4183D);
+  static const Color destructive = Color(0xFFEF4444);
   static const Color destructiveForeground = Color(0xFFFFFFFF);
 
   static const Color border = Color(0x1A000000); // rgba(0, 0, 0, 0.1)
@@ -40,8 +44,8 @@ class AppTheme {
 
   // Border Radius
   static const double radiusSm = 6.0;
-  static const double radiusMd = 8.0;
-  static const double radiusLg = 10.0;
+  static const double radiusMd = 8.0;  // rounded-lg (0.5rem = 8px) per spec
+  static const double radiusLg = 8.0;  // rounded-lg (0.5rem = 8px) per spec - cards use this
   static const double radiusXl = 14.0;
 
   // Spacing

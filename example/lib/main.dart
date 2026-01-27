@@ -159,7 +159,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
       // Listen to geofence events
       polyfence.Polyfence.instance.onGeofenceEvent.listen((event) {
-        final timestamp = DateTime.now().toIso8601String().substring(11, 19);
+        final timestamp = DateTime.now().toIso8601String(); // Full ISO8601 for date grouping
         final eventType = event.type.name.toUpperCase();
         final zoneName = _getZoneName(event.zoneId);
 
@@ -271,13 +271,50 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       final eventsJson = prefs.getString('events');
       if (eventsJson != null) {
         final List<dynamic> eventsList = jsonDecode(eventsJson);
+        final List<Map<String, dynamic>> events = eventsList.cast<Map<String, dynamic>>();
+
+        // Migrate legacy events (time-only) to full ISO8601 timestamps
+        bool needsMigration = false;
+        final now = DateTime.now();
+        int eventIndex = 0;
+
+        for (var event in events) {
+          final timestamp = event['timestamp'] as String? ?? '';
+          // Check if it's legacy format (no date, just time like "22:57:34")
+          if (!timestamp.contains('T') && !timestamp.contains('-') && timestamp.contains(':')) {
+            needsMigration = true;
+            // Spread events across last 5 days based on position in list
+            // Newer events (lower index) get more recent dates
+            final daysAgo = (eventIndex * 5) ~/ events.length; // 0-4 days ago
+            final eventDate = now.subtract(Duration(days: daysAgo));
+            final timeParts = timestamp.split(':');
+            if (timeParts.length >= 3) {
+              final fullTimestamp = DateTime(
+                eventDate.year,
+                eventDate.month,
+                eventDate.day,
+                int.tryParse(timeParts[0]) ?? 0,
+                int.tryParse(timeParts[1]) ?? 0,
+                int.tryParse(timeParts[2]) ?? 0,
+              ).toIso8601String();
+              event['timestamp'] = fullTimestamp;
+            }
+          }
+          eventIndex++;
+        }
+
         setState(() {
           _events.clear();
-          _events.addAll(eventsList.cast<Map<String, dynamic>>());
+          _events.addAll(events);
         });
+
+        // Save migrated events
+        if (needsMigration) {
+          _saveEvents();
+        }
       }
     } catch (e) {
-      // Failed to load stored events - log but don't show error banner
+      // Failed to load stored events
       debugPrint('Failed to load stored events: $e');
     }
   }
@@ -551,38 +588,37 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   // Convert events to new GeofenceEvent model
   List<GeofenceEvent> _convertEvents() {
-    // Converting events
     return _events.map((event) {
-      // Event data
-      // Parse the timestamp from the stored event
       DateTime timestamp;
       try {
-        // The timestamp is stored as a string like "22:57:34"
-        final timeStr = event['timestamp'] as String? ?? '00:00:00';
-        final now = DateTime.now();
-        final timeParts = timeStr.split(':');
-        timestamp = DateTime(
-          now.year,
-          now.month,
-          now.day,
-          int.parse(timeParts[0]),
-          int.parse(timeParts[1]),
-          int.parse(timeParts[2]),
-        );
+        final timeStr = event['timestamp'] as String? ?? '';
+        // Try parsing as full ISO8601 first (new format)
+        if (timeStr.contains('T') || timeStr.contains('-')) {
+          timestamp = DateTime.parse(timeStr);
+        } else {
+          // Legacy format: time-only string like "22:57:34" - assume today
+          final now = DateTime.now();
+          final timeParts = timeStr.split(':');
+          timestamp = DateTime(
+            now.year,
+            now.month,
+            now.day,
+            int.parse(timeParts[0]),
+            int.parse(timeParts[1]),
+            int.parse(timeParts[2]),
+          );
+        }
       } catch (e) {
-        // Error parsing timestamp
         timestamp = DateTime.now();
       }
 
-      final convertedEvent = GeofenceEvent(
+      return GeofenceEvent(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
         timestamp: timestamp,
         type: event['type'] == 'ENTER' ? EventType.enter : EventType.exit,
         zoneName: event['zone'] ?? 'Unknown',
         zoneId: event['zoneId'] ?? 'unknown',
       );
-      // Converted event
-      return convertedEvent;
     }).toList();
   }
 
@@ -628,15 +664,20 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Text(
+                  const Text(
                     'Polyfence',
-                    style: Theme.of(context).textTheme.displaySmall,
+                    style: TextStyle(
+                      fontSize: 20, // text-xl
+                      fontWeight: FontWeight.w600, // font-semibold
+                      color: AppTheme.foreground, // text-gray-900
+                    ),
                   ),
-                  Text(
+                  const Text(
                     'Flutter Example App',
-                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                          color: AppTheme.mutedForeground,
-                        ),
+                    style: TextStyle(
+                      fontSize: 14, // text-sm
+                      color: AppTheme.mutedForeground, // text-gray-500
+                    ),
                   ),
                 ],
               ),

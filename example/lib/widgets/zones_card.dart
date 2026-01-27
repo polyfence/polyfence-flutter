@@ -68,7 +68,7 @@ class _ZonesCardState extends State<ZonesCard>
               constraints: const BoxConstraints(minHeight: 44),
               padding: const EdgeInsets.symmetric(
                 horizontal: AppTheme.spacingLg,
-                vertical: AppTheme.spacingSm,
+                vertical: 10, // py-2.5: 10+24+10 = 44px touch target
               ),
               decoration: BoxDecoration(
                 border: _isExpanded
@@ -83,9 +83,13 @@ class _ZonesCardState extends State<ZonesCard>
                     color: AppTheme.mutedForeground,
                   ),
                   const SizedBox(width: AppTheme.spacingSm),
-                  Text(
+                  const Text(
                     'Zones',
-                    style: Theme.of(context).textTheme.bodyMedium,
+                    style: TextStyle(
+                      fontSize: 16, // text-base (match Tracking Active)
+                      fontWeight: FontWeight.w500, // font-medium
+                      color: AppTheme.foreground, // text-gray-900
+                    ),
                   ),
                   const SizedBox(width: AppTheme.spacingSm),
                   CountBadge(count: widget.zones.length),
@@ -93,7 +97,7 @@ class _ZonesCardState extends State<ZonesCard>
                   IconButton(
                     icon: RotationTransition(
                       turns: _rotationController,
-                      child: const Icon(LucideIcons.rotateCw, size: 16),
+                      child: const Icon(LucideIcons.refreshCcw, size: 16),
                     ),
                     onPressed: widget.onRefresh,
                     constraints: const BoxConstraints.tightFor(
@@ -144,21 +148,20 @@ class _ZoneListItem extends StatelessWidget {
     return '${(distance / 1000).toStringAsFixed(1)}km';
   }
 
-  ({String label, Color bgColor, Color dotColor})? _getZoneStatus(
-      double? distance) {
+  ({String label, Color bgColor, Color textColor})? _getZoneStatus(double? distance) {
     if (distance == null) return null;
     if (distance <= 50) {
       return (
         label: 'Inside',
-        bgColor: AppTheme.primary,
-        dotColor: AppTheme.success,
+        bgColor: AppTheme.primary, // #5B6FEE purple
+        textColor: AppTheme.primaryForeground, // white
       );
     }
     if (distance < 500) {
       return (
         label: 'Near',
-        bgColor: AppTheme.secondary,
-        dotColor: AppTheme.warning,
+        bgColor: AppTheme.secondary, // #F0F0F3 light gray (original)
+        textColor: AppTheme.secondaryForeground, // #030213 dark text (original)
       );
     }
     return null;
@@ -167,9 +170,6 @@ class _ZoneListItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final status = _getZoneStatus(zone.distance);
-    final statusTextColor = (status?.label == 'Inside')
-        ? AppTheme.primaryForeground
-        : AppTheme.secondaryForeground;
 
     return InkWell(
       onTap: () {},
@@ -185,7 +185,7 @@ class _ZoneListItem extends StatelessWidget {
         ),
         child: Row(
           children: [
-            // Type Icon
+            // Type Icon (original: 32x32 with radiusLg)
             Container(
               width: 32,
               height: 32,
@@ -212,62 +212,36 @@ class _ZoneListItem extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    children: [
-                      Flexible(
-                        child: Text(
-                          zone.name,
-                          style: Theme.of(context).textTheme.bodyMedium,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      if (status != null) ...[
-                        const SizedBox(width: AppTheme.spacingSm),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: AppTheme.spacingSm,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: status.bgColor,
-                            borderRadius:
-                                BorderRadius.circular(AppTheme.radiusSm),
-                          ),
-                          child: Text(
-                            status.label,
-                            style: Theme.of(context)
-                                .textTheme
-                                .labelMedium
-                                ?.copyWith(
-                                  fontWeight: FontWeight.w500,
-                                  color: statusTextColor,
-                                ),
-                          ),
-                        ),
-                      ],
-                    ],
+                  Text(
+                    zone.name,
+                    style: const TextStyle(
+                      fontSize: 14, // text-sm
+                      fontWeight: FontWeight.w500, // font-medium
+                      color: AppTheme.foreground, // text-gray-900
+                    ),
+                    overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 2),
                   Row(
                     children: [
                       Text(
                         zone.type == ZoneType.circle ? 'Circle' : 'Polygon',
-                        style:
-                            Theme.of(context).textTheme.labelMedium?.copyWith(
-                                  color: AppTheme.mutedForeground,
-                                ),
+                        style: const TextStyle(
+                          fontSize: 12, // text-xs
+                          color: Color(0xFF6B7280), // text-gray-500
+                        ),
                       ),
                       if (zone.distance != null) ...[
                         const Text(
                           ' • ',
-                          style: TextStyle(color: AppTheme.mutedForeground),
+                          style: TextStyle(color: Color(0xFF6B7280)), // text-gray-500
                         ),
                         Text(
                           '${_formatDistance(zone.distance)} away',
-                          style:
-                              Theme.of(context).textTheme.labelMedium?.copyWith(
-                                    color: AppTheme.mutedForeground,
-                                  ),
+                          style: const TextStyle(
+                            fontSize: 12, // text-xs
+                            color: Color(0xFF6B7280), // text-gray-500
+                          ),
                         ),
                       ],
                     ],
@@ -276,15 +250,25 @@ class _ZoneListItem extends StatelessWidget {
               ),
             ),
 
-            // Status Dot
+            // Right-aligned status pill
             if (status != null) ...[
               const SizedBox(width: AppTheme.spacingSm),
               Container(
-                width: 8,
-                height: 8,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 8, // px-2
+                  vertical: 2, // slight vertical padding for better pill shape
+                ),
                 decoration: BoxDecoration(
-                  color: status.dotColor,
-                  shape: BoxShape.circle,
+                  color: status.bgColor,
+                  borderRadius: BorderRadius.circular(10), // rounded-full pill shape
+                ),
+                child: Text(
+                  status.label,
+                  style: TextStyle(
+                    fontSize: 12, // text-xs
+                    fontWeight: FontWeight.w500, // font-medium
+                    color: status.textColor,
+                  ),
                 ),
               ),
             ],

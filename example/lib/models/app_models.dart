@@ -70,13 +70,13 @@ extension GpsProfileExtension on GpsProfile {
   String get description {
     switch (this) {
       case GpsProfile.max:
-        return 'Highest accuracy, most battery use';
+        return 'Highest accuracy, requests every 5s';
       case GpsProfile.balanced:
-        return 'Good accuracy, moderate battery';
+        return 'Balanced accuracy, requests every 10s';
       case GpsProfile.battery:
-        return 'Lower accuracy, best battery life';
+        return 'Lower accuracy, requests every 30s';
       case GpsProfile.smart:
-        return 'Adapts based on movement & proximity';
+        return 'Adaptive 10s, varies by movement';
     }
   }
 
@@ -98,7 +98,7 @@ extension GpsProfileExtension on GpsProfile {
       case GpsProfile.max:
         return LucideIcons.zap;
       case GpsProfile.balanced:
-        return LucideIcons.trendingUp;
+        return LucideIcons.activity;
       case GpsProfile.battery:
         return LucideIcons.battery;
       case GpsProfile.smart:

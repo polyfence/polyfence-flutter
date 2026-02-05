@@ -747,7 +747,8 @@ extension LocationTracker: CLLocationManagerDelegate {
             lastFlutterCallbackTime = currentTime
         }
 
-        // Emit status periodically
+        // Emit runtime status periodically (parity with Android)
+        emitRuntimeStatus()
 
         // P9: Only check geofences if moved significantly since last check
         let shouldCheckZones: Bool
@@ -839,6 +840,17 @@ extension LocationTracker: CLLocationManagerDelegate {
     func setGpsAccuracyThreshold(_ threshold: Double) {
         geofenceEngine.setGpsAccuracyThreshold(threshold)
     }
+
+    /**
+     * Configure dwell detection
+     * @param enabled Whether dwell detection is enabled
+     * @param thresholdMs How long (milliseconds) device must stay in zone before DWELL fires
+     */
+    func setDwellConfig(enabled: Bool, thresholdMs: Int) {
+        // Convert milliseconds to seconds for iOS
+        let thresholdSeconds = TimeInterval(thresholdMs) / 1000.0
+        geofenceEngine.setDwellConfig(enabled: enabled, thresholdSeconds: thresholdSeconds)
+    }
     
     func updateSmartConfiguration(_ config: SmartGpsConfig) {
         self.smartConfig = config
@@ -857,7 +869,16 @@ extension LocationTracker: CLLocationManagerDelegate {
     func getCurrentSmartConfiguration() -> SmartGpsConfig {
         return smartConfig
     }
-    
+
+    /**
+     * Get current zone states from GeofenceEngine
+     * Returns which zones the plugin believes the device is currently inside
+     * @return Dictionary of zoneId to isInside state
+     */
+    func getCurrentZoneStates() -> [String: Bool] {
+        return geofenceEngine.getCurrentZoneStates()
+    }
+
     /**
      * Update location manager settings based on smart configuration
      */
@@ -872,8 +893,9 @@ extension LocationTracker: CLLocationManagerDelegate {
         locationManager.pausesLocationUpdatesAutomatically = smartConfig.shouldPauseAutomatically()
         
         print("\(Self.TAG): Updated GPS settings - accuracy: \(accuracy), distanceFilter: \(distanceFilter)")
-        
+
         // Emit status after GPS configuration changes
+        emitRuntimeStatus()
     }
     
     /**
@@ -1163,15 +1185,13 @@ extension LocationTracker: CLLocationManagerDelegate {
                     if !isStationary {
                         isStationary = true
                         print("\(Self.TAG): Device is now stationary")
-                        updateLocationManagerSettings() // Update GPS settings
- // Emit status on movement state change
+                        updateLocationManagerSettings() // Update GPS settings (also emits status)
                     }
                 } else {
                     if isStationary {
                         isStationary = false
                         print("\(Self.TAG): Device is now moving")
-                        updateLocationManagerSettings() // Update GPS settings
- // Emit status on movement state change
+                        updateLocationManagerSettings() // Update GPS settings (also emits status)
                     }
                 }
             }
@@ -1208,7 +1228,45 @@ extension LocationTracker: CLLocationManagerDelegate {
     }
     
     // MARK: - Runtime Status Emission
-    
+
+    /**
+     * Emit runtime status to Flutter via performance stream
+     * Parity with Android LocationTracker.emitRuntimeStatus()
+     */
+    private func emitRuntimeStatus() {
+        guard let location = lastKnownLocation else { return }
+
+        let status: [String: Any] = [
+            "strategy": smartConfig.updateStrategy.rawValue,
+            "intervalMs": Int(currentGpsInterval * 1000),
+            "accuracyProfile": smartConfig.accuracyProfile.rawValue,
+            "nearestZoneDistanceM": calculateDistanceToNearestZone(location),
+            "isStationary": isStationary,
+            "batteryMode": getCurrentBatteryMode(),
+            "gpsAccuracy": location.horizontalAccuracy,
+            "timestamp": Int64(Date().timeIntervalSince1970 * 1000)
+        ]
+
+        // Only emit if status changed or 30 seconds elapsed
+        let currentTime = Date().timeIntervalSince1970
+        let timeSinceLastEmit = currentTime - lastStatusEmitTime
+
+        // Compare status dictionaries (simplified comparison - check key values)
+        let statusChanged = !NSDictionary(dictionary: status).isEqual(to: lastEmittedStatus)
+
+        if statusChanged || timeSinceLastEmit >= 30.0 {
+            // Send via existing performance event channel
+            let event: [String: Any] = [
+                "type": "runtime_status",
+                "data": status
+            ]
+            PolyfencePlugin.sendPerformanceEvent(event: event)
+            lastEmittedStatus = status
+            lastStatusEmitTime = currentTime
+            NSLog("[LocationTracker] Runtime status emitted: \(status)")
+        }
+    }
+
 }
 
 // MARK: - UNUserNotificationCenterDelegate

@@ -12,6 +12,10 @@ class GeofenceEngine {
     // MARK: - Constants
     internal static let EARTH_RADIUS_METERS: Double = 6371000.0
     private static let TAG = "GeofenceEngine"
+
+    // State recovery event types
+    static let EVENT_RECOVERY_ENTER = "RECOVERY_ENTER"
+    static let EVENT_RECOVERY_EXIT = "RECOVERY_EXIT"
     
     // MARK: - Properties
     // Synchronization for thread-safe access to zone data/state
@@ -30,9 +34,15 @@ class GeofenceEngine {
     
     // Event callbacks - includes detection time in milliseconds
     private var eventCallback: ((String, String, CLLocation, Double) -> Void)?
-    
+
     // Performance tracking
     private var performanceMetrics: [String: Double] = [:]
+
+    // Zone state persistence (injected by LocationTracker)
+    private var zonePersistence: ZonePersistence?
+
+    // Track if state was recovered from persistence on startup
+    private var stateRecoveredFromPersistence = false
     
     /**
      * Zone confidence tracking (ported from Android)
@@ -69,6 +79,137 @@ class GeofenceEngine {
      */
     func setGpsAccuracyThreshold(_ threshold: Double) {
         self.gpsAccuracyThreshold = threshold
+    }
+
+    /**
+     * Set zone persistence for state recovery across service restarts
+     */
+    func setZonePersistence(_ persistence: ZonePersistence) {
+        self.zonePersistence = persistence
+    }
+
+    /**
+     * Load persisted zone states on service restart
+     * Should be called after zones are loaded but before location updates start
+     */
+    func loadPersistedZoneStates() {
+        guard let persistence = zonePersistence else { return }
+
+        guard persistence.hasPersistedZoneStates() else {
+            NSLog("[\(GeofenceEngine.TAG)] No persisted zone states found (fresh install or data wipe)")
+            stateRecoveredFromPersistence = false
+            return
+        }
+
+        let persistedStates = persistence.loadZoneStates()
+        guard !persistedStates.isEmpty else {
+            NSLog("[\(GeofenceEngine.TAG)] Persisted zone states empty")
+            stateRecoveredFromPersistence = false
+            return
+        }
+
+        // Only load states for zones that are currently registered
+        var loadedCount = 0
+        syncQueue.sync {
+            for (zoneId, isInside) in persistedStates {
+                if self.zones[zoneId] != nil {
+                    self.zoneStates[zoneId] = isInside
+                    loadedCount += 1
+                    NSLog("[\(GeofenceEngine.TAG)] Restored state for zone \(zoneId): \(isInside ? "INSIDE" : "OUTSIDE")")
+                }
+            }
+        }
+
+        stateRecoveredFromPersistence = loadedCount > 0
+        let insideCount = persistedStates.values.filter { $0 }.count
+        NSLog("[\(GeofenceEngine.TAG)] Loaded \(loadedCount) persisted zone states (\(insideCount) were inside)")
+    }
+
+    /**
+     * Reconcile zone states with current location after service restart
+     * Fires RECOVERY_ENTER/RECOVERY_EXIT events for mismatches
+     * Should be called with first valid location after restart
+     */
+    func reconcileZoneStates(_ location: CLLocation) {
+        if !stateRecoveredFromPersistence {
+            // No persisted state to reconcile - use current location as ground truth
+            NSLog("[\(GeofenceEngine.TAG)] No persisted state - establishing initial state from current location")
+            let snapshot: [(String, ZoneData)] = syncQueue.sync { self.zones.map { ($0.key, $0.value) } }
+            for (zoneId, zone) in snapshot {
+                let isInside = zone.contains(location)
+                syncQueue.sync { self.zoneStates[zoneId] = isInside }
+                // Don't fire events for initial state establishment
+            }
+            persistAllZoneStates()
+            return
+        }
+
+        NSLog("[\(GeofenceEngine.TAG)] Reconciling zone states with current location...")
+        let checkStartTime = CFAbsoluteTimeGetCurrent()
+        var reconciliationCount = 0
+
+        let snapshot: [(String, ZoneData)] = syncQueue.sync { self.zones.map { ($0.key, $0.value) } }
+        for (zoneId, zone) in snapshot {
+            let persistedState = syncQueue.sync { self.zoneStates[zoneId] ?? false }
+            let actualState = zone.contains(location)
+
+            if persistedState != actualState {
+                reconciliationCount += 1
+                syncQueue.sync { self.zoneStates[zoneId] = actualState }
+
+                let detectionTimeMs = (CFAbsoluteTimeGetCurrent() - checkStartTime) * 1000.0
+
+                if actualState {
+                    // Was outside (persisted), now inside (actual) -> fire RECOVERY_ENTER
+                    NSLog("[\(GeofenceEngine.TAG)] State mismatch for zone \(zoneId): was OUTSIDE, now INSIDE -> firing RECOVERY_ENTER")
+                    eventCallback?(zoneId, GeofenceEngine.EVENT_RECOVERY_ENTER, location, detectionTimeMs)
+                } else {
+                    // Was inside (persisted), now outside (actual) -> fire RECOVERY_EXIT
+                    NSLog("[\(GeofenceEngine.TAG)] State mismatch for zone \(zoneId): was INSIDE, now OUTSIDE -> firing RECOVERY_EXIT")
+                    eventCallback?(zoneId, GeofenceEngine.EVENT_RECOVERY_EXIT, location, detectionTimeMs)
+                }
+            }
+        }
+
+        if reconciliationCount > 0 {
+            NSLog("[\(GeofenceEngine.TAG)] Reconciled \(reconciliationCount) zone state mismatches")
+            persistAllZoneStates()
+        } else {
+            NSLog("[\(GeofenceEngine.TAG)] All zone states match current location - no reconciliation needed")
+        }
+
+        stateRecoveredFromPersistence = false // Reset flag after reconciliation
+    }
+
+    /**
+     * Persist all current zone states (called after reconciliation or bulk changes)
+     */
+    private func persistAllZoneStates() {
+        guard let persistence = zonePersistence else { return }
+        let states = syncQueue.sync { self.zoneStates }
+        persistence.saveZoneStates(states)
+    }
+
+    /**
+     * Persist single zone state change (called on each transition)
+     */
+    private func persistZoneState(zoneId: String, isInside: Bool) {
+        guard let persistence = zonePersistence else { return }
+        persistence.saveZoneState(zoneId: zoneId, isInside: isInside)
+    }
+
+    /**
+     * Get current zone states for health check API
+     */
+    func getCurrentZoneStates() -> [String: Bool] {
+        return syncQueue.sync { self.zoneStates }
+    }
+
+    /**
+     * Check if state was recovered from persistence on last startup
+     */
+    func wasStateRecoveredFromPersistence() -> Bool {
+        return stateRecoveredFromPersistence
     }
     
     /**
@@ -185,8 +326,11 @@ class GeofenceEngine {
             self.zoneStates.removeValue(forKey: zoneId)
             self.zoneConfidence.removeValue(forKey: zoneId)
         }
+
+        // Remove persisted state
+        zonePersistence?.removeZoneState(zoneId: zoneId)
     }
-    
+
     /**
      * Clear all zones
      */
@@ -196,6 +340,9 @@ class GeofenceEngine {
             self.zoneStates.removeAll()
             self.zoneConfidence.removeAll()
         }
+
+        // Clear persisted states
+        zonePersistence?.clearAllZoneStates()
     }
     
     /**
@@ -346,19 +493,22 @@ class GeofenceEngine {
                 self.zoneStates[zoneId] = isInside
                 self.zoneConfidence[zoneId]?.confirmedState = isInside
             }
-            
+
+            // Persist state change immediately (write-through)
+            persistZoneState(zoneId: zoneId, isInside: isInside)
+
             // Calculate detection time: from start of zone check to now (in milliseconds)
             let detectionTimeMs = (CFAbsoluteTimeGetCurrent() - checkStartTime) * 1000.0
-            
+
             let eventType = isInside ? "ENTER" : "EXIT"
             eventCallback?(zoneId, eventType, location, detectionTimeMs)
-            
+
             // Reset confidence after successful event
             syncQueue.sync {
                 self.zoneConfidence[zoneId]?.insideCount = 0
                 self.zoneConfidence[zoneId]?.outsideCount = 0
             }
-            
+
             return true // State changed
         }
         
@@ -381,16 +531,19 @@ class GeofenceEngine {
             // Check what happens when we detect a state change
             if isInside != currentState {
                 handleStateChange(zoneId: zoneId, zoneName: zone.zoneName, isInside: isInside, location: location)
-                
+
                 syncQueue.sync { self.zoneStates[zoneId] = isInside }
-                
+
+                // Persist state change immediately (write-through)
+                persistZoneState(zoneId: zoneId, isInside: isInside)
+
                 // Calculate detection time: from start of zone check to now (in milliseconds)
                 let detectionTimeMs = (CFAbsoluteTimeGetCurrent() - checkStartTime) * 1000.0
-                
+
                 let eventType = isInside ? "ENTER" : "EXIT"
                 eventCallback?(zoneId, eventType, location, detectionTimeMs)
             }
-            
+
             return isInside != currentState
         } catch {
             return false

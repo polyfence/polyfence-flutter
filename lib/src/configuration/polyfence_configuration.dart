@@ -59,6 +59,9 @@ class PolyfenceConfiguration {
   /// Battery-aware optimization settings
   final BatterySettings? batterySettings;
 
+  /// Dwell detection settings
+  final DwellSettings? dwellSettings;
+
   /// GPS accuracy threshold in meters
   /// Locations with accuracy worse than this are rejected
   /// Default: 100m (ensures platform parity between iOS and Android)
@@ -73,6 +76,7 @@ class PolyfenceConfiguration {
     this.proximitySettings,
     this.movementSettings,
     this.batterySettings,
+    this.dwellSettings,
     this.gpsAccuracyThreshold = 100.0,
     this.enableDebugLogging = false,
   });
@@ -84,6 +88,7 @@ class PolyfenceConfiguration {
     ProximitySettings? proximitySettings,
     MovementSettings? movementSettings,
     BatterySettings? batterySettings,
+    DwellSettings? dwellSettings,
     double? gpsAccuracyThreshold,
     bool? enableDebugLogging,
   }) {
@@ -93,6 +98,7 @@ class PolyfenceConfiguration {
       proximitySettings: proximitySettings ?? this.proximitySettings,
       movementSettings: movementSettings ?? this.movementSettings,
       batterySettings: batterySettings ?? this.batterySettings,
+      dwellSettings: dwellSettings ?? this.dwellSettings,
       gpsAccuracyThreshold: gpsAccuracyThreshold ?? this.gpsAccuracyThreshold,
       enableDebugLogging: enableDebugLogging ?? this.enableDebugLogging,
     );
@@ -110,6 +116,7 @@ class PolyfenceConfiguration {
       'proximitySettings': proximitySettings?.toMap(),
       'movementSettings': movementSettings?.toMap(),
       'batterySettings': batterySettings?.toMap(),
+      'dwellSettings': dwellSettings?.toMap(),
       'gpsAccuracyThreshold': gpsAccuracyThreshold,
       'enableDebugLogging': enableDebugLogging,
     };
@@ -137,6 +144,9 @@ class PolyfenceConfiguration {
       batterySettings: map['batterySettings'] != null
           ? BatterySettings.fromMap(map['batterySettings'])
           : null,
+      dwellSettings: map['dwellSettings'] != null
+          ? DwellSettings.fromMap(map['dwellSettings'])
+          : null,
       gpsAccuracyThreshold:
           (map['gpsAccuracyThreshold'] as num?)?.toDouble() ?? 100.0,
       enableDebugLogging: map['enableDebugLogging'] ?? false,
@@ -151,6 +161,7 @@ class PolyfenceConfiguration {
         'proximitySettings: $proximitySettings, '
         'movementSettings: $movementSettings, '
         'batterySettings: $batterySettings, '
+        'dwellSettings: $dwellSettings, '
         'gpsAccuracyThreshold: $gpsAccuracyThreshold, '
         'enableDebugLogging: $enableDebugLogging'
         ')';
@@ -266,6 +277,45 @@ class MovementSettings {
         'movementThresholdMeters: $movementThresholdMeters, '
         'stationaryUpdateInterval: $stationaryUpdateInterval, '
         'movingUpdateInterval: $movingUpdateInterval'
+        ')';
+  }
+}
+
+/// Settings for dwell time detection
+/// Fires DWELL event when device stays inside zone for specified duration
+class DwellSettings {
+  /// Whether dwell detection is enabled
+  final bool enabled;
+
+  /// Duration device must stay inside zone before DWELL event fires
+  final Duration dwellThreshold;
+
+  const DwellSettings({
+    this.enabled = true,
+    this.dwellThreshold = const Duration(minutes: 5),
+  });
+
+  Map<String, dynamic> toMap() {
+    return {
+      'enabled': enabled,
+      'dwellThresholdMs': dwellThreshold.inMilliseconds,
+    };
+  }
+
+  factory DwellSettings.fromMap(Map<String, dynamic> map) {
+    return DwellSettings(
+      enabled: map['enabled'] ?? true,
+      dwellThreshold: Duration(
+        milliseconds: map['dwellThresholdMs']?.toInt() ?? 300000,
+      ),
+    );
+  }
+
+  @override
+  String toString() {
+    return 'DwellSettings('
+        'enabled: $enabled, '
+        'dwellThreshold: $dwellThreshold'
         ')';
   }
 }

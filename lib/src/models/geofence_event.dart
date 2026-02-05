@@ -9,7 +9,9 @@ enum GeofenceEventType {
   /// Device exited a zone boundary.
   exit,
 
-  /// Device has remained inside a zone (not currently implemented).
+  /// Device has remained inside a zone for the configured dwell threshold.
+  /// Fired once after device stays inside a zone for the duration specified
+  /// in DwellSettings.dwellThreshold (default: 5 minutes).
   dwell,
 
   /// State recovery: device was outside according to persisted state,

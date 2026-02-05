@@ -502,6 +502,9 @@ class PolyfenceService {
       final GeofenceEventType? geofenceEventType = switch (eventTypeRaw) {
         'ENTER' => GeofenceEventType.enter,
         'EXIT' => GeofenceEventType.exit,
+        'DWELL' => GeofenceEventType.dwell,
+        'RECOVERY_ENTER' => GeofenceEventType.recoveryEnter,
+        'RECOVERY_EXIT' => GeofenceEventType.recoveryExit,
         _ => null,
       };
 

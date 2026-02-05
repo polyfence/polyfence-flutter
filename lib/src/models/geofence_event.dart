@@ -11,6 +11,16 @@ enum GeofenceEventType {
 
   /// Device has remained inside a zone (not currently implemented).
   dwell,
+
+  /// State recovery: device was outside according to persisted state,
+  /// but is now inside according to current location.
+  /// Fired after service restart when reconciling state.
+  recoveryEnter,
+
+  /// State recovery: device was inside according to persisted state,
+  /// but is now outside according to current location.
+  /// Fired after service restart when reconciling state.
+  recoveryExit,
 }
 
 /// A geofence event triggered when a device enters or exits a zone.

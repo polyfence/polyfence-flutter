@@ -19,6 +19,12 @@ class GeofenceEngine {
         // State recovery event types
         const val EVENT_RECOVERY_ENTER = "RECOVERY_ENTER"
         const val EVENT_RECOVERY_EXIT = "RECOVERY_EXIT"
+
+        // Dwell event type
+        const val EVENT_DWELL = "DWELL"
+
+        // Default dwell threshold (5 minutes)
+        const val DEFAULT_DWELL_THRESHOLD_MS = 300000L
         
         /**
          * Calculate distance between two points using Haversine formula
@@ -60,9 +66,18 @@ class GeofenceEngine {
     // Thread-safe zone storage
     private val zones = ConcurrentHashMap<String, ZoneData>()
     private val zoneStates = ConcurrentHashMap<String, Boolean>()
-    
+
     // Confidence tracking for zone state validation
     private val zoneConfidence = ConcurrentHashMap<String, ZoneConfidence>()
+
+    // Dwell time tracking: zoneId -> entry timestamp (ms)
+    private val zoneEntryTimes = ConcurrentHashMap<String, Long>()
+    // Track which zones have already fired dwell events this session
+    private val dwellEventsFired = ConcurrentHashMap<String, Boolean>()
+    // Dwell threshold in milliseconds (configurable)
+    private var dwellThresholdMs = DEFAULT_DWELL_THRESHOLD_MS
+    // Whether dwell detection is enabled
+    private var dwellEnabled = true
     
     // Configuration for validation
     private var requireConfirmation = true
@@ -113,6 +128,8 @@ class GeofenceEngine {
         zones.remove(zoneId)
         zoneStates.remove(zoneId)
         zoneConfidence.remove(zoneId)
+        zoneEntryTimes.remove(zoneId)
+        dwellEventsFired.remove(zoneId)
 
         // Remove persisted state
         zonePersistence?.removeZoneState(zoneId)
@@ -125,6 +142,8 @@ class GeofenceEngine {
         zones.clear()
         zoneStates.clear()
         zoneConfidence.clear()
+        zoneEntryTimes.clear()
+        dwellEventsFired.clear()
 
         // Clear persisted states
         zonePersistence?.clearAllZoneStates()
@@ -153,6 +172,17 @@ fun getZoneName(zoneId: String): String? {
      */
     fun setGpsAccuracyThreshold(threshold: Float) {
         this.gpsAccuracyThreshold = threshold
+    }
+
+    /**
+     * Configure dwell detection
+     * @param enabled Whether dwell detection is enabled
+     * @param thresholdMs How long (ms) device must stay in zone before DWELL fires
+     */
+    fun setDwellConfig(enabled: Boolean, thresholdMs: Long = DEFAULT_DWELL_THRESHOLD_MS) {
+        this.dwellEnabled = enabled
+        this.dwellThresholdMs = thresholdMs
+        Log.d(TAG, "Dwell config: enabled=$enabled, threshold=${thresholdMs}ms")
     }
     
     /**
@@ -406,19 +436,27 @@ fun getZoneName(zoneId: String): String? {
             val eventType = if (isInside) "ENTER" else "EXIT"
             eventCallback?.invoke(zoneId, eventType, location, detectionTimeMs)
 
+            // Handle dwell tracking on state change
+            handleDwellStateChange(zoneId, isInside, location, checkStartTime)
+
             // Reset confidence after successful event
             confidence.insideCount = 0
             confidence.outsideCount = 0
 
             return true // State changed
         }
-        
+
         // Timeout: reset confidence if no consistent readings
         if (currentTime - confidence.lastDetection > confirmationTimeoutMs) {
             confidence.insideCount = 0
             confidence.outsideCount = 0
         }
-        
+
+        // Check for dwell even if no state change (still inside)
+        if (currentState && isInside && dwellEnabled) {
+            checkAndFireDwell(zoneId, location, checkStartTime)
+        }
+
         return false // No state change
     }
     
@@ -444,9 +482,56 @@ fun getZoneName(zoneId: String): String? {
 
             val eventType = if (isInside) "ENTER" else "EXIT"
             eventCallback?.invoke(zoneId, eventType, location, detectionTimeMs)
+
+            // Handle dwell tracking on state change
+            handleDwellStateChange(zoneId, isInside, location, checkStartTime)
+
             return true // State changed
+        } else if (isInside && dwellEnabled) {
+            // Still inside - check for dwell
+            checkAndFireDwell(zoneId, location, checkStartTime)
         }
         return false // No state change
+    }
+
+    /**
+     * Handle dwell tracking when zone state changes
+     */
+    private fun handleDwellStateChange(zoneId: String, isInside: Boolean, location: Location, checkStartTime: Long) {
+        if (!dwellEnabled) return
+
+        if (isInside) {
+            // Entered zone - start tracking dwell time
+            zoneEntryTimes[zoneId] = System.currentTimeMillis()
+            dwellEventsFired.remove(zoneId) // Reset dwell flag for new entry
+            Log.d(TAG, "Dwell tracking started for zone $zoneId")
+        } else {
+            // Exited zone - stop tracking dwell time
+            zoneEntryTimes.remove(zoneId)
+            dwellEventsFired.remove(zoneId)
+            Log.d(TAG, "Dwell tracking stopped for zone $zoneId")
+        }
+    }
+
+    /**
+     * Check if dwell threshold reached and fire DWELL event
+     */
+    private fun checkAndFireDwell(zoneId: String, location: Location, checkStartTime: Long) {
+        // Skip if dwell already fired for this zone entry
+        if (dwellEventsFired[zoneId] == true) return
+
+        val entryTime = zoneEntryTimes[zoneId] ?: return
+        val dwellDuration = System.currentTimeMillis() - entryTime
+
+        if (dwellDuration >= dwellThresholdMs) {
+            // Mark as fired to prevent duplicate events
+            dwellEventsFired[zoneId] = true
+
+            val detectionTimeMs = (System.nanoTime() - checkStartTime) / 1_000_000.0
+
+            Log.i(TAG, "DWELL event for zone $zoneId after ${dwellDuration}ms")
+            eventCallback?.invoke(zoneId, EVENT_DWELL, location, detectionTimeMs)
+        }
     }
     
     /**

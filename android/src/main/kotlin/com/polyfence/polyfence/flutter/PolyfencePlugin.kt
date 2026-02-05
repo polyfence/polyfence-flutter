@@ -328,6 +328,16 @@ class PolyfencePlugin: FlutterPlugin, MethodCallHandler, ActivityAware {
                 }
             }
 
+            "getCurrentZoneStates" -> {
+                try {
+                    val states = LocationTracker.getCurrentZoneStates()
+                    result.success(states)
+                } catch (e: Exception) {
+                    Log.e("PolyfencePlugin", "Failed to get zone states: ${e.message}")
+                    result.error("ZONE_STATES_FAILED", e.message, null)
+                }
+            }
+
             else -> {
                 result.notImplemented()
             }

@@ -51,7 +51,19 @@ class LocationTracker : Service() {
         
         // Alert Notifications Control
         private var alertNotificationsEnabled = true
-        
+
+        // Current instance reference for accessing zone states
+        private var currentInstance: LocationTracker? = null
+
+        /**
+         * Get current zone states from the active service instance
+         * Returns which zones the plugin believes the device is currently inside
+         * @return Map of zoneId to isInside state, or empty map if service not running
+         */
+        fun getCurrentZoneStates(): Map<String, Boolean> {
+            return currentInstance?.geofenceEngine?.getCurrentZoneStates() ?: emptyMap()
+        }
+
         /**
          * Update smart GPS configuration
          */
@@ -130,6 +142,9 @@ class LocationTracker : Service() {
 
     override fun onCreate() {
         super.onCreate()
+
+        // Set current instance for static access to zone states
+        currentInstance = this
 
         // P5: Log device info for debugging battery issues on Samsung/etc
         DeviceOptimization.logDeviceInfo(TAG)
@@ -580,6 +595,7 @@ private fun handleGeofenceEvent(zoneId: String, eventType: String, location: and
     override fun onDestroy() {
         super.onDestroy()
         isRunning = false
+        currentInstance = null  // Clear instance reference
         errorRecovery.stopMonitoring()
         healthCheckHandler?.removeCallbacksAndMessages(null)
         // Ensure wake lock is released
@@ -902,6 +918,16 @@ private fun handleGeofenceEvent(zoneId: String, eventType: String, location: and
                 geofenceEngine.setGpsAccuracyThreshold(gpsAccuracyThreshold.toFloat())
                 config.gpsAccuracyThreshold = gpsAccuracyThreshold.toFloat()
                 Log.d(TAG, "GPS accuracy threshold updated to ${gpsAccuracyThreshold}m")
+            }
+
+            // Update dwell configuration if provided
+            val dwellSettings = configMap["dwellSettings"] as? Map<String, Any>
+            if (dwellSettings != null) {
+                val dwellEnabled = dwellSettings["enabled"] as? Boolean ?: true
+                val dwellThresholdMs = (dwellSettings["dwellThresholdMs"] as? Number)?.toLong()
+                    ?: GeofenceEngine.DEFAULT_DWELL_THRESHOLD_MS
+                geofenceEngine.setDwellConfig(dwellEnabled, dwellThresholdMs)
+                Log.d(TAG, "Dwell config updated: enabled=$dwellEnabled, threshold=${dwellThresholdMs}ms")
             }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to update configuration: ${e.message}")

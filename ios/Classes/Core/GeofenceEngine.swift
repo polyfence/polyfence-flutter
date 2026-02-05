@@ -16,6 +16,12 @@ class GeofenceEngine {
     // State recovery event types
     static let EVENT_RECOVERY_ENTER = "RECOVERY_ENTER"
     static let EVENT_RECOVERY_EXIT = "RECOVERY_EXIT"
+
+    // Dwell event type
+    static let EVENT_DWELL = "DWELL"
+
+    // Default dwell threshold (5 minutes)
+    static let DEFAULT_DWELL_THRESHOLD_MS: TimeInterval = 300.0 // 300 seconds = 5 minutes
     
     // MARK: - Properties
     // Synchronization for thread-safe access to zone data/state
@@ -23,6 +29,15 @@ class GeofenceEngine {
     private var zones: [String: ZoneData] = [:]
     private var zoneStates: [String: Bool] = [:]
     private var zoneConfidence: [String: ZoneConfidence] = [:]
+
+    // Dwell time tracking: zoneId -> entry timestamp (seconds since epoch)
+    private var zoneEntryTimes: [String: TimeInterval] = [:]
+    // Track which zones have already fired dwell events this session
+    private var dwellEventsFired: [String: Bool] = [:]
+    // Dwell threshold in seconds (configurable)
+    private var dwellThresholdSeconds: TimeInterval = GeofenceEngine.DEFAULT_DWELL_THRESHOLD_MS
+    // Whether dwell detection is enabled
+    private var dwellEnabled: Bool = true
     
     // Configuration for validation
     private var requireConfirmation: Bool = true
@@ -79,6 +94,17 @@ class GeofenceEngine {
      */
     func setGpsAccuracyThreshold(_ threshold: Double) {
         self.gpsAccuracyThreshold = threshold
+    }
+
+    /**
+     * Configure dwell detection
+     * @param enabled Whether dwell detection is enabled
+     * @param thresholdSeconds How long (seconds) device must stay in zone before DWELL fires
+     */
+    func setDwellConfig(enabled: Bool, thresholdSeconds: TimeInterval = GeofenceEngine.DEFAULT_DWELL_THRESHOLD_MS) {
+        self.dwellEnabled = enabled
+        self.dwellThresholdSeconds = thresholdSeconds
+        NSLog("[\(GeofenceEngine.TAG)] Dwell config: enabled=\(enabled), threshold=\(thresholdSeconds)s")
     }
 
     /**
@@ -325,6 +351,8 @@ class GeofenceEngine {
             self.zones.removeValue(forKey: zoneId)
             self.zoneStates.removeValue(forKey: zoneId)
             self.zoneConfidence.removeValue(forKey: zoneId)
+            self.zoneEntryTimes.removeValue(forKey: zoneId)
+            self.dwellEventsFired.removeValue(forKey: zoneId)
         }
 
         // Remove persisted state
@@ -339,6 +367,8 @@ class GeofenceEngine {
             self.zones.removeAll()
             self.zoneStates.removeAll()
             self.zoneConfidence.removeAll()
+            self.zoneEntryTimes.removeAll()
+            self.dwellEventsFired.removeAll()
         }
 
         // Clear persisted states
@@ -503,6 +533,9 @@ class GeofenceEngine {
             let eventType = isInside ? "ENTER" : "EXIT"
             eventCallback?(zoneId, eventType, location, detectionTimeMs)
 
+            // Handle dwell tracking on state change
+            handleDwellStateChange(zoneId: zoneId, isInside: isInside, location: location, checkStartTime: checkStartTime)
+
             // Reset confidence after successful event
             syncQueue.sync {
                 self.zoneConfidence[zoneId]?.insideCount = 0
@@ -511,7 +544,7 @@ class GeofenceEngine {
 
             return true // State changed
         }
-        
+
         // Timeout: reset confidence if no consistent readings
         if currentTime - confidence.lastDetection > confirmationTimeoutMs {
             syncQueue.sync {
@@ -519,7 +552,12 @@ class GeofenceEngine {
                 self.zoneConfidence[zoneId]?.outsideCount = 0
             }
         }
-        
+
+        // Check for dwell even if no state change (still inside)
+        if currentState && isInside && dwellEnabled {
+            checkAndFireDwell(zoneId: zoneId, location: location, checkStartTime: checkStartTime)
+        }
+
         return false // No state change
     }
     
@@ -542,11 +580,63 @@ class GeofenceEngine {
 
                 let eventType = isInside ? "ENTER" : "EXIT"
                 eventCallback?(zoneId, eventType, location, detectionTimeMs)
+
+                // Handle dwell tracking on state change
+                handleDwellStateChange(zoneId: zoneId, isInside: isInside, location: location, checkStartTime: checkStartTime)
+
+                return true
+            } else if isInside && dwellEnabled {
+                // Still inside - check for dwell
+                checkAndFireDwell(zoneId: zoneId, location: location, checkStartTime: checkStartTime)
             }
 
-            return isInside != currentState
+            return false
         } catch {
             return false
+        }
+    }
+
+    /**
+     * Handle dwell tracking when zone state changes
+     */
+    private func handleDwellStateChange(zoneId: String, isInside: Bool, location: CLLocation, checkStartTime: CFAbsoluteTime) {
+        guard dwellEnabled else { return }
+
+        syncQueue.sync {
+            if isInside {
+                // Entered zone - start tracking dwell time
+                self.zoneEntryTimes[zoneId] = Date().timeIntervalSince1970
+                self.dwellEventsFired.removeValue(forKey: zoneId) // Reset dwell flag for new entry
+                NSLog("[\(GeofenceEngine.TAG)] Dwell tracking started for zone \(zoneId)")
+            } else {
+                // Exited zone - stop tracking dwell time
+                self.zoneEntryTimes.removeValue(forKey: zoneId)
+                self.dwellEventsFired.removeValue(forKey: zoneId)
+                NSLog("[\(GeofenceEngine.TAG)] Dwell tracking stopped for zone \(zoneId)")
+            }
+        }
+    }
+
+    /**
+     * Check if dwell threshold reached and fire DWELL event
+     */
+    private func checkAndFireDwell(zoneId: String, location: CLLocation, checkStartTime: CFAbsoluteTime) {
+        // Check if dwell already fired for this zone entry
+        let alreadyFired = syncQueue.sync { self.dwellEventsFired[zoneId] == true }
+        guard !alreadyFired else { return }
+
+        guard let entryTime = syncQueue.sync(execute: { self.zoneEntryTimes[zoneId] }) else { return }
+
+        let dwellDuration = Date().timeIntervalSince1970 - entryTime
+
+        if dwellDuration >= dwellThresholdSeconds {
+            // Mark as fired to prevent duplicate events
+            syncQueue.sync { self.dwellEventsFired[zoneId] = true }
+
+            let detectionTimeMs = (CFAbsoluteTimeGetCurrent() - checkStartTime) * 1000.0
+
+            NSLog("[\(GeofenceEngine.TAG)] DWELL event for zone \(zoneId) after \(dwellDuration)s")
+            eventCallback?(zoneId, GeofenceEngine.EVENT_DWELL, location, detectionTimeMs)
         }
     }
     

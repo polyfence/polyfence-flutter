@@ -113,11 +113,13 @@ public class PolyfencePlugin: NSObject, FlutterPlugin {
             getCurrentConfiguration(result: result)
         case "setAccuracyProfile":
             setAccuracyProfile(arguments: call.arguments, result: result)
+        case "getCurrentZoneStates":
+            getCurrentZoneStates(result: result)
         default:
             result(FlutterMethodNotImplemented)
         }
     }
-    
+
     // MARK: - Private Methods
     
     private func initialize(arguments: Any?, result: @escaping FlutterResult) {
@@ -277,18 +279,25 @@ public class PolyfencePlugin: NSObject, FlutterPlugin {
             result(FlutterError(code: "INVALID_ARGUMENTS", message: "Invalid configuration data", details: nil))
             return
         }
-        
+
         do {
             let smartConfig = SmartGpsConfigFactory.fromMap(configMap)
             config?.updateConfiguration(configMap)
             locationTracker?.updateSmartConfiguration(smartConfig)
-            
+
             // Update GPS accuracy threshold in GeofenceEngine if provided
             if let gpsAccuracyThreshold = configMap["gpsAccuracyThreshold"] as? Double {
                 locationTracker?.setGpsAccuracyThreshold(gpsAccuracyThreshold)
                 config?.gpsAccuracyThreshold = gpsAccuracyThreshold
             }
-            
+
+            // Update dwell detection settings if provided
+            if let dwellSettings = configMap["dwellSettings"] as? [String: Any] {
+                let dwellEnabled = dwellSettings["enabled"] as? Bool ?? true
+                let dwellThresholdMs = dwellSettings["dwellThresholdMs"] as? Int ?? 300000
+                locationTracker?.setDwellConfig(enabled: dwellEnabled, thresholdMs: dwellThresholdMs)
+            }
+
             result(nil)
         } catch {
             result(FlutterError(code: "CONFIG_UPDATE_FAILED", message: "Failed to update smart GPS configuration: \(error.localizedDescription)", details: nil))
@@ -351,6 +360,16 @@ public class PolyfencePlugin: NSObject, FlutterPlugin {
         let uppercased = value.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
         let filtered = uppercased.unicodeScalars.filter { CharacterSet.alphanumerics.contains($0) }
         return String(String.UnicodeScalarView(filtered))
+    }
+
+    private func getCurrentZoneStates(result: @escaping FlutterResult) {
+        guard let locationTracker = locationTracker else {
+            result(FlutterError(code: "NO_LOCATION_TRACKER", message: "Location tracker not initialized", details: nil))
+            return
+        }
+
+        let states = locationTracker.getCurrentZoneStates()
+        result(states)
     }
 }
 

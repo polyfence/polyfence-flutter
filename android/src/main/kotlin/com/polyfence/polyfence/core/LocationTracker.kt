@@ -153,7 +153,9 @@ class LocationTracker : Service() {
             handleGeofenceEvent(zoneId, eventType, location, detectionTimeMs)
         }
 
-        
+        // Wire up zone persistence for state recovery across service restarts
+        geofenceEngine.setZonePersistence(zonePersistence)
+
         // Configure validation using config
         geofenceEngine.setValidationConfig(
             requireConfirmation = config.requireConfirmation,
@@ -246,6 +248,7 @@ class LocationTracker : Service() {
         }
 
         isRunning = true
+        firstLocationAfterRestart = true  // Reset for state reconciliation
         startForeground(NOTIFICATION_ID, createTrackingNotification())
 
         // Acquire wake lock before starting location requests
@@ -432,16 +435,24 @@ class LocationTracker : Service() {
     private fun restoreZonesFromStorage() {
         try {
             val savedZones = zonePersistence.loadAllZones()
-            
+
             savedZones.forEach { (zoneId, zoneInfo) ->
                 val (id, name, data) = zoneInfo
                 geofenceEngine.addZone(id, name, data)
             }
-            
+
+            // Load persisted zone states AFTER zones are loaded
+            // This restores the "inside/outside" state from before service restart
+            geofenceEngine.loadPersistedZoneStates()
+
+            Log.i(TAG, "Restored ${savedZones.size} zones from storage")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to restore zones: ${e.message}")
         }
     }
+
+    // Track if first location after restart has been processed
+    private var firstLocationAfterRestart = true
     
 private fun handleGeofenceEvent(zoneId: String, eventType: String, location: android.location.Location, detectionTimeMs: Double) {
     // Get zone name from GeofenceEngine
@@ -717,17 +728,26 @@ private fun handleGeofenceEvent(zoneId: String, eventType: String, location: and
                 if (!isRunning) {
                     return
                 }
-                
+
+                // STATE RECOVERY: On first valid location after service restart,
+                // reconcile persisted zone states with actual location.
+                // This fires RECOVERY_ENTER/RECOVERY_EXIT for any mismatches.
+                if (firstLocationAfterRestart) {
+                    firstLocationAfterRestart = false
+                    Log.i(TAG, "First location after restart - reconciling zone states")
+                    geofenceEngine.reconcileZoneStates(location)
+                }
+
                 // Update movement state for smart GPS
                 updateMovementState(location)
-                
+
                 // Log proximity debug info
                 logProximityDebugInfo(location)
-                
+
                 // Update health tracking
                 lastLocationTime = System.currentTimeMillis()
                 consecutiveGpsFailures = 0
-                
+
                 // Reset error recovery attempts on successful location
                 errorRecovery.resetRestartAttempts()
 

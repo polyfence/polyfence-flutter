@@ -15,6 +15,10 @@ class GeofenceEngine {
     companion object {
         private const val TAG = "GeofenceEngine"
         private const val EARTH_RADIUS_METERS = 6371000.0
+
+        // State recovery event types
+        const val EVENT_RECOVERY_ENTER = "RECOVERY_ENTER"
+        const val EVENT_RECOVERY_EXIT = "RECOVERY_EXIT"
         
         /**
          * Calculate distance between two points using Haversine formula
@@ -70,6 +74,12 @@ class GeofenceEngine {
     
     // Event callback - includes detection time in milliseconds
     private var eventCallback: ((String, String, Location, Double) -> Unit)? = null
+
+    // Zone state persistence (injected by LocationTracker)
+    private var zonePersistence: ZonePersistence? = null
+
+    // Track if state was recovered from persistence on startup
+    private var stateRecoveredFromPersistence = false
     
     
     /**
@@ -103,8 +113,11 @@ class GeofenceEngine {
         zones.remove(zoneId)
         zoneStates.remove(zoneId)
         zoneConfidence.remove(zoneId)
+
+        // Remove persisted state
+        zonePersistence?.removeZoneState(zoneId)
     }
-    
+
     /**
      * Clear all zones
      */
@@ -112,6 +125,9 @@ class GeofenceEngine {
         zones.clear()
         zoneStates.clear()
         zoneConfidence.clear()
+
+        // Clear persisted states
+        zonePersistence?.clearAllZoneStates()
     }
 
     /**
@@ -152,6 +168,131 @@ fun getZoneName(zoneId: String): String? {
      */
     fun setEventCallback(callback: (String, String, Location, Double) -> Unit) {
         eventCallback = callback
+    }
+
+    /**
+     * Set zone persistence for state recovery across service restarts
+     */
+    fun setZonePersistence(persistence: ZonePersistence) {
+        this.zonePersistence = persistence
+    }
+
+    /**
+     * Load persisted zone states on service restart
+     * Should be called after zones are loaded but before location updates start
+     */
+    fun loadPersistedZoneStates() {
+        val persistence = zonePersistence ?: return
+
+        if (!persistence.hasPersistedZoneStates()) {
+            Log.d(TAG, "No persisted zone states found (fresh install or data wipe)")
+            stateRecoveredFromPersistence = false
+            return
+        }
+
+        val persistedStates = persistence.loadZoneStates()
+        if (persistedStates.isEmpty()) {
+            Log.d(TAG, "Persisted zone states empty")
+            stateRecoveredFromPersistence = false
+            return
+        }
+
+        // Only load states for zones that are currently registered
+        var loadedCount = 0
+        persistedStates.forEach { (zoneId, isInside) ->
+            if (zones.containsKey(zoneId)) {
+                zoneStates[zoneId] = isInside
+                loadedCount++
+                Log.d(TAG, "Restored state for zone $zoneId: ${if (isInside) "INSIDE" else "OUTSIDE"}")
+            }
+        }
+
+        stateRecoveredFromPersistence = loadedCount > 0
+        Log.i(TAG, "Loaded $loadedCount persisted zone states (${persistedStates.count { it.value }} were inside)")
+    }
+
+    /**
+     * Reconcile zone states with current location after service restart
+     * Fires RECOVERY_ENTER/RECOVERY_EXIT events for mismatches
+     * Should be called with first valid location after restart
+     */
+    fun reconcileZoneStates(location: Location) {
+        if (!stateRecoveredFromPersistence) {
+            // No persisted state to reconcile - use current location as ground truth
+            Log.d(TAG, "No persisted state - establishing initial state from current location")
+            zones.forEach { (zoneId, zone) ->
+                val isInside = zone.contains(location)
+                zoneStates[zoneId] = isInside
+                // Don't fire events for initial state establishment
+            }
+            persistAllZoneStates()
+            return
+        }
+
+        Log.i(TAG, "Reconciling zone states with current location...")
+        val checkStartTime = System.nanoTime()
+        var reconciliationCount = 0
+
+        zones.forEach { (zoneId, zone) ->
+            val persistedState = zoneStates[zoneId] ?: false
+            val actualState = zone.contains(location)
+
+            if (persistedState != actualState) {
+                reconciliationCount++
+                zoneStates[zoneId] = actualState
+
+                val detectionTimeMs = (System.nanoTime() - checkStartTime) / 1_000_000.0
+
+                if (actualState) {
+                    // Was outside (persisted), now inside (actual) -> fire RECOVERY_ENTER
+                    Log.w(TAG, "State mismatch for zone $zoneId: was OUTSIDE, now INSIDE -> firing RECOVERY_ENTER")
+                    eventCallback?.invoke(zoneId, EVENT_RECOVERY_ENTER, location, detectionTimeMs)
+                } else {
+                    // Was inside (persisted), now outside (actual) -> fire RECOVERY_EXIT
+                    Log.w(TAG, "State mismatch for zone $zoneId: was INSIDE, now OUTSIDE -> firing RECOVERY_EXIT")
+                    eventCallback?.invoke(zoneId, EVENT_RECOVERY_EXIT, location, detectionTimeMs)
+                }
+            }
+        }
+
+        if (reconciliationCount > 0) {
+            Log.i(TAG, "Reconciled $reconciliationCount zone state mismatches")
+            persistAllZoneStates()
+        } else {
+            Log.d(TAG, "All zone states match current location - no reconciliation needed")
+        }
+
+        stateRecoveredFromPersistence = false // Reset flag after reconciliation
+    }
+
+    /**
+     * Persist all current zone states (called after reconciliation or bulk changes)
+     */
+    private fun persistAllZoneStates() {
+        val persistence = zonePersistence ?: return
+        persistence.saveZoneStates(zoneStates.toMap())
+    }
+
+    /**
+     * Persist single zone state change (called on each transition)
+     */
+    private fun persistZoneState(zoneId: String, isInside: Boolean) {
+        val persistence = zonePersistence ?: return
+        persistence.saveZoneState(zoneId, isInside)
+    }
+
+    /**
+     * Get current zone states for health check API
+     */
+    fun getCurrentZoneStates(): Map<String, Boolean> {
+        return zoneStates.toMap()
+    }
+
+    /**
+     * Check if state was recovered from persistence on last startup
+     */
+    fun wasStateRecoveredFromPersistence(): Boolean {
+        return stateRecoveredFromPersistence
     }
     
     
@@ -255,17 +396,20 @@ fun getZoneName(zoneId: String): String? {
         if (hasConfidence && currentState != isInside) {
             zoneStates[zoneId] = isInside
             confidence.confirmedState = isInside
-            
+
+            // Persist state change immediately (write-through)
+            persistZoneState(zoneId, isInside)
+
             // Calculate detection time: from start of zone check to now (in milliseconds)
             val detectionTimeMs = (System.nanoTime() - checkStartTime) / 1_000_000.0
-            
+
             val eventType = if (isInside) "ENTER" else "EXIT"
             eventCallback?.invoke(zoneId, eventType, location, detectionTimeMs)
-            
+
             // Reset confidence after successful event
             confidence.insideCount = 0
             confidence.outsideCount = 0
-            
+
             return true // State changed
         }
         
@@ -291,10 +435,13 @@ fun getZoneName(zoneId: String): String? {
     ): Boolean {
         if (currentState != isInside) {
             zoneStates[zoneId] = isInside
-            
+
+            // Persist state change immediately (write-through)
+            persistZoneState(zoneId, isInside)
+
             // Calculate detection time: from start of zone check to now (in milliseconds)
             val detectionTimeMs = (System.nanoTime() - checkStartTime) / 1_000_000.0
-            
+
             val eventType = if (isInside) "ENTER" else "EXIT"
             eventCallback?.invoke(zoneId, eventType, location, detectionTimeMs)
             return true // State changed

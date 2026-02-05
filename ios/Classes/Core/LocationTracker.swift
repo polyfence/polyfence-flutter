@@ -73,6 +73,8 @@ class LocationTracker: NSObject {
     
     override init() {
         super.init()
+        // Initialize persistence first so it's available for geofence engine
+        zonePersistence = ZonePersistence()
         setupLocationManager()
         setupNotificationCenter()
         setupGeofenceEngine()
@@ -121,14 +123,22 @@ class LocationTracker: NSObject {
         geofenceEngine.setEventCallback { [weak self] zoneId, eventType, location, detectionTimeMs in
             self?.handleGeofenceEvent(zoneId: zoneId, eventType: eventType, location: location, detectionTimeMs: detectionTimeMs)
         }
-        
+
+        // Wire up zone persistence for state recovery across service restarts
+        if let persistence = zonePersistence {
+            geofenceEngine.setZonePersistence(persistence)
+        }
+
         // Configure validation using config (opt for immediate detection to verify pipeline)
         geofenceEngine.setValidationConfig(requireConfirmation: false, confirmationPoints: 1)
-        
+
         // Set GPS accuracy threshold from config (default: 100m for platform parity)
         let accuracyThreshold = config?.gpsAccuracyThreshold ?? PolyfenceConfig.DEFAULT_GPS_ACCURACY_THRESHOLD
         geofenceEngine.setGpsAccuracyThreshold(accuracyThreshold)
     }
+
+    // Track if first location after restart has been processed
+    private var firstLocationAfterRestart = true
     
     // MARK: - Public Methods
     
@@ -142,7 +152,8 @@ class LocationTracker: NSObject {
         
         isRunning = true
         trackingEnabled = true
-        
+        firstLocationAfterRestart = true  // Reset for state reconciliation
+
         // Begin background task
         beginBackgroundTask()
         healthTimer?.invalidate()
@@ -375,10 +386,10 @@ class LocationTracker: NSObject {
      */
     private func restoreZonesFromStorage() {
         guard let zonePersistence = zonePersistence else { return }
-        
+
         do {
             let savedZones = try zonePersistence.loadAllZones()
-            geofenceQueue.async { [weak self] in
+            geofenceQueue.sync { [weak self] in
                 guard let self = self else { return }
                 for (_, zoneInfo) in savedZones {
                     let (id, name, data) = zoneInfo
@@ -391,7 +402,13 @@ class LocationTracker: NSObject {
                         // Failed to restore zone
                     }
                 }
+
+                // Load persisted zone states AFTER zones are loaded
+                // This restores the "inside/outside" state from before service restart
+                self.geofenceEngine.loadPersistedZoneStates()
             }
+
+            NSLog("[LocationTracker] Restored \(savedZones.count) zones from storage")
         } catch {
             // Failed to restore zones
         }
@@ -685,16 +702,27 @@ extension LocationTracker: CLLocationManagerDelegate {
     
     func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
         // CRITICAL: Only process locations if tracking is explicitly enabled
-        guard trackingEnabled, let location = locations.last, isRunning else { 
-            return 
+        guard trackingEnabled, let location = locations.last, isRunning else {
+            return
         }
-        
+
+        // STATE RECOVERY: On first valid location after service restart,
+        // reconcile persisted zone states with actual location.
+        // This fires RECOVERY_ENTER/RECOVERY_EXIT for any mismatches.
+        if firstLocationAfterRestart {
+            firstLocationAfterRestart = false
+            NSLog("[LocationTracker] First location after restart - reconciling zone states")
+            geofenceQueue.sync { [weak self] in
+                self?.geofenceEngine.reconcileZoneStates(location)
+            }
+        }
+
         // Update movement state for smart GPS
         updateMovementState(location)
-        
+
         // Log proximity debug info
         logProximityDebugInfo(location)
-        
+
         // Update health tracking
         lastLocationTime = Date().timeIntervalSince1970
         consecutiveGpsFailures = 0
@@ -718,7 +746,7 @@ extension LocationTracker: CLLocationManagerDelegate {
             sendLocationToFlutter(location: location)
             lastFlutterCallbackTime = currentTime
         }
-        
+
         // Emit status periodically
 
         // P9: Only check geofences if moved significantly since last check

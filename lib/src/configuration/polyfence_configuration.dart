@@ -62,6 +62,9 @@ class PolyfenceConfiguration {
   /// Dwell detection settings
   final DwellSettings? dwellSettings;
 
+  /// Zone clustering settings for large zone sets
+  final ClusterSettings? clusterSettings;
+
   /// GPS accuracy threshold in meters
   /// Locations with accuracy worse than this are rejected
   /// Default: 100m (ensures platform parity between iOS and Android)
@@ -77,6 +80,7 @@ class PolyfenceConfiguration {
     this.movementSettings,
     this.batterySettings,
     this.dwellSettings,
+    this.clusterSettings,
     this.gpsAccuracyThreshold = 100.0,
     this.enableDebugLogging = false,
   });
@@ -89,6 +93,7 @@ class PolyfenceConfiguration {
     MovementSettings? movementSettings,
     BatterySettings? batterySettings,
     DwellSettings? dwellSettings,
+    ClusterSettings? clusterSettings,
     double? gpsAccuracyThreshold,
     bool? enableDebugLogging,
   }) {
@@ -99,6 +104,7 @@ class PolyfenceConfiguration {
       movementSettings: movementSettings ?? this.movementSettings,
       batterySettings: batterySettings ?? this.batterySettings,
       dwellSettings: dwellSettings ?? this.dwellSettings,
+      clusterSettings: clusterSettings ?? this.clusterSettings,
       gpsAccuracyThreshold: gpsAccuracyThreshold ?? this.gpsAccuracyThreshold,
       enableDebugLogging: enableDebugLogging ?? this.enableDebugLogging,
     );
@@ -117,6 +123,7 @@ class PolyfenceConfiguration {
       'movementSettings': movementSettings?.toMap(),
       'batterySettings': batterySettings?.toMap(),
       'dwellSettings': dwellSettings?.toMap(),
+      'clusterSettings': clusterSettings?.toMap(),
       'gpsAccuracyThreshold': gpsAccuracyThreshold,
       'enableDebugLogging': enableDebugLogging,
     };
@@ -147,6 +154,9 @@ class PolyfenceConfiguration {
       dwellSettings: map['dwellSettings'] != null
           ? DwellSettings.fromMap(map['dwellSettings'])
           : null,
+      clusterSettings: map['clusterSettings'] != null
+          ? ClusterSettings.fromMap(map['clusterSettings'])
+          : null,
       gpsAccuracyThreshold:
           (map['gpsAccuracyThreshold'] as num?)?.toDouble() ?? 100.0,
       enableDebugLogging: map['enableDebugLogging'] ?? false,
@@ -162,6 +172,7 @@ class PolyfenceConfiguration {
         'movementSettings: $movementSettings, '
         'batterySettings: $batterySettings, '
         'dwellSettings: $dwellSettings, '
+        'clusterSettings: $clusterSettings, '
         'gpsAccuracyThreshold: $gpsAccuracyThreshold, '
         'enableDebugLogging: $enableDebugLogging'
         ')';
@@ -316,6 +327,56 @@ class DwellSettings {
     return 'DwellSettings('
         'enabled: $enabled, '
         'dwellThreshold: $dwellThreshold'
+        ')';
+  }
+}
+
+/// Settings for zone clustering optimization
+/// Only checks zones within a radius of user's location for better performance
+/// with large zone sets (100+ zones)
+class ClusterSettings {
+  /// Whether zone clustering is enabled
+  /// Default: false (all zones checked on every update)
+  final bool enabled;
+
+  /// Radius in meters to load/check zones around user's location
+  /// Zones outside this radius are stored but not checked
+  /// Default: 5000m (5km)
+  final double activeRadiusMeters;
+
+  /// Distance in meters user must move before re-evaluating which zones are active
+  /// Prevents constant cluster recalculation
+  /// Default: 1000m (1km)
+  final double refreshDistanceMeters;
+
+  const ClusterSettings({
+    this.enabled = false,
+    this.activeRadiusMeters = 5000.0,
+    this.refreshDistanceMeters = 1000.0,
+  });
+
+  Map<String, dynamic> toMap() {
+    return {
+      'enabled': enabled,
+      'activeRadiusMeters': activeRadiusMeters,
+      'refreshDistanceMeters': refreshDistanceMeters,
+    };
+  }
+
+  factory ClusterSettings.fromMap(Map<String, dynamic> map) {
+    return ClusterSettings(
+      enabled: map['enabled'] ?? false,
+      activeRadiusMeters: map['activeRadiusMeters']?.toDouble() ?? 5000.0,
+      refreshDistanceMeters: map['refreshDistanceMeters']?.toDouble() ?? 1000.0,
+    );
+  }
+
+  @override
+  String toString() {
+    return 'ClusterSettings('
+        'enabled: $enabled, '
+        'activeRadiusMeters: $activeRadiusMeters, '
+        'refreshDistanceMeters: $refreshDistanceMeters'
         ')';
   }
 }

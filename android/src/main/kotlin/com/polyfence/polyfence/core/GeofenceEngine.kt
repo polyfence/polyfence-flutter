@@ -86,7 +86,15 @@ class GeofenceEngine {
     
     // GPS accuracy threshold in meters (default: 100m for platform parity)
     private var gpsAccuracyThreshold = 100.0f
-    
+
+    // Zone clustering configuration
+    private var clusteringEnabled = false
+    private var clusterActiveRadiusMeters = 5000.0
+    private var clusterRefreshDistanceMeters = 1000.0
+    private var clusterCenterLat: Double? = null
+    private var clusterCenterLng: Double? = null
+    private val activeZoneIds = ConcurrentHashMap.newKeySet<String>()
+
     // Event callback - includes detection time in milliseconds
     private var eventCallback: ((String, String, Location, Double) -> Unit)? = null
 
@@ -183,6 +191,75 @@ fun getZoneName(zoneId: String): String? {
         this.dwellEnabled = enabled
         this.dwellThresholdMs = thresholdMs
         Log.d(TAG, "Dwell config: enabled=$enabled, threshold=${thresholdMs}ms")
+    }
+
+    /**
+     * Configure zone clustering for large zone sets
+     * @param enabled Whether clustering is enabled (default: false)
+     * @param activeRadiusMeters Radius to check zones within (default: 5000m)
+     * @param refreshDistanceMeters Distance to move before refreshing active cluster (default: 1000m)
+     */
+    fun setClusterConfig(enabled: Boolean, activeRadiusMeters: Double = 5000.0, refreshDistanceMeters: Double = 1000.0) {
+        this.clusteringEnabled = enabled
+        this.clusterActiveRadiusMeters = activeRadiusMeters
+        this.clusterRefreshDistanceMeters = refreshDistanceMeters
+        // Reset cluster center to force refresh on next location update
+        this.clusterCenterLat = null
+        this.clusterCenterLng = null
+        this.activeZoneIds.clear()
+        Log.d(TAG, "Cluster config: enabled=$enabled, activeRadius=${activeRadiusMeters}m, refreshDistance=${refreshDistanceMeters}m")
+    }
+
+    /**
+     * Check if cluster needs to be refreshed based on movement from cluster center
+     */
+    private fun shouldRefreshCluster(location: Location): Boolean {
+        val centerLat = clusterCenterLat ?: return true
+        val centerLng = clusterCenterLng ?: return true
+
+        val distance = calculateDistance(
+            LatLng(centerLat, centerLng),
+            LatLng(location.latitude, location.longitude)
+        )
+        return distance >= clusterRefreshDistanceMeters
+    }
+
+    /**
+     * Refresh the active zone cluster around the given location
+     */
+    private fun refreshCluster(location: Location) {
+        clusterCenterLat = location.latitude
+        clusterCenterLng = location.longitude
+        activeZoneIds.clear()
+
+        val userLocation = LatLng(location.latitude, location.longitude)
+        var activatedCount = 0
+
+        zones.forEach { (zoneId, zone) ->
+            val zoneCenter = zone.getCenter()
+            val distance = calculateDistance(userLocation, zoneCenter)
+
+            // Include zone if its center is within active radius
+            // Also include zones whose boundary might intersect (add zone radius buffer)
+            val effectiveRadius = clusterActiveRadiusMeters + (zone.radius ?: 0.0)
+            if (distance <= effectiveRadius) {
+                activeZoneIds.add(zoneId)
+                activatedCount++
+            }
+        }
+
+        Log.d(TAG, "Cluster refreshed at (${location.latitude}, ${location.longitude}): $activatedCount of ${zones.size} zones active")
+    }
+
+    /**
+     * Get zones to check based on clustering configuration
+     */
+    private fun getZonesToCheck(): Map<String, ZoneData> {
+        return if (clusteringEnabled && activeZoneIds.isNotEmpty()) {
+            zones.filterKeys { it in activeZoneIds }
+        } else {
+            zones
+        }
     }
     
     /**
@@ -335,6 +412,13 @@ fun getZoneName(zoneId: String): String? {
             return
         }
 
+        // Handle clustering: refresh active zones if needed
+        if (clusteringEnabled) {
+            if (shouldRefreshCluster(location)) {
+                refreshCluster(location)
+            }
+        }
+
         val overallStartTime = System.nanoTime()
         val speed = if (location.hasSpeed()) location.speed * 3.6 else 0.0 // Convert m/s to km/h
 
@@ -342,7 +426,10 @@ fun getZoneName(zoneId: String): String? {
         var totalAlgorithmTime = 0L
         var totalConfidenceTime = 0L
 
-        zones.forEach { (zoneId, zone) ->
+        // Use clustered zones if enabled, otherwise all zones
+        val zonesToCheck = getZonesToCheck()
+
+        zonesToCheck.forEach { (zoneId, zone) ->
             zoneCheckCount++
             val zoneCheckStartTime = System.nanoTime() // Start timing for this zone
             val currentState = zoneStates[zoneId] ?: false
@@ -560,7 +647,7 @@ fun getZoneName(zoneId: String): String? {
         
         fun contains(location: Location): Boolean {
             val point = LatLng(location.latitude, location.longitude)
-            
+
             return when (type) {
                 ZoneType.CIRCLE -> {
                     val zoneCenter = center ?: return false
@@ -571,6 +658,24 @@ fun getZoneName(zoneId: String): String? {
                 ZoneType.POLYGON -> {
                     val zonePolygon = polygon ?: return false
                     isPointInPolygon(point, zonePolygon)
+                }
+            }
+        }
+
+        /**
+         * Get the center point of this zone for clustering calculations
+         * For circles: returns center
+         * For polygons: returns centroid (average of all points)
+         */
+        fun getCenter(): LatLng {
+            return when (type) {
+                ZoneType.CIRCLE -> center ?: LatLng(0.0, 0.0)
+                ZoneType.POLYGON -> {
+                    val points = polygon ?: return LatLng(0.0, 0.0)
+                    if (points.isEmpty()) return LatLng(0.0, 0.0)
+                    val avgLat = points.sumOf { it.latitude } / points.size
+                    val avgLng = points.sumOf { it.longitude } / points.size
+                    LatLng(avgLat, avgLng)
                 }
             }
         }

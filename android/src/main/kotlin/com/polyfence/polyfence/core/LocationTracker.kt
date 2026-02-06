@@ -929,6 +929,16 @@ private fun handleGeofenceEvent(zoneId: String, eventType: String, location: and
                 geofenceEngine.setDwellConfig(dwellEnabled, dwellThresholdMs)
                 Log.d(TAG, "Dwell config updated: enabled=$dwellEnabled, threshold=${dwellThresholdMs}ms")
             }
+
+            // Update cluster configuration if provided
+            val clusterSettings = configMap["clusterSettings"] as? Map<String, Any>
+            if (clusterSettings != null) {
+                val clusterEnabled = clusterSettings["enabled"] as? Boolean ?: false
+                val activeRadiusMeters = (clusterSettings["activeRadiusMeters"] as? Number)?.toDouble() ?: 5000.0
+                val refreshDistanceMeters = (clusterSettings["refreshDistanceMeters"] as? Number)?.toDouble() ?: 1000.0
+                geofenceEngine.setClusterConfig(clusterEnabled, activeRadiusMeters, refreshDistanceMeters)
+                Log.d(TAG, "Cluster config updated: enabled=$clusterEnabled, activeRadius=${activeRadiusMeters}m, refreshDistance=${refreshDistanceMeters}m")
+            }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to update configuration: ${e.message}")
         }

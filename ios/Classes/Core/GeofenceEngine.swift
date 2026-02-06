@@ -46,7 +46,15 @@ class GeofenceEngine {
     
     // GPS accuracy threshold in meters (default: 100m to match Android)
     private var gpsAccuracyThreshold: Double = 100.0
-    
+
+    // Zone clustering configuration
+    private var clusteringEnabled: Bool = false
+    private var clusterActiveRadiusMeters: Double = 5000.0
+    private var clusterRefreshDistanceMeters: Double = 1000.0
+    private var clusterCenterLat: Double?
+    private var clusterCenterLng: Double?
+    private var activeZoneIds: Set<String> = []
+
     // Event callbacks - includes detection time in milliseconds
     private var eventCallback: ((String, String, CLLocation, Double) -> Void)?
 
@@ -105,6 +113,76 @@ class GeofenceEngine {
         self.dwellEnabled = enabled
         self.dwellThresholdSeconds = thresholdSeconds
         NSLog("[\(GeofenceEngine.TAG)] Dwell config: enabled=\(enabled), threshold=\(thresholdSeconds)s")
+    }
+
+    /**
+     * Configure zone clustering for large zone sets
+     * @param enabled Whether clustering is enabled (default: false)
+     * @param activeRadiusMeters Radius to check zones within (default: 5000m)
+     * @param refreshDistanceMeters Distance to move before refreshing active cluster (default: 1000m)
+     */
+    func setClusterConfig(enabled: Bool, activeRadiusMeters: Double = 5000.0, refreshDistanceMeters: Double = 1000.0) {
+        self.clusteringEnabled = enabled
+        self.clusterActiveRadiusMeters = activeRadiusMeters
+        self.clusterRefreshDistanceMeters = refreshDistanceMeters
+        // Reset cluster center to force refresh on next location update
+        self.clusterCenterLat = nil
+        self.clusterCenterLng = nil
+        self.activeZoneIds.removeAll()
+        NSLog("[\(GeofenceEngine.TAG)] Cluster config: enabled=\(enabled), activeRadius=\(activeRadiusMeters)m, refreshDistance=\(refreshDistanceMeters)m")
+    }
+
+    /**
+     * Check if cluster needs to be refreshed based on movement from cluster center
+     */
+    private func shouldRefreshCluster(_ location: CLLocation) -> Bool {
+        guard let centerLat = clusterCenterLat, let centerLng = clusterCenterLng else {
+            return true
+        }
+
+        let distance = GeofenceEngine.calculateDistance(
+            point1: LatLng(latitude: centerLat, longitude: centerLng),
+            point2: LatLng(latitude: location.coordinate.latitude, longitude: location.coordinate.longitude)
+        )
+        return distance >= clusterRefreshDistanceMeters
+    }
+
+    /**
+     * Refresh the active zone cluster around the given location
+     */
+    private func refreshCluster(_ location: CLLocation) {
+        clusterCenterLat = location.coordinate.latitude
+        clusterCenterLng = location.coordinate.longitude
+        activeZoneIds.removeAll()
+
+        let userLocation = LatLng(latitude: location.coordinate.latitude, longitude: location.coordinate.longitude)
+        var activatedCount = 0
+
+        for (zoneId, zone) in zones {
+            let zoneCenter = zone.getCenter()
+            let distance = GeofenceEngine.calculateDistance(point1: userLocation, point2: zoneCenter)
+
+            // Include zone if its center is within active radius
+            // Also include zones whose boundary might intersect (add zone radius buffer)
+            let effectiveRadius = clusterActiveRadiusMeters + (zone.radius ?? 0.0)
+            if distance <= effectiveRadius {
+                activeZoneIds.insert(zoneId)
+                activatedCount += 1
+            }
+        }
+
+        NSLog("[\(GeofenceEngine.TAG)] Cluster refreshed at (\(location.coordinate.latitude), \(location.coordinate.longitude)): \(activatedCount) of \(zones.count) zones active")
+    }
+
+    /**
+     * Get zones to check based on clustering configuration
+     */
+    private func getZonesToCheck() -> [String: ZoneData] {
+        if clusteringEnabled && !activeZoneIds.isEmpty {
+            return zones.filter { activeZoneIds.contains($0.key) }
+        } else {
+            return zones
+        }
     }
 
     /**
@@ -387,16 +465,29 @@ class GeofenceEngine {
      */
     func checkLocation(_ location: CLLocation) {
         guard isValidLocation(location) else { return }
-        
+
+        // Handle clustering: refresh active zones if needed
+        if clusteringEnabled {
+            if shouldRefreshCluster(location) {
+                syncQueue.sync {
+                    refreshCluster(location)
+                }
+            }
+        }
+
         // Take a snapshot of current zones to avoid concurrent modification during iteration
-        let snapshot: [(String, ZoneData)] = syncQueue.sync { self.zones.map { ($0.key, $0.value) } }
+        // Use clustered zones if enabled, otherwise all zones
+        let snapshot: [(String, ZoneData)] = syncQueue.sync {
+            let zonesToCheck = self.getZonesToCheck()
+            return zonesToCheck.map { ($0.key, $0.value) }
+        }
         let overallStartTime = CFAbsoluteTimeGetCurrent()
         let speed = location.speed * 3.6 // Convert m/s to km/h
-        
+
         var zoneCheckCount = 0
         var totalAlgorithmTime: TimeInterval = 0
         var totalConfidenceTime: TimeInterval = 0
-        
+
         for (zoneId, zone) in snapshot {
             zoneCheckCount += 1
             let zoneStartTime = CFAbsoluteTimeGetCurrent()
@@ -771,10 +862,28 @@ class ZoneData {
             guard let center = center, let radius = radius else { return false }
             let distance = calculateDistance(point1: center, point2: location.coordinate)
             return distance <= radius
-            
+
         case .polygon:
             guard let polygon = polygon else { return false }
             return isPointInPolygon(point: location.coordinate, polygon: polygon)
+        }
+    }
+
+    /**
+     * Get the center point of this zone for clustering calculations
+     * For circles: returns center
+     * For polygons: returns centroid (average of all points)
+     */
+    func getCenter() -> LatLng {
+        switch type {
+        case .circle:
+            guard let center = center else { return LatLng(latitude: 0.0, longitude: 0.0) }
+            return LatLng(latitude: center.latitude, longitude: center.longitude)
+        case .polygon:
+            guard let points = polygon, !points.isEmpty else { return LatLng(latitude: 0.0, longitude: 0.0) }
+            let avgLat = points.map { $0.latitude }.reduce(0, +) / Double(points.count)
+            let avgLng = points.map { $0.longitude }.reduce(0, +) / Double(points.count)
+            return LatLng(latitude: avgLat, longitude: avgLng)
         }
     }
     
@@ -942,5 +1051,16 @@ class ZoneData {
         }
         return coords
     }
-    
+
+}
+
+// MARK: - Helper Structures
+
+/**
+ * Simple lat/lng container for distance calculations
+ * Used by clustering logic
+ */
+struct LatLng {
+    let latitude: Double
+    let longitude: Double
 } 

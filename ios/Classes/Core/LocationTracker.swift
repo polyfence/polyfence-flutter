@@ -851,7 +851,17 @@ extension LocationTracker: CLLocationManagerDelegate {
         let thresholdSeconds = TimeInterval(thresholdMs) / 1000.0
         geofenceEngine.setDwellConfig(enabled: enabled, thresholdSeconds: thresholdSeconds)
     }
-    
+
+    /**
+     * Configure zone clustering for large zone sets
+     * @param enabled Whether clustering is enabled
+     * @param activeRadiusMeters Radius to check zones within
+     * @param refreshDistanceMeters Distance to move before refreshing active cluster
+     */
+    func setClusterConfig(enabled: Bool, activeRadiusMeters: Double, refreshDistanceMeters: Double) {
+        geofenceEngine.setClusterConfig(enabled: enabled, activeRadiusMeters: activeRadiusMeters, refreshDistanceMeters: refreshDistanceMeters)
+    }
+
     func updateSmartConfiguration(_ config: SmartGpsConfig) {
         self.smartConfig = config
         

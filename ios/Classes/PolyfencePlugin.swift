@@ -298,6 +298,14 @@ public class PolyfencePlugin: NSObject, FlutterPlugin {
                 locationTracker?.setDwellConfig(enabled: dwellEnabled, thresholdMs: dwellThresholdMs)
             }
 
+            // Update cluster settings if provided
+            if let clusterSettings = configMap["clusterSettings"] as? [String: Any] {
+                let clusterEnabled = clusterSettings["enabled"] as? Bool ?? false
+                let activeRadiusMeters = clusterSettings["activeRadiusMeters"] as? Double ?? 5000.0
+                let refreshDistanceMeters = clusterSettings["refreshDistanceMeters"] as? Double ?? 1000.0
+                locationTracker?.setClusterConfig(enabled: clusterEnabled, activeRadiusMeters: activeRadiusMeters, refreshDistanceMeters: refreshDistanceMeters)
+            }
+
             result(nil)
         } catch {
             result(FlutterError(code: "CONFIG_UPDATE_FAILED", message: "Failed to update smart GPS configuration: \(error.localizedDescription)", details: nil))

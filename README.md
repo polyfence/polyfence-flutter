@@ -27,6 +27,8 @@
 |---------|---------|-----|
 | Circle geofences | Yes | Yes |
 | Polygon geofences | Yes | Yes |
+| Dwell detection | Yes | Yes |
+| Zone clustering | Yes | Yes |
 | Background tracking | Yes (foreground service) | Yes ("Always" permission) |
 | Battery optimization bypass | Yes | N/A |
 | GPS accuracy profiles | Yes | Partial (iOS manages GPS) |
@@ -176,10 +178,18 @@ await Polyfence.instance.addZone(Zone.polygon(
 
 ```dart
 Polyfence.instance.onGeofenceEvent.listen((event) {
-  if (event.type == GeofenceEventType.enter) {
-    print('Entered: ${event.zoneId}');
-  } else if (event.type == GeofenceEventType.exit) {
-    print('Exited: ${event.zoneId}');
+  switch (event.type) {
+    case GeofenceEventType.enter:
+      print('Entered: ${event.zoneId}');
+      break;
+    case GeofenceEventType.exit:
+      print('Exited: ${event.zoneId}');
+      break;
+    case GeofenceEventType.dwell:
+      print('Stayed in ${event.zoneId} for 5+ minutes');
+      break;
+    default:
+      break;
   }
 });
 ```
@@ -613,6 +623,66 @@ await Polyfence.instance.updateGpsConfiguration(
 ```
 
 **Note:** The default 100m threshold ensures platform parity. Previously, iOS used 500m and Android used 100m, which could cause inconsistent behavior. Both platforms now use 100m by default.
+
+### Dwell Detection
+
+Dwell events fire when a device remains inside a zone for a configurable duration (default: 5 minutes). Useful for confirming presence rather than pass-through.
+
+```dart
+// Listen for dwell events
+Polyfence.instance.onGeofenceEvent.listen((event) {
+  if (event.type == GeofenceEventType.dwell) {
+    print('User confirmed in ${event.zoneId}');
+  }
+});
+
+// Configure threshold (default: 5 minutes)
+await Polyfence.instance.updateGpsConfiguration(
+  PolyfenceConfiguration(
+    dwellSettings: DwellSettings(
+      enabled: true,
+      dwellThreshold: Duration(minutes: 10),
+    ),
+  ),
+);
+
+// Disable dwell detection
+await Polyfence.instance.updateGpsConfiguration(
+  PolyfenceConfiguration(
+    dwellSettings: DwellSettings(enabled: false),
+  ),
+);
+```
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `enabled` | `true` | Whether dwell detection is active |
+| `dwellThreshold` | 5 minutes | Time inside zone before DWELL fires |
+
+### Zone Clustering
+
+For apps with large zone sets (100+ zones), clustering improves performance by only checking zones near the user's location.
+
+```dart
+// Enable clustering for large zone sets
+await Polyfence.instance.updateGpsConfiguration(
+  PolyfenceConfiguration(
+    clusterSettings: ClusterSettings(
+      enabled: true,
+      activeRadiusMeters: 5000,    // Check zones within 5km
+      refreshDistanceMeters: 1000, // Re-evaluate cluster after moving 1km
+    ),
+  ),
+);
+```
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `enabled` | `false` | Whether clustering is active |
+| `activeRadiusMeters` | 5000 | Radius to check zones within |
+| `refreshDistanceMeters` | 1000 | Distance to move before refreshing active cluster |
+
+**When to use:** Apps with 100+ geographically distributed zones (retail chains, delivery networks). For apps with fewer zones, clustering adds overhead without benefit.
 
 ### Configuration Profiles
 

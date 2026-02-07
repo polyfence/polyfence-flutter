@@ -184,6 +184,81 @@ data class BatterySettings(
 }
 
 /**
+ * Activity types detected by the device
+ */
+enum class ActivityType {
+    STILL,
+    WALKING,
+    RUNNING,
+    CYCLING,
+    DRIVING,
+    UNKNOWN
+}
+
+/**
+ * Activity-based GPS optimization settings
+ */
+data class ActivitySettings(
+    val enabled: Boolean = false,
+    val confidenceThreshold: Int = 75,
+    val debounceSeconds: Int = 30,
+    val stillIntervalMs: Long? = null,      // default: 120000 (2 min)
+    val walkingIntervalMs: Long? = null,    // default: 15000 (15s)
+    val runningIntervalMs: Long? = null,    // default: 10000 (10s)
+    val cyclingIntervalMs: Long? = null,    // default: 8000 (8s)
+    val drivingIntervalMs: Long? = null     // default: 5000 (5s)
+) {
+    companion object {
+        // Default intervals per activity type
+        const val DEFAULT_STILL_INTERVAL_MS = 120_000L
+        const val DEFAULT_WALKING_INTERVAL_MS = 15_000L
+        const val DEFAULT_RUNNING_INTERVAL_MS = 10_000L
+        const val DEFAULT_CYCLING_INTERVAL_MS = 8_000L
+        const val DEFAULT_DRIVING_INTERVAL_MS = 5_000L
+
+        fun fromMap(map: Map<String, Any>): ActivitySettings {
+            return ActivitySettings(
+                enabled = map["enabled"] as? Boolean ?: false,
+                confidenceThreshold = (map["confidenceThreshold"] as? Number)?.toInt() ?: 75,
+                debounceSeconds = (map["debounceSeconds"] as? Number)?.toInt() ?: 30,
+                stillIntervalMs = (map["stillIntervalMs"] as? Number)?.toLong(),
+                walkingIntervalMs = (map["walkingIntervalMs"] as? Number)?.toLong(),
+                runningIntervalMs = (map["runningIntervalMs"] as? Number)?.toLong(),
+                cyclingIntervalMs = (map["cyclingIntervalMs"] as? Number)?.toLong(),
+                drivingIntervalMs = (map["drivingIntervalMs"] as? Number)?.toLong()
+            )
+        }
+    }
+
+    fun toMap(): Map<String, Any?> {
+        return mapOf(
+            "enabled" to enabled,
+            "confidenceThreshold" to confidenceThreshold,
+            "debounceSeconds" to debounceSeconds,
+            "stillIntervalMs" to stillIntervalMs,
+            "walkingIntervalMs" to walkingIntervalMs,
+            "runningIntervalMs" to runningIntervalMs,
+            "cyclingIntervalMs" to cyclingIntervalMs,
+            "drivingIntervalMs" to drivingIntervalMs
+        )
+    }
+
+    /**
+     * Get GPS interval for the given activity type
+     */
+    fun getIntervalForActivity(activity: ActivityType): Long {
+        return when (activity) {
+            ActivityType.STILL -> stillIntervalMs ?: DEFAULT_STILL_INTERVAL_MS
+            ActivityType.WALKING -> walkingIntervalMs ?: DEFAULT_WALKING_INTERVAL_MS
+            ActivityType.RUNNING -> runningIntervalMs ?: DEFAULT_RUNNING_INTERVAL_MS
+            ActivityType.CYCLING -> cyclingIntervalMs ?: DEFAULT_CYCLING_INTERVAL_MS
+            ActivityType.DRIVING -> drivingIntervalMs ?: DEFAULT_DRIVING_INTERVAL_MS
+            ActivityType.UNKNOWN -> DEFAULT_WALKING_INTERVAL_MS // Fallback to walking
+        }
+    }
+}
+
+/**
  * P5: Device detection utilities for manufacturer-specific optimizations
  */
 object DeviceOptimization {

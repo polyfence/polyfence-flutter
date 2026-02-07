@@ -20,6 +20,8 @@ import com.polyfence.polyfence.utils.PolyfenceErrorRecovery
 import com.polyfence.polyfence.configuration.SmartGpsConfig
 import com.polyfence.polyfence.configuration.SmartGpsConfigFactory
 import com.polyfence.polyfence.configuration.DeviceOptimization
+import com.polyfence.polyfence.configuration.ActivitySettings
+import com.polyfence.polyfence.configuration.ActivityType
 import com.polyfence.polyfence.core.GeofenceEngine.LatLng
 import com.polyfence.polyfence.core.GeofenceEngine.ZoneType
 import kotlin.math.*
@@ -167,6 +169,11 @@ class LocationTracker : Service() {
     // P11: Throttle Flutter callbacks when stationary
     private var lastFlutterCallbackTime = 0L
     private val stationaryFlutterCallbackInterval = 30_000L  // 30s when stationary (vs every update when moving)
+
+    // Activity Recognition
+    private var activityRecognitionManager: ActivityRecognitionManager? = null
+    private var activitySettings: ActivitySettings = ActivitySettings()
+    private var currentActivity: ActivityType = ActivityType.UNKNOWN
 
     override fun onCreate() {
         super.onCreate()
@@ -370,6 +377,9 @@ class LocationTracker : Service() {
 
         // P6: Stop combined health monitoring
         stopCombinedHealthMonitoring()
+
+        // Stop activity recognition
+        activityRecognitionManager?.stop()
 
         stopForeground(true)
         stopSelf()
@@ -980,8 +990,44 @@ private fun handleGeofenceEvent(zoneId: String, eventType: String, location: and
                 setScheduleConfig(this, scheduleSettings)
                 Log.d(TAG, "Schedule config updated from configuration")
             }
+
+            // Update activity recognition configuration if provided
+            val activitySettingsMap = configMap["activitySettings"] as? Map<String, Any>
+            if (activitySettingsMap != null) {
+                val newActivitySettings = ActivitySettings.fromMap(activitySettingsMap)
+                updateActivityRecognition(newActivitySettings)
+                Log.d(TAG, "Activity config updated: enabled=${newActivitySettings.enabled}")
+            }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to update configuration: ${e.message}")
+        }
+    }
+
+    /**
+     * Update activity recognition settings
+     */
+    private fun updateActivityRecognition(newSettings: ActivitySettings) {
+        activitySettings = newSettings
+
+        if (newSettings.enabled) {
+            // Initialize manager if needed
+            if (activityRecognitionManager == null) {
+                activityRecognitionManager = ActivityRecognitionManager(this)
+            }
+
+            // Start activity recognition with callback
+            activityRecognitionManager?.start(newSettings) { activity, confidence ->
+                Log.i(TAG, "Activity changed: $activity (confidence: $confidence%)")
+                currentActivity = activity
+                // Update GPS interval when activity changes
+                if (isRunning) {
+                    updateLocationRequest()
+                }
+            }
+        } else {
+            // Stop activity recognition
+            activityRecognitionManager?.stop()
+            currentActivity = ActivityType.UNKNOWN
         }
     }
     
@@ -1091,14 +1137,47 @@ private fun handleGeofenceEvent(zoneId: String, eventType: String, location: and
     
     /**
      * Calculate interval using intelligent combination of factors
+     *
+     * HIERARCHY: Proximity is king - when near a zone, fast updates regardless of battery/activity.
+     * Battery and activity savings only apply when FAR from zones.
      */
     private fun calculateIntelligentInterval(): Long {
-        val proximityInterval = calculateProximityBasedInterval()
+        val proximitySettings = smartConfig.proximitySettings
+        val lastLocation = lastKnownLocation
+
+        // Check if we're near a zone - proximity is king
+        if (proximitySettings != null && lastLocation != null) {
+            val nearestZoneDistance = calculateDistanceToNearestZone(lastLocation)
+
+            if (nearestZoneDistance <= proximitySettings.nearZoneThresholdMeters) {
+                // NEAR zone - use fast updates, ignore battery/activity savings
+                val proximityInterval = calculateProximityBasedInterval()
+                Log.d(TAG, "Near zone (${nearestZoneDistance}m) - proximity is king: ${proximityInterval}ms")
+                return proximityInterval
+            }
+        }
+
+        // FAR from zones - now we can optimize for battery/activity
         val movementInterval = calculateMovementBasedInterval()
         val batteryInterval = calculateBatteryBasedInterval()
-        
-        // Use the most conservative (longest) interval
-        return maxOf(proximityInterval, movementInterval, batteryInterval)
+        val activityInterval = calculateActivityBasedInterval()
+
+        // When far from zones, use the most battery-friendly (longest) interval
+        val result = maxOf(movementInterval, batteryInterval, activityInterval)
+        Log.d(TAG, "Far from zones - using longest interval: ${result}ms (movement=$movementInterval, battery=$batteryInterval, activity=$activityInterval)")
+        return result
+    }
+
+    /**
+     * Calculate interval based on detected activity type
+     * Only applies when activity recognition is enabled
+     */
+    private fun calculateActivityBasedInterval(): Long {
+        if (!activitySettings.enabled) {
+            return smartConfig.getBaseUpdateInterval()
+        }
+
+        return activitySettings.getIntervalForActivity(currentActivity)
     }
     
     /**

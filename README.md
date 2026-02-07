@@ -30,6 +30,7 @@
 | Dwell detection | Yes | Yes |
 | Zone clustering | Yes | Yes |
 | Scheduled tracking | Yes | Yes |
+| Activity recognition | Yes | Yes |
 | Background tracking | Yes (foreground service) | Yes ("Always" permission) |
 | Battery optimization bypass | Yes | N/A |
 | GPS accuracy profiles | Yes | Partial (iOS manages GPS) |
@@ -751,6 +752,72 @@ await Polyfence.instance.updateGpsConfiguration(
 - Time windows that span midnight are supported (e.g., 22:00 - 06:00)
 - Multiple overlapping windows are supported - tracking is active during any of them
 - On Android, uses AlarmManager for reliable wake-up at scheduled times
+
+### Activity Recognition
+
+Automatically detect user activity (still, walking, running, cycling, driving) and optimize GPS intervals accordingly. This feature is **opt-in** and requires additional permissions.
+
+```dart
+// Enable activity recognition
+await Polyfence.instance.updateGpsConfiguration(
+  PolyfenceConfiguration(
+    activitySettings: ActivitySettings(
+      enabled: true,
+      confidenceThreshold: 75,   // Only act on 75%+ confidence
+      debounceSeconds: 30,       // Wait 30s before switching modes
+    ),
+  ),
+);
+
+// Custom intervals per activity (optional)
+await Polyfence.instance.updateGpsConfiguration(
+  PolyfenceConfiguration(
+    activitySettings: ActivitySettings(
+      enabled: true,
+      stillInterval: Duration(seconds: 120),    // 2 min when stationary
+      walkingInterval: Duration(seconds: 15),   // 15s when walking
+      drivingInterval: Duration(seconds: 5),    // 5s when driving
+    ),
+  ),
+);
+
+// Disable activity recognition
+await Polyfence.instance.updateGpsConfiguration(
+  PolyfenceConfiguration(
+    activitySettings: ActivitySettings(enabled: false),
+  ),
+);
+```
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `enabled` | `false` | Whether activity recognition is active (opt-in) |
+| `confidenceThreshold` | `75` | Minimum confidence (0-100) before acting on detected activity |
+| `debounceSeconds` | `30` | Seconds activity must persist before switching GPS mode |
+| `stillInterval` | 120s | GPS interval when device is stationary |
+| `walkingInterval` | 15s | GPS interval when walking |
+| `runningInterval` | 10s | GPS interval when running |
+| `cyclingInterval` | 8s | GPS interval when cycling |
+| `drivingInterval` | 5s | GPS interval when driving |
+
+**Platform APIs:**
+- **Android:** Uses `ActivityRecognitionClient` from Google Play Services
+- **iOS:** Uses `CMMotionActivityManager` from CoreMotion
+
+**Additional Permissions Required:**
+
+**Android** — Add to `AndroidManifest.xml` (only if using activity recognition):
+```xml
+<uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" />
+```
+
+**iOS** — Add to `Info.plist` (only if using activity recognition):
+```xml
+<key>NSMotionUsageDescription</key>
+<string>This app uses motion data to optimize GPS updates based on your activity.</string>
+```
+
+**Important:** Activity recognition only affects GPS update intervals. It does NOT affect zone detection accuracy, validation logic, or confidence thresholds. When near a zone, proximity-based fast updates take precedence over activity-based optimizations.
 
 ### Configuration Profiles
 

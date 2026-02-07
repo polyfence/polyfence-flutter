@@ -38,6 +38,8 @@
 	<string>Polyfence needs location access to monitor geofence zones in the background for accurate zone detection.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Polyfence needs location access to monitor geofence zones when the app is in use.</string>
+	<key>NSMotionUsageDescription</key>
+	<string>Polyfence uses motion data to optimize GPS updates based on your activity (walking, driving, etc.).</string>
 	<key>NSUserNotificationUsageDescription</key>
 	<string>Polyfence sends notifications when you enter or exit geofence zones.</string>
 	<key>UIApplicationSupportsIndirectInputEvents</key>

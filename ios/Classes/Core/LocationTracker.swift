@@ -70,7 +70,12 @@ class LocationTracker: NSObject {
     
     // Alert Notifications Control
     private var alertNotificationsEnabled: Bool = true
-    
+
+    // Activity Recognition
+    private var activityRecognitionManager: ActivityRecognitionManager?
+    private var activitySettings: ActivitySettings = ActivitySettings()
+    private var currentActivity: ActivityType = .unknown
+
     override init() {
         super.init()
         // Initialize persistence first so it's available for geofence engine
@@ -224,7 +229,10 @@ class LocationTracker: NSObject {
         
         // End background task
         endBackgroundTask()
-        
+
+        // Stop activity recognition
+        activityRecognitionManager?.stop()
+
         // Location tracking stopped
     }
     
@@ -875,6 +883,54 @@ extension LocationTracker: CLLocationManagerDelegate {
         TrackingScheduler.shared.updateConfig(scheduleSettings)
     }
 
+    /**
+     * Configure activity recognition
+     * @param activitySettingsMap Activity configuration map from Flutter
+     */
+    func setActivityConfig(_ activitySettingsMap: [String: Any]?) {
+        guard let settingsMap = activitySettingsMap else {
+            // Disable activity recognition if no settings provided
+            activityRecognitionManager?.stop()
+            activitySettings = ActivitySettings()
+            currentActivity = .unknown
+            return
+        }
+
+        let newSettings = ActivitySettings.fromMap(settingsMap)
+        updateActivityRecognition(newSettings)
+    }
+
+    /**
+     * Update activity recognition settings
+     */
+    private func updateActivityRecognition(_ newSettings: ActivitySettings) {
+        activitySettings = newSettings
+
+        if newSettings.enabled {
+            // Initialize manager if needed
+            if activityRecognitionManager == nil {
+                activityRecognitionManager = ActivityRecognitionManager()
+            }
+
+            // Start activity recognition with callback
+            activityRecognitionManager?.start(settings: newSettings) { [weak self] activity, confidence in
+                guard let self = self else { return }
+                NSLog("[\(Self.TAG)] Activity changed: \(activity) (confidence: \(confidence)%)")
+                self.currentActivity = activity
+                // Update GPS settings when activity changes
+                if self.trackingEnabled {
+                    DispatchQueue.main.async {
+                        self.updateLocationManagerSettings()
+                    }
+                }
+            }
+        } else {
+            // Stop activity recognition
+            activityRecognitionManager?.stop()
+            currentActivity = .unknown
+        }
+    }
+
     func updateSmartConfiguration(_ config: SmartGpsConfig) {
         self.smartConfig = config
         
@@ -982,14 +1038,46 @@ extension LocationTracker: CLLocationManagerDelegate {
     
     /**
      * Calculate interval using intelligent combination of factors
+     *
+     * HIERARCHY: Proximity is king - when near a zone, fast updates regardless of battery/activity.
+     * Battery and activity savings only apply when FAR from zones.
      */
     private func calculateIntelligentInterval() -> TimeInterval {
-        let proximityInterval = calculateProximityBasedInterval()
+        let proximitySettings = smartConfig.proximitySettings
+
+        // Check if we're near a zone - proximity is king
+        if let settings = proximitySettings, let location = lastKnownLocation {
+            let nearestZoneDistance = calculateDistanceToNearestZone(location)
+
+            if nearestZoneDistance <= settings.nearZoneThresholdMeters {
+                // NEAR zone - use fast updates, ignore battery/activity savings
+                let proximityInterval = calculateProximityBasedInterval()
+                print("\(Self.TAG): Near zone (\(nearestZoneDistance)m) - proximity is king: \(proximityInterval)s")
+                return proximityInterval
+            }
+        }
+
+        // FAR from zones - now we can optimize for battery/activity
         let movementInterval = calculateMovementBasedInterval()
         let batteryInterval = calculateBatteryBasedInterval()
-        
-        // Use the most conservative (longest) interval
-        return max(proximityInterval, movementInterval, batteryInterval)
+        let activityInterval = calculateActivityBasedInterval()
+
+        // When far from zones, use the most battery-friendly (longest) interval
+        let result = max(movementInterval, batteryInterval, activityInterval)
+        print("\(Self.TAG): Far from zones - using longest interval: \(result)s (movement=\(movementInterval), battery=\(batteryInterval), activity=\(activityInterval))")
+        return result
+    }
+
+    /**
+     * Calculate interval based on detected activity type
+     * Only applies when activity recognition is enabled
+     */
+    private func calculateActivityBasedInterval() -> TimeInterval {
+        guard activitySettings.enabled else {
+            return smartConfig.getBaseUpdateInterval()
+        }
+
+        return activitySettings.getIntervalForActivity(currentActivity)
     }
     
     /**

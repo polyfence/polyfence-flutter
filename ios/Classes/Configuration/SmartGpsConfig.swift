@@ -247,6 +247,111 @@ struct BatterySettings {
 }
 
 /**
+ * Activity types detected by the device
+ */
+enum ActivityType: String, CaseIterable {
+    case still = "STILL"
+    case walking = "WALKING"
+    case running = "RUNNING"
+    case cycling = "CYCLING"
+    case driving = "DRIVING"
+    case unknown = "UNKNOWN"
+}
+
+/**
+ * Activity-based GPS optimization settings
+ */
+struct ActivitySettings {
+    let enabled: Bool
+    let confidenceThreshold: Int
+    let debounceSeconds: Int
+    let stillIntervalMs: TimeInterval?      // default: 120s
+    let walkingIntervalMs: TimeInterval?    // default: 15s
+    let runningIntervalMs: TimeInterval?    // default: 10s
+    let cyclingIntervalMs: TimeInterval?    // default: 8s
+    let drivingIntervalMs: TimeInterval?    // default: 5s
+
+    // Default intervals per activity type (in seconds)
+    static let DEFAULT_STILL_INTERVAL: TimeInterval = 120.0
+    static let DEFAULT_WALKING_INTERVAL: TimeInterval = 15.0
+    static let DEFAULT_RUNNING_INTERVAL: TimeInterval = 10.0
+    static let DEFAULT_CYCLING_INTERVAL: TimeInterval = 8.0
+    static let DEFAULT_DRIVING_INTERVAL: TimeInterval = 5.0
+
+    init(
+        enabled: Bool = false,
+        confidenceThreshold: Int = 75,
+        debounceSeconds: Int = 30,
+        stillIntervalMs: TimeInterval? = nil,
+        walkingIntervalMs: TimeInterval? = nil,
+        runningIntervalMs: TimeInterval? = nil,
+        cyclingIntervalMs: TimeInterval? = nil,
+        drivingIntervalMs: TimeInterval? = nil
+    ) {
+        self.enabled = enabled
+        self.confidenceThreshold = confidenceThreshold
+        self.debounceSeconds = debounceSeconds
+        self.stillIntervalMs = stillIntervalMs
+        self.walkingIntervalMs = walkingIntervalMs
+        self.runningIntervalMs = runningIntervalMs
+        self.cyclingIntervalMs = cyclingIntervalMs
+        self.drivingIntervalMs = drivingIntervalMs
+    }
+
+    static func fromMap(_ map: [String: Any]) -> ActivitySettings {
+        // Helper to convert milliseconds to seconds
+        func msToSeconds(_ key: String) -> TimeInterval? {
+            guard let ms = (map[key] as? NSNumber)?.doubleValue else { return nil }
+            return ms / 1000.0
+        }
+
+        return ActivitySettings(
+            enabled: map["enabled"] as? Bool ?? false,
+            confidenceThreshold: (map["confidenceThreshold"] as? NSNumber)?.intValue ?? 75,
+            debounceSeconds: (map["debounceSeconds"] as? NSNumber)?.intValue ?? 30,
+            stillIntervalMs: msToSeconds("stillIntervalMs"),
+            walkingIntervalMs: msToSeconds("walkingIntervalMs"),
+            runningIntervalMs: msToSeconds("runningIntervalMs"),
+            cyclingIntervalMs: msToSeconds("cyclingIntervalMs"),
+            drivingIntervalMs: msToSeconds("drivingIntervalMs")
+        )
+    }
+
+    func toMap() -> [String: Any?] {
+        return [
+            "enabled": enabled,
+            "confidenceThreshold": confidenceThreshold,
+            "debounceSeconds": debounceSeconds,
+            "stillIntervalMs": stillIntervalMs.map { $0 * 1000.0 },
+            "walkingIntervalMs": walkingIntervalMs.map { $0 * 1000.0 },
+            "runningIntervalMs": runningIntervalMs.map { $0 * 1000.0 },
+            "cyclingIntervalMs": cyclingIntervalMs.map { $0 * 1000.0 },
+            "drivingIntervalMs": drivingIntervalMs.map { $0 * 1000.0 }
+        ]
+    }
+
+    /**
+     * Get GPS interval for the given activity type
+     */
+    func getIntervalForActivity(_ activity: ActivityType) -> TimeInterval {
+        switch activity {
+        case .still:
+            return stillIntervalMs ?? ActivitySettings.DEFAULT_STILL_INTERVAL
+        case .walking:
+            return walkingIntervalMs ?? ActivitySettings.DEFAULT_WALKING_INTERVAL
+        case .running:
+            return runningIntervalMs ?? ActivitySettings.DEFAULT_RUNNING_INTERVAL
+        case .cycling:
+            return cyclingIntervalMs ?? ActivitySettings.DEFAULT_CYCLING_INTERVAL
+        case .driving:
+            return drivingIntervalMs ?? ActivitySettings.DEFAULT_DRIVING_INTERVAL
+        case .unknown:
+            return walkingIntervalMs ?? ActivitySettings.DEFAULT_WALKING_INTERVAL
+        }
+    }
+}
+
+/**
  * Factory for creating SmartGpsConfig from Flutter data
  */
 struct SmartGpsConfigFactory {

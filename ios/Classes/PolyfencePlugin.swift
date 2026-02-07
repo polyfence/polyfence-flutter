@@ -306,6 +306,11 @@ public class PolyfencePlugin: NSObject, FlutterPlugin {
                 locationTracker?.setClusterConfig(enabled: clusterEnabled, activeRadiusMeters: activeRadiusMeters, refreshDistanceMeters: refreshDistanceMeters)
             }
 
+            // Update schedule settings if provided
+            if let scheduleSettings = configMap["scheduleSettings"] as? [String: Any] {
+                locationTracker?.setScheduleConfig(scheduleSettings)
+            }
+
             result(nil)
         } catch {
             result(FlutterError(code: "CONFIG_UPDATE_FAILED", message: "Failed to update smart GPS configuration: \(error.localizedDescription)", details: nil))

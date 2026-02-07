@@ -140,10 +140,8 @@ class GeofenceEngine {
             return true
         }
 
-        let distance = GeofenceEngine.calculateDistance(
-            point1: LatLng(latitude: centerLat, longitude: centerLng),
-            point2: LatLng(latitude: location.coordinate.latitude, longitude: location.coordinate.longitude)
-        )
+        let clusterCenter = CLLocation(latitude: centerLat, longitude: centerLng)
+        let distance = location.distance(from: clusterCenter)
         return distance >= clusterRefreshDistanceMeters
     }
 
@@ -155,12 +153,12 @@ class GeofenceEngine {
         clusterCenterLng = location.coordinate.longitude
         activeZoneIds.removeAll()
 
-        let userLocation = LatLng(latitude: location.coordinate.latitude, longitude: location.coordinate.longitude)
         var activatedCount = 0
 
         for (zoneId, zone) in zones {
-            let zoneCenter = zone.getCenter()
-            let distance = GeofenceEngine.calculateDistance(point1: userLocation, point2: zoneCenter)
+            let zoneCenter = zone.calculateCenter()
+            let zoneCenterLocation = CLLocation(latitude: zoneCenter.latitude, longitude: zoneCenter.longitude)
+            let distance = location.distance(from: zoneCenterLocation)
 
             // Include zone if its center is within active radius
             // Also include zones whose boundary might intersect (add zone radius buffer)
@@ -870,20 +868,20 @@ class ZoneData {
     }
 
     /**
-     * Get the center point of this zone for clustering calculations
+     * Calculate the center point of this zone for clustering calculations
      * For circles: returns center
      * For polygons: returns centroid (average of all points)
      */
-    func getCenter() -> LatLng {
+    func calculateCenter() -> CLLocationCoordinate2D {
         switch type {
         case .circle:
-            guard let center = center else { return LatLng(latitude: 0.0, longitude: 0.0) }
-            return LatLng(latitude: center.latitude, longitude: center.longitude)
+            guard let center = center else { return CLLocationCoordinate2D(latitude: 0.0, longitude: 0.0) }
+            return CLLocationCoordinate2D(latitude: center.latitude, longitude: center.longitude)
         case .polygon:
-            guard let points = polygon, !points.isEmpty else { return LatLng(latitude: 0.0, longitude: 0.0) }
+            guard let points = polygon, !points.isEmpty else { return CLLocationCoordinate2D(latitude: 0.0, longitude: 0.0) }
             let avgLat = points.map { $0.latitude }.reduce(0, +) / Double(points.count)
             let avgLng = points.map { $0.longitude }.reduce(0, +) / Double(points.count)
-            return LatLng(latitude: avgLat, longitude: avgLng)
+            return CLLocationCoordinate2D(latitude: avgLat, longitude: avgLng)
         }
     }
     

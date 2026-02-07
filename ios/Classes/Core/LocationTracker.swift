@@ -78,6 +78,10 @@ class LocationTracker: NSObject {
         setupLocationManager()
         setupNotificationCenter()
         setupGeofenceEngine()
+
+        // Initialize tracking scheduler and load saved config
+        TrackingScheduler.shared.setLocationTracker(self)
+        TrackingScheduler.shared.loadConfig()
     }
     
     // MARK: - Setup Methods
@@ -860,6 +864,15 @@ extension LocationTracker: CLLocationManagerDelegate {
      */
     func setClusterConfig(enabled: Bool, activeRadiusMeters: Double, refreshDistanceMeters: Double) {
         geofenceEngine.setClusterConfig(enabled: enabled, activeRadiusMeters: activeRadiusMeters, refreshDistanceMeters: refreshDistanceMeters)
+    }
+
+    /**
+     * Configure scheduled tracking
+     * @param scheduleSettings Schedule configuration map from Flutter
+     */
+    func setScheduleConfig(_ scheduleSettings: [String: Any]?) {
+        TrackingScheduler.shared.setLocationTracker(self)
+        TrackingScheduler.shared.updateConfig(scheduleSettings)
     }
 
     func updateSmartConfiguration(_ config: SmartGpsConfig) {

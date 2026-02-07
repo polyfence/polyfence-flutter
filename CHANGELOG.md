@@ -7,6 +7,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-02-07
+
+### Added
+- **Activity Recognition** - Automatically detect user activity (still, walking, running, cycling, driving) and optimize GPS intervals accordingly
+  - Android: Uses `ActivityRecognitionClient` from Google Play Services
+  - iOS: Uses `CMMotionActivityManager` from CoreMotion
+  - Configurable confidence threshold (default: 75%) and debounce time (default: 30s)
+  - Custom GPS intervals per activity type (still: 120s, walking: 15s, driving: 5s, etc.)
+  - Activity type included in location updates (`PolyfenceLocation.activity`)
+  - Opt-in feature requiring additional permissions (`ACTIVITY_RECOGNITION` on Android, `NSMotionUsageDescription` on iOS)
+
+- **Scheduled Tracking** - Automatically start/stop tracking based on time windows
+  - Configure multiple time windows with start/end times
+  - Filter by days of week (e.g., weekdays only)
+  - Supports overnight windows (e.g., 22:00 - 06:00)
+  - Schedule persists across app restarts and device reboots
+  - Android uses AlarmManager for reliable wake-up at scheduled times
+
+- **Dwell Detection** - Fire events when device remains in zone for configurable duration
+  - Default threshold: 5 minutes
+  - New `GeofenceEventType.dwell` event type
+  - Useful for confirming presence rather than pass-through
+
+- **Zone Clustering** - Performance optimization for large zone sets (100+ zones)
+  - Only checks zones within configurable radius (default: 5km)
+  - Refreshes active cluster after moving configurable distance (default: 1km)
+  - Reduces CPU usage for apps with many geographically distributed zones
+
+### Fixed
+- **iOS Activity Recognition permission flow** - Permission prompt now correctly triggered by calling `startActivityUpdates()` when status is `.notDetermined`
+- **Activity debounce timer bug** - Fixed issue where repeated detection of same activity was resetting the debounce timer instead of letting it complete
+- **Android IntentReceiverLeaked error** - Fixed by stopping ActivityRecognitionManager in `onDestroy()`
+- **Android background service start restriction** - Added pending activity settings storage for pre-tracking configuration on Android 12+
+
+### Changed
+- `PolyfenceLocation` model now includes optional `activity` field
+- Location updates sent to Flutter now include current activity type
+
 ## [0.8.0] - 2026-01-25
 
 ### Added

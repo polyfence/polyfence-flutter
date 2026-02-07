@@ -83,10 +83,10 @@ Polyfence cuts through the complexity of background geofencing with a privacy-ce
 ```yaml
 # pubspec.yaml
 dependencies:
-  polyfence: ^0.8.0
+  polyfence: ^0.9.0
 ```
 
-**Current version:** 0.8.0
+**Current version:** 0.9.0
 
 Then run:
 
@@ -105,7 +105,7 @@ flutter pub get
 ```yaml
 # pubspec.yaml
 dependencies:
-  polyfence: ^0.8.0
+  polyfence: ^0.9.0
 ```
 
 ```bash

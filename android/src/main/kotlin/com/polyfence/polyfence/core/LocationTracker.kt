@@ -52,6 +52,9 @@ class LocationTracker : Service() {
         // Alert Notifications Control
         private var alertNotificationsEnabled = true
 
+        // Tracking Scheduler for time-based tracking
+        private var trackingScheduler: TrackingScheduler? = null
+
         // Current instance reference for accessing zone states
         private var currentInstance: LocationTracker? = null
 
@@ -85,6 +88,31 @@ class LocationTracker : Service() {
         fun setAlertNotificationsEnabled(enabled: Boolean) {
             alertNotificationsEnabled = enabled
             Log.d(TAG, "Alert notifications ${if (enabled) "enabled" else "disabled"}")
+        }
+
+        /**
+         * Update schedule configuration for time-based tracking
+         */
+        fun setScheduleConfig(context: Context, scheduleSettings: Map<String, Any>?) {
+            if (trackingScheduler == null) {
+                trackingScheduler = TrackingScheduler(context)
+            }
+            trackingScheduler?.updateConfig(scheduleSettings)
+            Log.d(TAG, "Schedule config updated")
+        }
+
+        /**
+         * Check if currently within a scheduled tracking window
+         */
+        fun isInScheduledWindow(): Boolean {
+            return trackingScheduler?.isCurrentlyInScheduledWindow() ?: true
+        }
+
+        /**
+         * Check if scheduling is enabled
+         */
+        fun isScheduleEnabled(): Boolean {
+            return trackingScheduler?.isEnabled() ?: false
         }
     }
     
@@ -185,8 +213,14 @@ class LocationTracker : Service() {
         
         // Initialize smart GPS configuration
         initializeSmartConfiguration()
-        
+
         createNotificationChannels()
+
+        // Initialize tracking scheduler and restore saved config
+        if (trackingScheduler == null) {
+            trackingScheduler = TrackingScheduler(this)
+        }
+        trackingScheduler?.loadConfig()
     }
     
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -938,6 +972,13 @@ private fun handleGeofenceEvent(zoneId: String, eventType: String, location: and
                 val refreshDistanceMeters = (clusterSettings["refreshDistanceMeters"] as? Number)?.toDouble() ?: 1000.0
                 geofenceEngine.setClusterConfig(clusterEnabled, activeRadiusMeters, refreshDistanceMeters)
                 Log.d(TAG, "Cluster config updated: enabled=$clusterEnabled, activeRadius=${activeRadiusMeters}m, refreshDistance=${refreshDistanceMeters}m")
+            }
+
+            // Update schedule configuration if provided
+            val scheduleSettings = configMap["scheduleSettings"] as? Map<String, Any>
+            if (scheduleSettings != null) {
+                setScheduleConfig(this, scheduleSettings)
+                Log.d(TAG, "Schedule config updated from configuration")
             }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to update configuration: ${e.message}")

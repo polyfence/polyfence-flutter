@@ -1,6 +1,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
   package="com.polyfence.polyfence">
-  
+
   <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
   <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
   <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
@@ -10,12 +10,24 @@
   <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
   <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
   <uses-permission android:name="android.permission.VIBRATE" />
-  
+  <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+  <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+
   <application>
-    <service 
+    <service
       android:name=".LocationTracker"
       android:foregroundServiceType="location"
       android:exported="false" />
+
+    <receiver
+      android:name=".core.ScheduleReceiver"
+      android:exported="false">
+      <intent-filter>
+        <action android:name="com.polyfence.SCHEDULE_START" />
+        <action android:name="com.polyfence.SCHEDULE_STOP" />
+        <action android:name="android.intent.action.BOOT_COMPLETED" />
+      </intent-filter>
+    </receiver>
   </application>
-  
+
 </manifest>

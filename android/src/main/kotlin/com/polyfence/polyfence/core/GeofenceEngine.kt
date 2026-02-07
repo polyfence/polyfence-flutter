@@ -236,7 +236,7 @@ fun getZoneName(zoneId: String): String? {
         var activatedCount = 0
 
         zones.forEach { (zoneId, zone) ->
-            val zoneCenter = zone.getCenter()
+            val zoneCenter = zone.calculateCenter()
             val distance = calculateDistance(userLocation, zoneCenter)
 
             // Include zone if its center is within active radius
@@ -663,11 +663,11 @@ fun getZoneName(zoneId: String): String? {
         }
 
         /**
-         * Get the center point of this zone for clustering calculations
+         * Calculate the center point of this zone for clustering calculations
          * For circles: returns center
          * For polygons: returns centroid (average of all points)
          */
-        fun getCenter(): LatLng {
+        fun calculateCenter(): LatLng {
             return when (type) {
                 ZoneType.CIRCLE -> center ?: LatLng(0.0, 0.0)
                 ZoneType.POLYGON -> {

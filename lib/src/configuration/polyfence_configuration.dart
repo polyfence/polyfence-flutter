@@ -65,6 +65,9 @@ class PolyfenceConfiguration {
   /// Zone clustering settings for large zone sets
   final ClusterSettings? clusterSettings;
 
+  /// Scheduled tracking settings
+  final ScheduleSettings? scheduleSettings;
+
   /// GPS accuracy threshold in meters
   /// Locations with accuracy worse than this are rejected
   /// Default: 100m (ensures platform parity between iOS and Android)
@@ -81,6 +84,7 @@ class PolyfenceConfiguration {
     this.batterySettings,
     this.dwellSettings,
     this.clusterSettings,
+    this.scheduleSettings,
     this.gpsAccuracyThreshold = 100.0,
     this.enableDebugLogging = false,
   });
@@ -94,6 +98,7 @@ class PolyfenceConfiguration {
     BatterySettings? batterySettings,
     DwellSettings? dwellSettings,
     ClusterSettings? clusterSettings,
+    ScheduleSettings? scheduleSettings,
     double? gpsAccuracyThreshold,
     bool? enableDebugLogging,
   }) {
@@ -105,6 +110,7 @@ class PolyfenceConfiguration {
       batterySettings: batterySettings ?? this.batterySettings,
       dwellSettings: dwellSettings ?? this.dwellSettings,
       clusterSettings: clusterSettings ?? this.clusterSettings,
+      scheduleSettings: scheduleSettings ?? this.scheduleSettings,
       gpsAccuracyThreshold: gpsAccuracyThreshold ?? this.gpsAccuracyThreshold,
       enableDebugLogging: enableDebugLogging ?? this.enableDebugLogging,
     );
@@ -124,6 +130,7 @@ class PolyfenceConfiguration {
       'batterySettings': batterySettings?.toMap(),
       'dwellSettings': dwellSettings?.toMap(),
       'clusterSettings': clusterSettings?.toMap(),
+      'scheduleSettings': scheduleSettings?.toMap(),
       'gpsAccuracyThreshold': gpsAccuracyThreshold,
       'enableDebugLogging': enableDebugLogging,
     };
@@ -157,6 +164,9 @@ class PolyfenceConfiguration {
       clusterSettings: map['clusterSettings'] != null
           ? ClusterSettings.fromMap(map['clusterSettings'])
           : null,
+      scheduleSettings: map['scheduleSettings'] != null
+          ? ScheduleSettings.fromMap(map['scheduleSettings'])
+          : null,
       gpsAccuracyThreshold:
           (map['gpsAccuracyThreshold'] as num?)?.toDouble() ?? 100.0,
       enableDebugLogging: map['enableDebugLogging'] ?? false,
@@ -173,6 +183,7 @@ class PolyfenceConfiguration {
         'batterySettings: $batterySettings, '
         'dwellSettings: $dwellSettings, '
         'clusterSettings: $clusterSettings, '
+        'scheduleSettings: $scheduleSettings, '
         'gpsAccuracyThreshold: $gpsAccuracyThreshold, '
         'enableDebugLogging: $enableDebugLogging'
         ')';
@@ -377,6 +388,134 @@ class ClusterSettings {
         'enabled: $enabled, '
         'activeRadiusMeters: $activeRadiusMeters, '
         'refreshDistanceMeters: $refreshDistanceMeters'
+        ')';
+  }
+}
+
+/// Represents a time of day (hour and minute)
+/// Used for scheduling tracking windows
+class TimeOfDay {
+  /// Hour in 24-hour format (0-23)
+  final int hour;
+
+  /// Minute (0-59)
+  final int minute;
+
+  const TimeOfDay({
+    required this.hour,
+    required this.minute,
+  });
+
+  Map<String, dynamic> toMap() {
+    return {
+      'hour': hour,
+      'minute': minute,
+    };
+  }
+
+  factory TimeOfDay.fromMap(Map<String, dynamic> map) {
+    return TimeOfDay(
+      hour: map['hour']?.toInt() ?? 0,
+      minute: map['minute']?.toInt() ?? 0,
+    );
+  }
+
+  @override
+  String toString() {
+    return '${hour.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')}';
+  }
+}
+
+/// Represents a time window when tracking should be active
+class TimeWindow {
+  /// When tracking should start
+  final TimeOfDay startTime;
+
+  /// When tracking should stop
+  final TimeOfDay endTime;
+
+  /// Days of week when this window applies (1=Monday, 7=Sunday)
+  /// Empty list means all days
+  final List<int> daysOfWeek;
+
+  const TimeWindow({
+    required this.startTime,
+    required this.endTime,
+    this.daysOfWeek = const [],
+  });
+
+  Map<String, dynamic> toMap() {
+    return {
+      'startTime': startTime.toMap(),
+      'endTime': endTime.toMap(),
+      'daysOfWeek': daysOfWeek,
+    };
+  }
+
+  factory TimeWindow.fromMap(Map<String, dynamic> map) {
+    return TimeWindow(
+      startTime: TimeOfDay.fromMap(map['startTime'] ?? {}),
+      endTime: TimeOfDay.fromMap(map['endTime'] ?? {}),
+      daysOfWeek: (map['daysOfWeek'] as List<dynamic>?)
+              ?.map((e) => e as int)
+              .toList() ??
+          [],
+    );
+  }
+
+  @override
+  String toString() {
+    final days = daysOfWeek.isEmpty ? 'all days' : daysOfWeek.join(',');
+    return 'TimeWindow($startTime - $endTime on $days)';
+  }
+}
+
+/// Settings for scheduled tracking
+/// Automatically starts/stops tracking based on time windows
+class ScheduleSettings {
+  /// Whether scheduled tracking is enabled
+  /// Default: false (tracking runs continuously when started)
+  final bool enabled;
+
+  /// Time windows when tracking should be active
+  /// If multiple windows overlap, tracking will be active during any of them
+  final List<TimeWindow> timeWindows;
+
+  /// Whether to start tracking immediately if currently within a scheduled window
+  /// Default: true
+  final bool startImmediatelyIfInWindow;
+
+  const ScheduleSettings({
+    this.enabled = false,
+    this.timeWindows = const [],
+    this.startImmediatelyIfInWindow = true,
+  });
+
+  Map<String, dynamic> toMap() {
+    return {
+      'enabled': enabled,
+      'timeWindows': timeWindows.map((w) => w.toMap()).toList(),
+      'startImmediatelyIfInWindow': startImmediatelyIfInWindow,
+    };
+  }
+
+  factory ScheduleSettings.fromMap(Map<String, dynamic> map) {
+    return ScheduleSettings(
+      enabled: map['enabled'] ?? false,
+      timeWindows: (map['timeWindows'] as List<dynamic>?)
+              ?.map((e) => TimeWindow.fromMap(e as Map<String, dynamic>))
+              .toList() ??
+          [],
+      startImmediatelyIfInWindow: map['startImmediatelyIfInWindow'] ?? true,
+    );
+  }
+
+  @override
+  String toString() {
+    return 'ScheduleSettings('
+        'enabled: $enabled, '
+        'timeWindows: $timeWindows, '
+        'startImmediatelyIfInWindow: $startImmediatelyIfInWindow'
         ')';
   }
 }

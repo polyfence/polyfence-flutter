@@ -242,14 +242,14 @@ class ActivityRecognitionManager(private val context: Context) {
      * Apply debounce before confirming activity change
      */
     private fun applyDebounce(newActivity: ActivityType, confidence: Int) {
-        // Cancel any pending change
-        debounceRunnable?.let { handler.removeCallbacks(it) }
-
-        // If same as pending, reset timer
-        if (newActivity == pendingActivityChange) {
-            Log.d(TAG, "Same activity pending, resetting debounce timer")
+        // If same activity is already pending, let the timer complete (don't reset)
+        if (newActivity == pendingActivityChange && debounceRunnable != null) {
+            Log.d(TAG, "Same activity pending, letting timer complete")
+            return
         }
 
+        // Cancel any pending change for a DIFFERENT activity
+        debounceRunnable?.let { handler.removeCallbacks(it) }
         pendingActivityChange = newActivity
 
         debounceRunnable = Runnable {

@@ -325,12 +325,19 @@ fun getZoneName(zoneId: String): String? {
      */
     fun reconcileZoneStates(location: Location) {
         if (!stateRecoveredFromPersistence) {
-            // No persisted state to reconcile - use current location as ground truth
+            // No persisted state - establish initial state and fire ENTER events for zones we're inside
             Log.d(TAG, "No persisted state - establishing initial state from current location")
+            val checkStartTime = System.nanoTime()
             zones.forEach { (zoneId, zone) ->
                 val isInside = zone.contains(location)
                 zoneStates[zoneId] = isInside
-                // Don't fire events for initial state establishment
+
+                // Fire ENTER event for zones we're currently inside (fresh install behavior)
+                if (isInside) {
+                    val detectionTimeMs = (System.nanoTime() - checkStartTime) / 1_000_000.0
+                    Log.i(TAG, "Initial state: inside zone $zoneId -> firing ENTER")
+                    eventCallback?.invoke(zoneId, "ENTER", location, detectionTimeMs)
+                }
             }
             persistAllZoneStates()
             return

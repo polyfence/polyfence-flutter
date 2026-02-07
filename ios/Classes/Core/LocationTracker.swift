@@ -390,6 +390,12 @@ class LocationTracker: NSObject {
         // Start a fallback timer to keep requesting location until fixes flow
         self.startFallbackTimer()
 
+        // Ensure activity recognition is started if enabled but not running
+        if activitySettings.enabled && activityRecognitionManager == nil {
+            NSLog("[LocationTracker] Restarting activity recognition on tracking start")
+            updateActivityRecognition(activitySettings)
+        }
+
         NSLog("[LocationTracker] GPS updates started with profile: \(smartConfig.accuracyProfile)")
     }
 
@@ -475,14 +481,16 @@ class LocationTracker: NSObject {
      * Send location to Flutter safely on main thread
      */
     private func sendLocationToFlutter(location: CLLocation) {
+        let activityName = currentActivity.rawValue.lowercased()
         let locationData: [String: Any] = [
             "latitude": location.coordinate.latitude,
             "longitude": location.coordinate.longitude,
             "accuracy": location.horizontalAccuracy,
             "timestamp": Int64(Date().timeIntervalSince1970 * 1000),
-            "speed": location.speed >= 0 ? location.speed * 3.6 : 0.0 // Convert m/s to km/h
+            "speed": location.speed >= 0 ? location.speed * 3.6 : 0.0, // Convert m/s to km/h
+            "activity": activityName // Include current activity type
         ]
-        
+
         // CRITICAL: Send on main thread
         DispatchQueue.main.async {
             self.locationCallback?(locationData)

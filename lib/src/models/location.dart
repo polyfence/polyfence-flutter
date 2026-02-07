@@ -45,6 +45,17 @@ class PolyfenceLocation {
   /// flag to detect and handle invalid location data appropriately.
   final bool isFallback;
 
+  /// Current detected activity type (walking, running, driving, etc).
+  ///
+  /// Only populated when activity recognition is enabled. Possible values:
+  /// - 'still' - Device is stationary
+  /// - 'walking' - User is walking
+  /// - 'running' - User is running
+  /// - 'cycling' - User is cycling
+  /// - 'driving' - User is in a vehicle
+  /// - 'unknown' - Activity could not be determined
+  final String? activity;
+
   /// Creates a location with the given coordinates.
   ///
   /// [latitude] and [longitude] are required. All other fields are optional
@@ -58,6 +69,7 @@ class PolyfenceLocation {
     this.speed,
     this.interval,
     this.isFallback = false,
+    this.activity,
   });
 
   Map<String, dynamic> toJson() {
@@ -70,6 +82,7 @@ class PolyfenceLocation {
       'speed': speed,
       'interval': interval,
       'isFallback': isFallback,
+      'activity': activity,
     };
   }
 
@@ -91,6 +104,7 @@ class PolyfenceLocation {
       speed: (json['speed'] as num?)?.toDouble(),
       interval: (json['interval'] as num?)?.toInt(),
       isFallback: latMissing || lngMissing || (json['isFallback'] == true),
+      activity: json['activity'] as String?,
     );
   }
 

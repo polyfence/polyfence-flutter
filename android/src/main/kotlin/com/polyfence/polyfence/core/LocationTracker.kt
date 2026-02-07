@@ -60,6 +60,19 @@ class LocationTracker : Service() {
         // Current instance reference for accessing zone states
         private var currentInstance: LocationTracker? = null
 
+        // Pending activity settings (stored until tracking starts)
+        private var pendingActivitySettings: ActivitySettings? = null
+
+        /**
+         * Store activity settings to be applied when tracking starts
+         */
+        fun setPendingActivitySettings(settings: ActivitySettings) {
+            pendingActivitySettings = settings
+            Log.d(TAG, "Stored pending activity settings: enabled=${settings.enabled}")
+            // If service is already running, apply immediately
+            currentInstance?.updateActivityRecognition(settings)
+        }
+
         /**
          * Get current zone states from the active service instance
          * Returns which zones the plugin believes the device is currently inside
@@ -316,6 +329,20 @@ class LocationTracker : Service() {
         // P6: Start combined health monitoring (replaces separate GPS + permission checks)
         startCombinedHealthMonitoring()
 
+        // Apply any pending activity settings that were set before tracking started
+        pendingActivitySettings?.let { pending ->
+            Log.d(TAG, "Applying pending activity settings: enabled=${pending.enabled}")
+            activitySettings = pending
+            pendingActivitySettings = null
+        }
+
+        // Ensure activity recognition is started if enabled but not running
+        // Must be before the zones check since activity recognition is independent of zones
+        if (activitySettings.enabled && activityRecognitionManager == null) {
+            Log.d(TAG, "Starting activity recognition on tracking start")
+            updateActivityRecognition(activitySettings)
+        }
+
         // P4: Only start GPS if zones exist, otherwise defer
         if (!geofenceEngine.hasZones()) {
             Log.d(TAG, "P4: No zones registered - deferring GPS start until zones are added")
@@ -549,7 +576,8 @@ private fun handleGeofenceEvent(zoneId: String, eventType: String, location: and
             "longitude" to location.longitude,
             "accuracy" to location.accuracy.toDouble(),
             "timestamp" to System.currentTimeMillis(),
-            "speed" to (if (location.hasSpeed()) location.speed * 3.6 else 0.0) // Convert m/s to km/h
+            "speed" to (if (location.hasSpeed()) location.speed * 3.6 else 0.0), // Convert m/s to km/h
+            "activity" to currentActivity.name.lowercase() // Include current activity type
         )
         PolyfencePlugin.sendLocationUpdate(locationData)
     }
@@ -642,6 +670,9 @@ private fun handleGeofenceEvent(zoneId: String, eventType: String, location: and
         currentInstance = null  // Clear instance reference
         errorRecovery.stopMonitoring()
         healthCheckHandler?.removeCallbacksAndMessages(null)
+        // Stop activity recognition and unregister receiver
+        activityRecognitionManager?.stop()
+        activityRecognitionManager = null
         // Ensure wake lock is released
         releaseWakeLock()
     }

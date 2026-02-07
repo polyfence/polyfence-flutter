@@ -46,8 +46,11 @@ class ActivityRecognitionManager {
             return
         }
 
-        guard hasPermission() else {
-            NSLog("[\(Self.TAG)] Activity recognition permission not granted")
+        let status = CMMotionActivityManager.authorizationStatus()
+
+        // If explicitly denied, we cannot proceed
+        if status == .denied || status == .restricted {
+            NSLog("[\(Self.TAG)] Activity recognition permission denied or restricted")
             return
         }
 
@@ -55,7 +58,10 @@ class ActivityRecognitionManager {
         self.onActivityChanged = callback
         self.isEnabled = true
 
-        // Start activity updates
+        // Start activity updates - this also triggers permission prompt if status is .notDetermined
+        // On iOS, calling startActivityUpdates is the only way to request motion permission
+        NSLog("[\(Self.TAG)] Starting activity updates (status: \(status.rawValue))")
+
         motionActivityManager.startActivityUpdates(to: operationQueue) { [weak self] activity in
             guard let self = self, let activity = activity else { return }
             self.handleActivityUpdate(activity)
@@ -125,11 +131,14 @@ class ActivityRecognitionManager {
     }
 
     /**
-     * Check if activity recognition permission is granted
+     * Check if activity recognition permission is granted or can be requested
+     * Returns true for .authorized and .notDetermined (can request)
+     * Returns false for .denied and .restricted
      */
     func hasPermission() -> Bool {
         let status = CMMotionActivityManager.authorizationStatus()
-        return status == .authorized
+        // .notDetermined means we haven't asked yet - we can still start and trigger the prompt
+        return status == .authorized || status == .notDetermined
     }
 
     /**
@@ -157,14 +166,14 @@ class ActivityRecognitionManager {
      * Apply debounce before confirming activity change
      */
     private func applyDebounce(newActivity: ActivityType, confidence: Int) {
-        // Cancel any pending change
-        debounceTimer?.invalidate()
-
-        // If same as pending, reset timer
-        if newActivity == pendingActivityChange {
-            NSLog("[\(Self.TAG)] Same activity pending, resetting debounce timer")
+        // If same activity is already pending, let the timer complete (don't reset)
+        if newActivity == pendingActivityChange && debounceTimer != nil {
+            NSLog("[\(Self.TAG)] Same activity pending, letting timer complete")
+            return
         }
 
+        // Cancel any pending change for a DIFFERENT activity
+        debounceTimer?.invalidate()
         pendingActivityChange = newActivity
 
         // Schedule debounce timer on main thread

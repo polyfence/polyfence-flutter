@@ -234,13 +234,20 @@ class GeofenceEngine {
      */
     func reconcileZoneStates(_ location: CLLocation) {
         if !stateRecoveredFromPersistence {
-            // No persisted state to reconcile - use current location as ground truth
+            // No persisted state - establish initial state and fire ENTER events for zones we're inside
             NSLog("[\(GeofenceEngine.TAG)] No persisted state - establishing initial state from current location")
+            let checkStartTime = CFAbsoluteTimeGetCurrent()
             let snapshot: [(String, ZoneData)] = syncQueue.sync { self.zones.map { ($0.key, $0.value) } }
             for (zoneId, zone) in snapshot {
                 let isInside = zone.contains(location)
                 syncQueue.sync { self.zoneStates[zoneId] = isInside }
-                // Don't fire events for initial state establishment
+
+                // Fire ENTER event for zones we're currently inside (fresh install behavior)
+                if isInside {
+                    let detectionTimeMs = (CFAbsoluteTimeGetCurrent() - checkStartTime) * 1000.0
+                    NSLog("[\(GeofenceEngine.TAG)] Initial state: inside zone \(zoneId) -> firing ENTER")
+                    eventCallback?(zoneId, "ENTER", location, detectionTimeMs)
+                }
             }
             persistAllZoneStates()
             return

@@ -18,6 +18,7 @@ import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodCall
 import com.polyfence.polyfence.core.LocationTracker
 import com.polyfence.polyfence.core.PolyfenceErrorManager
+import com.polyfence.polyfence.configuration.ActivitySettings
 import com.polyfence.polyfence.core.PolyfenceDebugCollector
 import com.polyfence.polyfence.configuration.SmartGpsConfig
 import com.polyfence.polyfence.configuration.SmartGpsConfigFactory
@@ -413,11 +414,24 @@ class PolyfencePlugin: FlutterPlugin, MethodCallHandler, ActivityAware {
     }
 
     private fun updateConfiguration(configMap: Map<String, Any>) {
-        val intent = Intent(context, LocationTracker::class.java).apply {
-            action = LocationTracker.ACTION_UPDATE_CONFIG
-            putExtra("config", HashMap(configMap))
+        // Store activity settings for when tracking starts (avoids background service start restriction)
+        val activitySettingsMap = configMap["activitySettings"] as? Map<String, Any>
+        if (activitySettingsMap != null) {
+            val activitySettings = ActivitySettings.fromMap(activitySettingsMap)
+            LocationTracker.setPendingActivitySettings(activitySettings)
         }
-        context.startService(intent)
+
+        // Try to send config update to service if running
+        try {
+            val intent = Intent(context, LocationTracker::class.java).apply {
+                action = LocationTracker.ACTION_UPDATE_CONFIG
+                putExtra("config", HashMap(configMap))
+            }
+            context.startService(intent)
+        } catch (e: Exception) {
+            // Service not running yet - that's OK, settings will be applied when tracking starts
+            Log.d("PolyfencePlugin", "Config stored for when tracking starts: ${e.message}")
+        }
     }
 
     private fun getConfiguration(): Map<String, Any> {

@@ -68,6 +68,9 @@ class PolyfenceConfiguration {
   /// Scheduled tracking settings
   final ScheduleSettings? scheduleSettings;
 
+  /// Activity recognition settings
+  final ActivitySettings? activitySettings;
+
   /// GPS accuracy threshold in meters
   /// Locations with accuracy worse than this are rejected
   /// Default: 100m (ensures platform parity between iOS and Android)
@@ -85,6 +88,7 @@ class PolyfenceConfiguration {
     this.dwellSettings,
     this.clusterSettings,
     this.scheduleSettings,
+    this.activitySettings,
     this.gpsAccuracyThreshold = 100.0,
     this.enableDebugLogging = false,
   });
@@ -99,6 +103,7 @@ class PolyfenceConfiguration {
     DwellSettings? dwellSettings,
     ClusterSettings? clusterSettings,
     ScheduleSettings? scheduleSettings,
+    ActivitySettings? activitySettings,
     double? gpsAccuracyThreshold,
     bool? enableDebugLogging,
   }) {
@@ -111,6 +116,7 @@ class PolyfenceConfiguration {
       dwellSettings: dwellSettings ?? this.dwellSettings,
       clusterSettings: clusterSettings ?? this.clusterSettings,
       scheduleSettings: scheduleSettings ?? this.scheduleSettings,
+      activitySettings: activitySettings ?? this.activitySettings,
       gpsAccuracyThreshold: gpsAccuracyThreshold ?? this.gpsAccuracyThreshold,
       enableDebugLogging: enableDebugLogging ?? this.enableDebugLogging,
     );
@@ -131,6 +137,7 @@ class PolyfenceConfiguration {
       'dwellSettings': dwellSettings?.toMap(),
       'clusterSettings': clusterSettings?.toMap(),
       'scheduleSettings': scheduleSettings?.toMap(),
+      'activitySettings': activitySettings?.toMap(),
       'gpsAccuracyThreshold': gpsAccuracyThreshold,
       'enableDebugLogging': enableDebugLogging,
     };
@@ -167,6 +174,9 @@ class PolyfenceConfiguration {
       scheduleSettings: map['scheduleSettings'] != null
           ? ScheduleSettings.fromMap(map['scheduleSettings'])
           : null,
+      activitySettings: map['activitySettings'] != null
+          ? ActivitySettings.fromMap(map['activitySettings'])
+          : null,
       gpsAccuracyThreshold:
           (map['gpsAccuracyThreshold'] as num?)?.toDouble() ?? 100.0,
       enableDebugLogging: map['enableDebugLogging'] ?? false,
@@ -184,6 +194,7 @@ class PolyfenceConfiguration {
         'dwellSettings: $dwellSettings, '
         'clusterSettings: $clusterSettings, '
         'scheduleSettings: $scheduleSettings, '
+        'activitySettings: $activitySettings, '
         'gpsAccuracyThreshold: $gpsAccuracyThreshold, '
         'enableDebugLogging: $enableDebugLogging'
         ')';
@@ -516,6 +527,126 @@ class ScheduleSettings {
         'enabled: $enabled, '
         'timeWindows: $timeWindows, '
         'startImmediatelyIfInWindow: $startImmediatelyIfInWindow'
+        ')';
+  }
+}
+
+/// Activity types detected by the device
+enum ActivityType {
+  /// Device is stationary
+  still,
+
+  /// User is walking
+  walking,
+
+  /// User is running
+  running,
+
+  /// User is cycling
+  cycling,
+
+  /// User is in a vehicle (driving)
+  driving,
+
+  /// Activity could not be determined
+  unknown,
+}
+
+/// Settings for activity-based GPS optimization
+/// Uses device motion sensors to detect user activity and adjust GPS intervals
+class ActivitySettings {
+  /// Whether activity recognition is enabled
+  /// Default: false (opt-in, no new permissions requested until enabled)
+  final bool enabled;
+
+  /// Minimum confidence (0-100) before acting on detected activity
+  /// Higher values reduce false positives but may be less responsive
+  /// Default: 75
+  final int confidenceThreshold;
+
+  /// Seconds activity must persist before switching GPS mode
+  /// Prevents rapid switching at activity transitions
+  /// Default: 30
+  final int debounceSeconds;
+
+  /// GPS interval when device is still (optional override)
+  /// Default: 120 seconds
+  final Duration? stillInterval;
+
+  /// GPS interval when walking (optional override)
+  /// Default: 15 seconds
+  final Duration? walkingInterval;
+
+  /// GPS interval when running (optional override)
+  /// Default: 10 seconds
+  final Duration? runningInterval;
+
+  /// GPS interval when cycling (optional override)
+  /// Default: 8 seconds
+  final Duration? cyclingInterval;
+
+  /// GPS interval when driving (optional override)
+  /// Default: 5 seconds
+  final Duration? drivingInterval;
+
+  const ActivitySettings({
+    this.enabled = false,
+    this.confidenceThreshold = 75,
+    this.debounceSeconds = 30,
+    this.stillInterval,
+    this.walkingInterval,
+    this.runningInterval,
+    this.cyclingInterval,
+    this.drivingInterval,
+  });
+
+  Map<String, dynamic> toMap() {
+    return {
+      'enabled': enabled,
+      'confidenceThreshold': confidenceThreshold,
+      'debounceSeconds': debounceSeconds,
+      if (stillInterval != null) 'stillIntervalMs': stillInterval!.inMilliseconds,
+      if (walkingInterval != null) 'walkingIntervalMs': walkingInterval!.inMilliseconds,
+      if (runningInterval != null) 'runningIntervalMs': runningInterval!.inMilliseconds,
+      if (cyclingInterval != null) 'cyclingIntervalMs': cyclingInterval!.inMilliseconds,
+      if (drivingInterval != null) 'drivingIntervalMs': drivingInterval!.inMilliseconds,
+    };
+  }
+
+  factory ActivitySettings.fromMap(Map<String, dynamic> map) {
+    return ActivitySettings(
+      enabled: map['enabled'] ?? false,
+      confidenceThreshold: map['confidenceThreshold']?.toInt() ?? 75,
+      debounceSeconds: map['debounceSeconds']?.toInt() ?? 30,
+      stillInterval: map['stillIntervalMs'] != null
+          ? Duration(milliseconds: map['stillIntervalMs'].toInt())
+          : null,
+      walkingInterval: map['walkingIntervalMs'] != null
+          ? Duration(milliseconds: map['walkingIntervalMs'].toInt())
+          : null,
+      runningInterval: map['runningIntervalMs'] != null
+          ? Duration(milliseconds: map['runningIntervalMs'].toInt())
+          : null,
+      cyclingInterval: map['cyclingIntervalMs'] != null
+          ? Duration(milliseconds: map['cyclingIntervalMs'].toInt())
+          : null,
+      drivingInterval: map['drivingIntervalMs'] != null
+          ? Duration(milliseconds: map['drivingIntervalMs'].toInt())
+          : null,
+    );
+  }
+
+  @override
+  String toString() {
+    return 'ActivitySettings('
+        'enabled: $enabled, '
+        'confidenceThreshold: $confidenceThreshold, '
+        'debounceSeconds: $debounceSeconds, '
+        'stillInterval: $stillInterval, '
+        'walkingInterval: $walkingInterval, '
+        'runningInterval: $runningInterval, '
+        'cyclingInterval: $cyclingInterval, '
+        'drivingInterval: $drivingInterval'
         ')';
   }
 }

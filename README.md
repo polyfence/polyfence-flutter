@@ -29,6 +29,7 @@
 | Polygon geofences | Yes | Yes |
 | Dwell detection | Yes | Yes |
 | Zone clustering | Yes | Yes |
+| Scheduled tracking | Yes | Yes |
 | Background tracking | Yes (foreground service) | Yes ("Always" permission) |
 | Battery optimization bypass | Yes | N/A |
 | GPS accuracy profiles | Yes | Partial (iOS manages GPS) |
@@ -683,6 +684,73 @@ await Polyfence.instance.updateGpsConfiguration(
 | `refreshDistanceMeters` | 1000 | Distance to move before refreshing active cluster |
 
 **When to use:** Apps with 100+ geographically distributed zones (retail chains, delivery networks). For apps with fewer zones, clustering adds overhead without benefit.
+
+### Scheduled Tracking
+
+Automatically start and stop tracking based on time windows. Useful for work-hours-only tracking, shift-based applications, or battery conservation.
+
+```dart
+// Track only during work hours (9am-5pm, weekdays)
+await Polyfence.instance.updateGpsConfiguration(
+  PolyfenceConfiguration(
+    scheduleSettings: ScheduleSettings(
+      enabled: true,
+      timeWindows: [
+        TimeWindow(
+          startTime: TimeOfDay(hour: 9, minute: 0),
+          endTime: TimeOfDay(hour: 17, minute: 0),
+          daysOfWeek: [1, 2, 3, 4, 5], // Monday-Friday
+        ),
+      ],
+    ),
+  ),
+);
+
+// Multiple time windows (morning and evening shifts)
+await Polyfence.instance.updateGpsConfiguration(
+  PolyfenceConfiguration(
+    scheduleSettings: ScheduleSettings(
+      enabled: true,
+      timeWindows: [
+        TimeWindow(
+          startTime: TimeOfDay(hour: 6, minute: 0),
+          endTime: TimeOfDay(hour: 14, minute: 0),
+        ),
+        TimeWindow(
+          startTime: TimeOfDay(hour: 14, minute: 0),
+          endTime: TimeOfDay(hour: 22, minute: 0),
+        ),
+      ],
+    ),
+  ),
+);
+
+// Disable scheduled tracking (track continuously)
+await Polyfence.instance.updateGpsConfiguration(
+  PolyfenceConfiguration(
+    scheduleSettings: ScheduleSettings(enabled: false),
+  ),
+);
+```
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `enabled` | `false` | Whether scheduled tracking is active |
+| `timeWindows` | `[]` | List of time windows when tracking is active |
+| `startImmediatelyIfInWindow` | `true` | Start tracking immediately if currently in a scheduled window |
+
+**TimeWindow properties:**
+| Property | Description |
+|----------|-------------|
+| `startTime` | When tracking should start (TimeOfDay with hour/minute) |
+| `endTime` | When tracking should stop (TimeOfDay with hour/minute) |
+| `daysOfWeek` | Days when window applies (1=Monday, 7=Sunday). Empty = all days |
+
+**Notes:**
+- Schedule persists across app restarts and device reboots
+- Time windows that span midnight are supported (e.g., 22:00 - 06:00)
+- Multiple overlapping windows are supported - tracking is active during any of them
+- On Android, uses AlarmManager for reliable wake-up at scheduled times
 
 ### Configuration Profiles
 

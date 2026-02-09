@@ -113,16 +113,7 @@ class LocationTracker: NSObject {
         // notificationCenter?.delegate = self
         
         // Request standard notification permissions (no critical alerts)
-        notificationCenter?.requestAuthorization(options: [.alert, .sound, .badge]) { granted, error in
-            DispatchQueue.main.async {
-                // Notification permissions handled
-                
-                // Enhanced diagnostics for authorization status
-                UNUserNotificationCenter.current().getNotificationSettings { settings in
-                    // Authorization status handled
-                }
-            }
-        }
+        notificationCenter?.requestAuthorization(options: [.alert, .sound, .badge]) { _, _ in }
         
         createNotificationCategories()
     }
@@ -1387,10 +1378,3 @@ extension LocationTracker: CLLocationManagerDelegate {
     }
 
 }
-
-// MARK: - UNUserNotificationCenterDelegate
-// 
-// REMOVED: UNUserNotificationCenterDelegate extension
-// Setting a delegate breaks background notification delivery.
-// iOS will automatically handle notification presentation in all app states
-// when no delegate is set, which is exactly what we want for geofence alerts. 

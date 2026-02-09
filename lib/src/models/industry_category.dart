@@ -45,12 +45,4 @@ enum IndustryCategory {
       orElse: () => IndustryCategory.other,
     );
   }
-
-  /// Helper for CLI integration
-  static void printAllCategories() {
-    // Available Industry Categories
-    for (final category in IndustryCategory.values) {
-      print('Category: ${category.value} - ${category.displayName}');
-    }
-  }
 }

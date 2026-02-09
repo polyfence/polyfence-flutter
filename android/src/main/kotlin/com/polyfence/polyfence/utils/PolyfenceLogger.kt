@@ -10,11 +10,11 @@ object PolyfenceLogger {
     private const val TAG = "Polyfence"
     
     fun logZoneEvent(eventType: String, zoneId: String, accuracy: Double) {
-        // ZONE_EVENT|$eventType|$zoneId|$accuracy|${System.currentTimeMillis()}"
+        Log.d(TAG, "ZONE_EVENT|$eventType|$zoneId|$accuracy|${System.currentTimeMillis()}")
     }
-    
+
     fun logPerformance(operation: String, duration: Long) {
-        // PERF|$operation|${duration}ms"
+        Log.d(TAG, "PERF|$operation|${duration}ms")
     }
     
     fun logError(component: String, error: String) {

@@ -905,13 +905,13 @@ private fun handleGeofenceEvent(zoneId: String, eventType: String, location: and
         healthCheckHandler?.postDelayed({
             if (isRunning) {
                 val locationRequest = LocationRequest.Builder(
-                    Priority.PRIORITY_BALANCED_POWER_ACCURACY, // 🔧 Less demanding
-                    maxOf(config.gpsIntervalMs * 2, 10000L)    // 🔧 Double interval, min 10s
+                    Priority.PRIORITY_BALANCED_POWER_ACCURACY,
+                    maxOf(config.gpsIntervalMs * 2, 10000L)
                 ).apply {
                     setMinUpdateIntervalMillis(maxOf(config.minUpdateIntervalMs * 2, 5000L))
                     setMaxUpdateDelayMillis(maxOf(config.maxUpdateDelayMs * 2, 15000L))
                     setWaitForAccurateLocation(false)
-                    setMinUpdateDistanceMeters(10f) // 🔧 Only update if moved 10 meters
+                    setMinUpdateDistanceMeters(10f)
                 }.build()
                 
                 try {
@@ -930,7 +930,7 @@ private fun handleGeofenceEvent(zoneId: String, eventType: String, location: and
                     errorRecovery.handlePermissionLoss()
                 }
             }
-        }, 3000L) // 🔧 3 second delay instead of 2
+        }, 3000L)
         
     } catch (e: Exception) {
         Log.e(TAG, "GPS restart failed: ${e.message}")
@@ -978,10 +978,8 @@ private fun handleGeofenceEvent(zoneId: String, eventType: String, location: and
 
     private fun updateConfigurationFromMap(configMap: Map<String, Any>) {
         try {
-            Log.d(TAG, "🔧 Android received configMap: $configMap")
             val accuracyProfileRaw = configMap["accuracyProfile"] as? String
             val updateStrategyRaw = configMap["updateStrategy"] as? String
-            Log.d(TAG, "🔧 Android raw values: accuracyProfile='$accuracyProfileRaw', updateStrategy='$updateStrategyRaw'")
             
             val newConfig = SmartGpsConfigFactory.fromMap(configMap)
             updateSmartConfiguration(newConfig)

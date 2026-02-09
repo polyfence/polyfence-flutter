@@ -270,7 +270,24 @@ class PolyfenceService {
     }
   }
 
-  /// Add a zone for monitoring
+  /// Adds a zone for monitoring.
+  ///
+  /// The zone will be persisted and start generating entry/exit events once
+  /// tracking is started. Both circle and polygon zones are supported.
+  ///
+  /// **Example:**
+  /// ```dart
+  /// final zone = Zone.circle(
+  ///   id: 'office',
+  ///   name: 'Office',
+  ///   center: PolyfenceLocation(latitude: 37.422, longitude: -122.084),
+  ///   radius: 150,
+  /// );
+  /// await Polyfence.instance.addZone(zone);
+  /// ```
+  ///
+  /// Throws [PolyfenceNotInitializedException] if not initialized.
+  /// Throws [PlatformOperationException] if platform error occurs.
   Future<void> addZone(Zone zone) async {
     if (_isDisposed) {
       throw StateError(

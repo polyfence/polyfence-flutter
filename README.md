@@ -297,7 +297,7 @@ class _MyAppState extends State<MyApp> {
 
       // Start tracking
       await Polyfence.instance.startTracking();
-      print('Polyfence tracking started with ${(await Polyfence.instance.getZones()).length} zones');
+      print('Polyfence tracking started with ${Polyfence.instance.zones.length} zones');
     } on PolyfenceNotInitializedException {
       print('Polyfence not initialized');
     } on PlatformOperationException catch (e) {
@@ -1063,6 +1063,64 @@ await Polyfence.instance.stopTracking();
 
 **Note:** When loading zones from an external source, consider implementing delta-based sync to avoid re-registering all zones on each load.
 
+### Android Build Configuration
+Ensure your `android/app/build.gradle` has the correct minimum SDK version:
+```groovy
+android {
+    defaultConfig {
+        minSdkVersion 21 // Required for Polyfence
+    }
+}
+```
+
+### iOS Xcode Configuration
+Enable the **Location Updates** background mode in Xcode:
+1. Open `ios/Runner.xcworkspace` in Xcode
+2. Select the Runner target → **Signing & Capabilities**
+3. Click **+ Capability** → add **Background Modes**
+4. Check **Location updates**
+
+### OEM Battery Restrictions (Android)
+Some manufacturers aggressively kill background services. If tracking stops working on specific devices:
+
+| Manufacturer | Setting Path |
+|:---|:---|
+| **Samsung** | Settings → Battery → Background usage limits → Add your app to "Never sleeping apps" |
+| **Xiaomi (MIUI)** | Settings → Apps → Manage apps → Your app → Autostart (enable) + Battery saver → No restrictions |
+| **Huawei (EMUI)** | Settings → Battery → App launch → Your app → Manage manually → Enable all toggles |
+| **OnePlus (OxygenOS)** | Settings → Battery → Battery optimization → Your app → Don't optimize |
+| **Oppo (ColorOS)** | Settings → Battery → Energy saver → Your app → Allow background activity |
+
+For a comprehensive list, see [dontkillmyapp.com](https://dontkillmyapp.com).
+
+### Debugging
+
+**Android** — Filter logcat for Polyfence messages:
+```bash
+adb logcat | grep -E "LocationTracker|GeofenceEngine|Polyfence"
+```
+
+**iOS** — Filter Xcode console:
+```
+LocationTracker GeofenceEngine Polyfence
+```
+
+**Programmatic debugging** — Use the debug API:
+```dart
+final debug = await Polyfence.instance.debugInfo();
+print('GPS accuracy: ${debug.systemStatus.lastKnownAccuracy}m');
+print('Zones monitored: ${debug.zones.activeZones}');
+print('Detections: ${debug.performance.totalZoneDetections}');
+print('Recent errors: ${debug.recentErrors.length}');
+```
+
+### Reporting Issues
+When opening a GitHub issue, include:
+1. Output of `Polyfence.instance.debugInfo()`
+2. Device manufacturer and OS version
+3. Whether battery optimization is disabled
+4. Relevant logcat/Xcode console output
+
 ---
 
 ## Example App
@@ -1090,7 +1148,7 @@ To fetch zones from polyfence.io instead of hardcoding:
 
 ### What the Example Demonstrates
 
-- ✅ **Standalone zone management** (hardcoded zones in `demo_zones.dart`)
+- ✅ **Standalone zone management** (hardcoded zones in `demo_data.dart`)
 - ✅ **API integration pattern** (fetch zones from polyfence.io in `zone_api_service.dart`)
 - ✅ **Delta-based sync** (efficient zone updates without re-registering all zones)
 - ✅ **Zone entry/exit event handling**

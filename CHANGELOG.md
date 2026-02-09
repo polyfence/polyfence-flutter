@@ -376,6 +376,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Known Limitations
 - iOS notification delivery requires Critical Alert entitlement for optimal performance
-- Large polygons (>50 vertices) may impact performance
-- Maximum recommended zones: 50 active simultaneously
 

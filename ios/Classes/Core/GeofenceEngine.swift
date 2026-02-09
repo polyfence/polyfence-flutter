@@ -325,84 +325,8 @@ class GeofenceEngine {
      * Add zone for monitoring
      */
     func addZone(zoneId: String, zoneName: String, zoneData: [String: Any]) throws {
-        // Memory monitoring
         let memoryBefore = getCurrentMemoryUsage()
 
-        let zoneType = zoneData["type"] as? String ?? "unknown"
-        
-        if zoneType == "polygon" {
-            if let coordinates = zoneData["coordinates"] as? [[Double]] {
-                if coordinates.count > 50 {
-                    // Large polygon detected - might cause memory issues
-                }
-            } else if let coords = zoneData["coords"] as? [[Double]] {
-                // Found coords array
-            } else if let polygonObjects = zoneData["polygon"] as? [[String: Any]] {
-                // New format: array of objects { latitude: "..", longitude: ".." }
-                var count = 0
-                for point in polygonObjects {
-                    if let latStr = point["latitude"] as? String,
-                       let lonStr = point["longitude"] as? String,
-                       Double(latStr) != nil, Double(lonStr) != nil {
-                        count += 1
-                    } else if let latNum = point["latitude"] as? NSNumber,
-                              let lonNum = point["longitude"] as? NSNumber {
-                        _ = latNum.doubleValue; _ = lonNum.doubleValue
-                        count += 1
-                    }
-                }
-            } else if let polygon = zoneData["polygon"] as? [[Double]] {
-                // Found polygon array
-            }
-        }
-        
-        if zoneType == "circle" {
-            // New format: center { latitude: "..", longitude: ".." }
-            var lat: Double? = nil
-            var lon: Double? = nil
-            if let center = zoneData["center"] as? [String: Any] {
-                if let latStr = center["latitude"] as? String, let latD = Double(latStr) {
-                    lat = latD
-                } else if let latNum = center["latitude"] as? NSNumber {
-                    lat = latNum.doubleValue
-                } else if let latNum = center["lat"] as? NSNumber {
-                    lat = latNum.doubleValue
-                } else if let latStr = center["lat"] as? String, let latD = Double(latStr) {
-                    lat = latD
-                }
-                if let lonStr = center["longitude"] as? String, let lonD = Double(lonStr) {
-                    lon = lonD
-                } else if let lonNum = center["longitude"] as? NSNumber {
-                    lon = lonNum.doubleValue
-                } else if let lonNum = center["lng"] as? NSNumber {
-                    lon = lonNum.doubleValue
-                } else if let lonStr = center["lng"] as? String, let lonD = Double(lonStr) {
-                    lon = lonD
-                }
-            }
-            if lat == nil || lon == nil {
-                // Fallback to top-level fields if provided
-                if let latStr = zoneData["latitude"] as? String, let latD = Double(latStr) {
-                    lat = latD
-                } else if let latNum = zoneData["latitude"] as? NSNumber {
-                    lat = latNum.doubleValue
-                }
-                if let lonStr = zoneData["longitude"] as? String, let lonD = Double(lonStr) {
-                    lon = lonD
-                } else if let lonNum = zoneData["longitude"] as? NSNumber {
-                    lon = lonNum.doubleValue
-                }
-            }
-            var radius: Double = 0
-            if let rStr = zoneData["radius"] as? String, let r = Double(rStr) { radius = r }
-            else if let rNum = zoneData["radius"] as? NSNumber { radius = rNum.doubleValue }
-            if let lat = lat, let lon = lon {
-                // Circle at \(lat), \(lon) with radius \(radius)m
-            } else {
-                // ERROR - No valid coordinates found for circle!
-            }
-        }
-        
         do {
             let zone = try ZoneData.fromMap(zoneId: zoneId, zoneName: zoneName, zoneData: zoneData)
             
@@ -503,11 +427,7 @@ class GeofenceEngine {
             let isInside = zone.contains(location)
             let algorithmDuration = CFAbsoluteTimeGetCurrent() - algorithmStartTime
             totalAlgorithmTime += algorithmDuration
-            // Performance warning for slow zones
             let zoneTime = (CFAbsoluteTimeGetCurrent() - zoneStartTime) * 1000
-            if zoneTime > 10 {
-                // Zone check took too long - potential performance issue
-            }
             
             // Smart validation: Use confirmation based on speed and zone characteristics
             let useConfirmation = requireConfirmation ? shouldUseConfirmation(speed: speed, zoneRadius: zone.radius) : false
@@ -521,17 +441,11 @@ class GeofenceEngine {
             } else {
                 // Original logic for immediate detection
                 stateChanged = processImmediate(zoneId: zoneId, zone: zone, isInside: isInside, currentState: currentState, location: location, checkStartTime: zoneStartTime)
-                if stateChanged {
-                    // Zone state changed
-                }
             }
             
         }
         
         let overallDuration = CFAbsoluteTimeGetCurrent() - overallStartTime
-        if zoneCheckCount > 0 {
-            // Geofence check completed
-        }
     }
     
     // MARK: - Private Methods
@@ -745,22 +659,7 @@ class GeofenceEngine {
             self.zoneStates[zoneId] = isInside
         }
         
-        // Send notification safely (disabled for testing)
-        do {
-            sendNotification(zoneName: zoneName, eventType: isInside ? "ENTER" : "EXIT")
-        } catch {
-            // Notification failed
-        }
-        
-        // Geofence events will be dispatched on the main thread in processImmediate/processWithConfidence.
-    }
-    
-    /**
-     * Send notification (disabled for testing)
-     */
-    private func sendNotification(zoneName: String, eventType: String) {
-        // Notification disabled for testing
-        return
+        // Geofence events are dispatched on the main thread in processImmediate/processWithConfidence.
     }
     
     /**

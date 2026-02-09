@@ -104,7 +104,7 @@ for (var zone in zones) {
 
 ```dart
 // Only update changed zones (efficient)
-final existingZoneIds = (await Polyfence.instance.getZones())
+final existingZoneIds = Polyfence.instance.zones
     .map((z) => z.id)
     .toSet();
 
@@ -130,13 +130,13 @@ for (var zone in zones.where((z) => zonesToAdd.contains(z.id))) {
 Polyfence.instance.onGeofenceEvent.listen((event) {
   switch (event.type) {
     case GeofenceEventType.enter:
-      print('Entered ${event.zoneName}');
+      print('Entered ${event.zone?.name ?? event.zoneId}');
       break;
     case GeofenceEventType.exit:
-      print('Exited ${event.zoneName}');
+      print('Exited ${event.zone?.name ?? event.zoneId}');
       break;
     case GeofenceEventType.dwell:
-      print('Dwelling in ${event.zoneName}');
+      print('Dwelling in ${event.zone?.name ?? event.zoneId}');
       break;
   }
 });
@@ -166,7 +166,7 @@ The app includes visual feedback for:
 ### "Zones not persisting"
 - Zones automatically save to local storage
 - They persist across app restarts
-- Check you're not calling `clearZones()` accidentally
+- Check you're not calling `clearAllZones()` accidentally
 
 ### "Background tracking stops"
 - iOS: Needs "Always" permission (Settings → Privacy → Location)

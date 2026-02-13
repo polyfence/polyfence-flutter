@@ -38,13 +38,17 @@ abstract class PolyfencePlatform extends PlatformInterface {
   /// Request battery optimization exemption (Android only)
   Future<bool> requestBatteryOptimizationExemption();
 
+  /// Returns the current GPS configuration as a raw map from the platform.
   Future<Map<String, dynamic>> getConfiguration();
-  Future<void> updateConfiguration(Map<String, dynamic> config);
-  Future<void> resetConfiguration();
-  Future<void> setAccuracyProfile(String profile);
 
-  // GPS Configuration API
-  Future<Map<String, dynamic>> getCurrentConfiguration();
+  /// Sends a configuration map to the native platform.
+  Future<void> updateConfiguration(Map<String, dynamic> config);
+
+  /// Resets native GPS configuration to platform defaults.
+  Future<void> resetConfiguration();
+
+  /// Sets the GPS accuracy profile by name on the native platform.
+  Future<void> setAccuracyProfile(String profile);
 
   // Debug API methods
   Future<Map<String, dynamic>> getDebugInfo();
@@ -203,13 +207,6 @@ class MethodChannelPolyfence extends PolyfencePlatform {
     return (result ?? [])
         .map((e) => Map<String, dynamic>.from(e as Map))
         .toList();
-  }
-
-  @override
-  Future<Map<String, dynamic>> getCurrentConfiguration() async {
-    final result = await _channel
-        .invokeMethod<Map<Object?, Object?>>('getCurrentConfiguration');
-    return Map<String, dynamic>.from(result ?? {});
   }
 
   @override

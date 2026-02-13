@@ -713,28 +713,31 @@ class PolyfenceService {
     }
   }
 
-  /// Gets the current GPS configuration.
+  /// Gets the current GPS configuration from the native platform.
   ///
-  /// Returns a map containing current GPS settings including update intervals,
-  /// accuracy thresholds, and optimization settings.
+  /// Queries the native platform for the active configuration, parses it
+  /// into a [PolyfenceConfiguration], and caches it locally. Use
+  /// [currentConfiguration] to read the cached value without a platform call.
   ///
   /// **Example:**
   /// ```dart
-  /// final config = await Polyfence.instance.configuration();
-  /// print('GPS interval: ${config['gps_interval_ms']}ms');
+  /// final config = await Polyfence.instance.getConfiguration();
+  /// print('Accuracy profile: ${config.accuracyProfile}');
+  /// print('GPS threshold: ${config.gpsAccuracyThreshold}m');
   /// ```
   ///
   /// Throws [PolyfenceNotInitializedException] if not initialized.
   /// Throws [PlatformOperationException] if platform error occurs.
-  Future<Map<String, dynamic>> configuration() async {
+  Future<PolyfenceConfiguration> getConfiguration() async {
     if (!_isInitialized) throw PolyfenceNotInitializedException();
 
     try {
-      final config = await _platform.getConfiguration();
-      return config;
+      final result = await _platform.getConfiguration();
+      _currentConfiguration = PolyfenceConfiguration.fromMap(result);
+      return _currentConfiguration;
     } on PlatformException catch (e, stackTrace) {
       throw PlatformOperationException(
-        'configuration',
+        'getConfiguration',
         e.message ?? 'Unknown error',
         details: {'code': e.code, 'details': e.details},
         innerException: e,
@@ -745,24 +748,36 @@ class PolyfenceService {
 
   /// Updates GPS configuration.
   ///
-  /// Allows fine-tuning GPS behavior for battery vs accuracy tradeoffs.
-  /// Configuration changes take effect immediately.
+  /// Serializes the [PolyfenceConfiguration] and sends it to the native
+  /// platform. Configuration changes take effect immediately. The provided
+  /// configuration is also cached locally (see [currentConfiguration]).
   ///
   /// **Example:**
   /// ```dart
-  /// await Polyfence.instance.updateConfiguration({
-  ///   'gps_interval_ms': 10000, // 10 seconds
-  ///   'gps_accuracy_threshold': 50.0, // 50 meters
-  /// });
+  /// await Polyfence.instance.updateConfiguration(
+  ///   PolyfenceConfiguration(
+  ///     accuracyProfile: PolyfenceAccuracyProfile.balanced,
+  ///     updateStrategy: PolyfenceUpdateStrategy.proximityBased,
+  ///     gpsAccuracyThreshold: 50.0,
+  ///     proximitySettings: ProximitySettings(
+  ///       nearZoneThresholdMeters: 500.0,
+  ///       farZoneThresholdMeters: 2000.0,
+  ///     ),
+  ///   ),
+  /// );
   /// ```
   ///
   /// Throws [PolyfenceNotInitializedException] if not initialized.
   /// Throws [PlatformOperationException] if platform error occurs.
-  Future<void> updateConfiguration(Map<String, dynamic> config) async {
+  Future<void> updateConfiguration(PolyfenceConfiguration config) async {
     if (!_isInitialized) throw PolyfenceNotInitializedException();
 
     try {
-      await _platform.updateConfiguration(config);
+      final configMap = config.toMap();
+      await _platform.updateConfiguration(configMap);
+
+      // Update local configuration cache
+      _currentConfiguration = config;
     } on PlatformException catch (e, stackTrace) {
       throw PlatformOperationException(
         'updateConfiguration',
@@ -774,10 +789,11 @@ class PolyfenceService {
     }
   }
 
-  /// Resets GPS configuration to default values.
+  /// Resets GPS configuration to platform defaults.
   ///
-  /// Restores factory defaults for GPS intervals, accuracy thresholds, and
-  /// optimization settings.
+  /// Tells the native platform to restore its factory defaults for GPS
+  /// intervals, accuracy thresholds, and optimization settings. Also resets
+  /// the local configuration cache.
   ///
   /// **Example:**
   /// ```dart
@@ -791,6 +807,9 @@ class PolyfenceService {
 
     try {
       await _platform.resetConfiguration();
+
+      // Reset local cache to Dart defaults
+      _currentConfiguration = PolyfenceConfiguration();
     } on PlatformException catch (e, stackTrace) {
       throw PlatformOperationException(
         'resetConfiguration',
@@ -1055,85 +1074,6 @@ class PolyfenceService {
     }
   }
 
-  // ============================================================================
-  // GPS CONFIGURATION API
-  // ============================================================================
-
-  /// Updates GPS configuration with advanced settings.
-  ///
-  /// Allows fine-grained control over GPS behavior including accuracy profiles,
-  /// update strategies, and optimization settings. Configuration changes take
-  /// effect immediately.
-  ///
-  /// **Example:**
-  /// ```dart
-  /// await Polyfence.instance.updateGpsConfiguration(
-  ///   PolyfenceConfiguration(
-  ///     accuracyProfile: PolyfenceAccuracyProfile.balanced,
-  ///     updateStrategy: PolyfenceUpdateStrategy.proximityBased,
-  ///     gpsAccuracyThreshold: 50.0, // 50 meters
-  ///     proximitySettings: ProximitySettings(
-  ///       nearZoneThresholdMeters: 500.0,
-  ///       farZoneThresholdMeters: 2000.0,
-  ///     ),
-  ///   ),
-  /// );
-  /// ```
-  ///
-  /// Throws [PolyfenceNotInitializedException] if not initialized.
-  /// Throws [PlatformOperationException] if platform error occurs.
-  Future<void> updateGpsConfiguration(PolyfenceConfiguration config) async {
-    if (!_isInitialized) throw PolyfenceNotInitializedException();
-
-    try {
-      final configMap = config.toMap();
-      await _platform.updateConfiguration(configMap);
-
-      // Update local configuration
-      _currentConfiguration = config;
-    } on PlatformException catch (e, stackTrace) {
-      throw PlatformOperationException(
-        'updateConfiguration',
-        e.message ?? 'Unknown error',
-        details: {'code': e.code, 'details': e.details},
-        innerException: e,
-        stackTrace: stackTrace,
-      );
-    }
-  }
-
-  /// Gets the current GPS configuration.
-  ///
-  /// Returns the active [PolyfenceConfiguration] with all current GPS settings
-  /// including accuracy profile, update strategy, and optimization parameters.
-  ///
-  /// **Example:**
-  /// ```dart
-  /// final config = await Polyfence.instance.gpsConfiguration();
-  /// print('Accuracy profile: ${config.accuracyProfile}');
-  /// print('GPS threshold: ${config.gpsAccuracyThreshold}m');
-  /// ```
-  ///
-  /// Throws [PolyfenceNotInitializedException] if not initialized.
-  /// Throws [PlatformOperationException] if platform error occurs.
-  Future<PolyfenceConfiguration> gpsConfiguration() async {
-    if (!_isInitialized) throw PolyfenceNotInitializedException();
-
-    try {
-      final result = await _platform.getCurrentConfiguration();
-      _currentConfiguration = PolyfenceConfiguration.fromMap(result);
-      return _currentConfiguration;
-    } on PlatformException catch (e, stackTrace) {
-      throw PlatformOperationException(
-        'gpsConfiguration',
-        e.message ?? 'Unknown error',
-        details: {'code': e.code, 'details': e.details},
-        innerException: e,
-        stackTrace: stackTrace,
-      );
-    }
-  }
-
   /// Sets GPS accuracy profile for common use cases.
   ///
   /// Quick way to configure GPS behavior using predefined profiles:
@@ -1196,7 +1136,7 @@ class PolyfenceService {
         farZoneThresholdMeters: farThreshold,
       ),
     );
-    await updateGpsConfiguration(config);
+    await updateConfiguration(config);
   }
 
   /// Enables movement-based GPS optimization.
@@ -1228,7 +1168,7 @@ class PolyfenceService {
         stationaryUpdateInterval: stationaryUpdateInterval,
       ),
     );
-    await updateGpsConfiguration(config);
+    await updateConfiguration(config);
   }
 
   /// Enables intelligent GPS optimization.
@@ -1255,30 +1195,13 @@ class PolyfenceService {
       movementSettings: MovementSettings(),
       batterySettings: BatterySettings(),
     );
-    await updateGpsConfiguration(config);
-  }
-
-  /// Resets GPS configuration to default (max accuracy).
-  ///
-  /// Restores factory defaults: maximum accuracy profile with continuous
-  /// update strategy. Useful for resetting after testing different configurations.
-  ///
-  /// **Example:**
-  /// ```dart
-  /// await Polyfence.instance.resetToDefaultConfiguration();
-  /// ```
-  ///
-  /// Throws [PolyfenceNotInitializedException] if not initialized.
-  /// Throws [PlatformOperationException] if platform error occurs.
-  Future<void> resetToDefaultConfiguration() async {
-    final config = PolyfenceConfiguration();
-    await updateGpsConfiguration(config);
+    await updateConfiguration(config);
   }
 
   /// Gets the current GPS configuration (cached).
   ///
   /// Returns the last known [PolyfenceConfiguration] without querying the platform.
-  /// For the latest configuration from the platform, use [gpsConfiguration].
+  /// For the latest configuration from the platform, use [getConfiguration].
   ///
   /// **Example:**
   /// ```dart

@@ -77,6 +77,8 @@ android/.gradle/
 
 # Internal docs (keep locally, don't publish)
 .claude/
+CLAUDE.md
+.cursorrules
 POLYFENCE_SECURITY_ASSESSMENT.md
 REMEDIATION_PLAN.md
 self_serve_analytics.sql

@@ -308,17 +308,6 @@ class PolyfencePlugin: FlutterPlugin, MethodCallHandler, ActivityAware {
                 }
             }
             
-            "getCurrentConfiguration" -> {
-                try {
-                    val config = LocationTracker.getCurrentSmartConfiguration()
-                    val configMap = SmartGpsConfigFactory.toMap(config)
-                    result.success(configMap)
-                } catch (e: Exception) {
-                    Log.e("PolyfencePlugin", "Failed to get current configuration: ${e.message}")
-                    result.error("CONFIG_GET_FAILED", e.message, null)
-                }
-            }
-
             "setAccuracyProfile" -> {
                 val profileName = call.arguments as? String
                 if (profileName.isNullOrBlank()) {

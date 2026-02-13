@@ -109,8 +109,6 @@ public class PolyfencePlugin: NSObject, FlutterPlugin {
             getDebugInfo(result: result)
         case "getErrorHistory":
             getErrorHistory(arguments: call.arguments, result: result)
-        case "getCurrentConfiguration":
-            getCurrentConfiguration(result: result)
         case "setAccuracyProfile":
             setAccuracyProfile(arguments: call.arguments, result: result)
         case "getCurrentZoneStates":
@@ -320,18 +318,6 @@ public class PolyfencePlugin: NSObject, FlutterPlugin {
         } catch {
             result(FlutterError(code: "CONFIG_UPDATE_FAILED", message: "Failed to update smart GPS configuration: \(error.localizedDescription)", details: nil))
         }
-    }
-    
-    private func getCurrentConfiguration(result: @escaping FlutterResult) {
-        guard let locationTracker = locationTracker else {
-            result(FlutterError(code: "NO_LOCATION_TRACKER", message: "Location tracker not initialized", details: nil))
-            return
-        }
-        
-        // Get smart GPS configuration
-        let smartConfig = locationTracker.getCurrentSmartConfiguration()
-        let configMap = SmartGpsConfigFactory.toMap(smartConfig)
-        result(configMap)
     }
     
     private func resetConfiguration(result: @escaping FlutterResult) {

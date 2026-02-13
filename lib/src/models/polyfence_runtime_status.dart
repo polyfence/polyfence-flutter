@@ -53,6 +53,5 @@ class PolyfenceRuntimeStatus {
   }
 
   @override
-  int get hashCode =>
-      Object.hash(intervalMs, nearestZoneDistanceM, timestamp);
+  int get hashCode => Object.hash(intervalMs, nearestZoneDistanceM, timestamp);
 }

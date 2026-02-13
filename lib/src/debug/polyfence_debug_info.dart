@@ -418,7 +418,11 @@ class PolyfenceZoneStatus {
       mapHash = Object.hash(mapHash, key, zoneEventCounts[key]);
     }
     return Object.hash(
-      activeZones, circleZones, polygonZones, lastZoneUpdate, mapHash,
+      activeZones,
+      circleZones,
+      polygonZones,
+      lastZoneUpdate,
+      mapHash,
     );
   }
 

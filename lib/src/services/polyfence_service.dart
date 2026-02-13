@@ -358,7 +358,6 @@ class PolyfenceService {
           'PolyfenceService has been disposed and cannot be reused');
     }
     if (!_isInitialized) throw PolyfenceNotInitializedException();
-    final stopwatch = Stopwatch()..start();
 
     try {
       // Cache zone for event creation
@@ -366,8 +365,6 @@ class PolyfenceService {
 
       // Send to native platform (Android handles all detection)
       await _platform.addZone(zone);
-
-      stopwatch.stop();
     } on PlatformException catch (e, stackTrace) {
       throw PlatformOperationException(
         'addZone',
@@ -1306,7 +1303,8 @@ class PolyfenceService {
 
   /// Routes a platform stream error to the developer-facing error stream.
   /// Called from onError callbacks on all platform stream subscriptions.
-  void _emitStreamError(String streamName, Object error, StackTrace stackTrace) {
+  void _emitStreamError(
+      String streamName, Object error, StackTrace stackTrace) {
     if (_errorController.isClosed) return;
 
     final message = error is PlatformException

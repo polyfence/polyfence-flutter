@@ -183,7 +183,11 @@ class Zone {
       }
     }
     return Object.hash(
-      id, name, type, center, radius,
+      id,
+      name,
+      type,
+      center,
+      radius,
       polygon != null ? Object.hashAll(polygon!) : null,
       metadataHash,
     );

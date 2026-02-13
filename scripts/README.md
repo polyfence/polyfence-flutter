@@ -9,7 +9,7 @@ The plugin version is managed from a single source of truth: `pubspec.yaml`. All
 ### How It Works
 
 1. **Single Source of Truth**: `pubspec.yaml` contains the plugin version
-2. **Flutter/Dart**: Reads version from `PackageInfo.fromPlatform()` (reads from `pubspec.yaml`)
+2. **Flutter/Dart**: Reads version constant from `lib/src/version.dart` (synced from `pubspec.yaml`)
 3. **Native Platforms**: Version is passed from Flutter to native during `initialize()`:
    - Android: Stored in `PolyfenceDebugCollector.setPluginVersion()`
    - iOS: Stored in `PolyfenceDebugCollector.shared.setPluginVersion()`
@@ -58,9 +58,9 @@ This script will:
 ## Version Flow
 
 ```
-pubspec.yaml (0.2.4)
+pubspec.yaml (0.9.0)
     ↓
-Flutter reads via PackageInfo.fromPlatform()
+Flutter reads version constant from lib/src/version.dart
     ↓
 Passed to native during initialize() → Stored in debug collectors
     ↓
@@ -70,6 +70,6 @@ Used in debug info, analytics, etc.
 ## Notes
 
 - **No hardcoding**: All versions come from `pubspec.yaml` or are passed from Flutter
-- **Example app**: Version matches plugin version exactly (e.g., both `0.2.5`)
+- **Example app**: Version matches plugin version exactly (e.g., both `0.9.0`)
 - **Native code**: Version is stored during initialization, so it's always current
 

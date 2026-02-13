@@ -75,7 +75,7 @@ cd ios && xcodebuild test
 
 - Follow [Effective Dart](https://dart.dev/guides/language/effective-dart) guidelines
 - Run `flutter analyze` before submitting
-- Use `flutter format .` to format code
+- Use `dart format .` to format code
 - Add comments for complex logic (especially geofencing algorithms)
 
 ### Commit Messages
@@ -169,7 +169,7 @@ test: Add ray-casting algorithm tests
 
 1. **Privacy First**
    - No external API calls by default
-   - Analytics must be explicit opt-in
+   - Anonymous telemetry enabled by default; easy one-line opt-out
    - Location data stays on device
 
 2. **Platform Parity**

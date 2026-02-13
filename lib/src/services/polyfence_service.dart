@@ -1040,10 +1040,10 @@ class PolyfenceService {
   ///   timeRange: Duration(hours: 1),
   /// );
   ///
-  /// // Get only GPS errors from last 24 hours
+  /// // Get only GPS timeout errors from last 24 hours
   /// final gpsErrors = await Polyfence.instance.errorHistory(
   ///   timeRange: Duration(hours: 24),
-  ///   errorTypes: [PolyfenceErrorType.gpsError],
+  ///   errorTypes: [PolyfenceErrorType.gpsTimeout],
   /// );
   /// ```
   ///

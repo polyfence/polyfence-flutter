@@ -16,6 +16,9 @@ pubspec.lock
 *.ipr
 *.iws
 
+# AI assistant instructions
+.github/copilot-instructions.md
+
 # OS
 .DS_Store
 Thumbs.db

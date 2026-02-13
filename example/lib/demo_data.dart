@@ -9,7 +9,7 @@ class DemoZones {
       Zone.circle(
         id: 'demo_circle_1',
         name: '🎯 Demo Zone 1',
-        center: const PolyfenceLocation(
+        center: PolyfenceLocation(
           latitude: 51.5074,
           longitude: -0.1278,
         ),
@@ -20,7 +20,7 @@ class DemoZones {
       Zone.circle(
         id: 'demo_circle_2',
         name: '🎯 Demo Zone 2',
-        center: const PolyfenceLocation(
+        center: PolyfenceLocation(
           latitude: 51.5155,
           longitude: -0.0922,
         ),
@@ -31,7 +31,7 @@ class DemoZones {
       Zone.polygon(
         id: 'demo_polygon_3',
         name: '🎯 Demo Zone 3',
-        polygon: const [
+        polygon: [
           PolyfenceLocation(latitude: 51.5000, longitude: -0.1300),
           PolyfenceLocation(latitude: 51.5020, longitude: -0.1250),
           PolyfenceLocation(latitude: 51.5010, longitude: -0.1200),

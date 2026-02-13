@@ -7,7 +7,7 @@ void main() {
       final zone = Zone.circle(
         id: 'test-circle',
         name: 'Test Circle',
-        center: const PolyfenceLocation(latitude: 37.422, longitude: -122.084),
+        center: PolyfenceLocation(latitude: 37.422, longitude: -122.084),
         radius: 100.0,
       );
 
@@ -22,9 +22,9 @@ void main() {
 
     test('Zone.polygon creates valid polygon zone', () {
       final polygon = [
-        const PolyfenceLocation(latitude: 37.422, longitude: -122.084),
-        const PolyfenceLocation(latitude: 37.423, longitude: -122.085),
-        const PolyfenceLocation(latitude: 37.424, longitude: -122.086),
+        PolyfenceLocation(latitude: 37.422, longitude: -122.084),
+        PolyfenceLocation(latitude: 37.423, longitude: -122.085),
+        PolyfenceLocation(latitude: 37.424, longitude: -122.086),
       ];
 
       final zone = Zone.polygon(
@@ -43,8 +43,8 @@ void main() {
 
     test('Zone.polygon rejects polygon with less than 3 points', () {
       final polygon = [
-        const PolyfenceLocation(latitude: 37.422, longitude: -122.084),
-        const PolyfenceLocation(latitude: 37.423, longitude: -122.085),
+        PolyfenceLocation(latitude: 37.422, longitude: -122.084),
+        PolyfenceLocation(latitude: 37.423, longitude: -122.085),
       ];
 
       expect(
@@ -81,8 +81,7 @@ void main() {
         () => Zone.circle(
           id: '',
           name: 'Test',
-          center:
-              const PolyfenceLocation(latitude: 37.422, longitude: -122.084),
+          center: PolyfenceLocation(latitude: 37.422, longitude: -122.084),
           radius: 100.0,
         ),
         throwsArgumentError,
@@ -94,8 +93,7 @@ void main() {
         () => Zone.circle(
           id: 'test',
           name: '',
-          center:
-              const PolyfenceLocation(latitude: 37.422, longitude: -122.084),
+          center: PolyfenceLocation(latitude: 37.422, longitude: -122.084),
           radius: 100.0,
         ),
         throwsArgumentError,
@@ -106,7 +104,7 @@ void main() {
       final zone = Zone.circle(
         id: 'test-circle',
         name: 'Test Circle',
-        center: const PolyfenceLocation(latitude: 37.422, longitude: -122.084),
+        center: PolyfenceLocation(latitude: 37.422, longitude: -122.084),
         radius: 100.0,
       );
 
@@ -137,6 +135,202 @@ void main() {
       expect(zone.name, 'Test Circle');
       expect(zone.type, ZoneType.circle);
       expect(zone.radius, 100.0);
+    });
+  });
+
+  group('PolyfenceLocation Coordinate Validation', () {
+    test('accepts valid coordinates', () {
+      final loc = PolyfenceLocation(latitude: 37.422, longitude: -122.084);
+      expect(loc.latitude, 37.422);
+      expect(loc.longitude, -122.084);
+    });
+
+    test('accepts boundary latitude values', () {
+      final north = PolyfenceLocation(latitude: 90.0, longitude: 0.0);
+      expect(north.latitude, 90.0);
+
+      final south = PolyfenceLocation(latitude: -90.0, longitude: 0.0);
+      expect(south.latitude, -90.0);
+    });
+
+    test('accepts boundary longitude values', () {
+      final east = PolyfenceLocation(latitude: 0.0, longitude: 180.0);
+      expect(east.longitude, 180.0);
+
+      final west = PolyfenceLocation(latitude: 0.0, longitude: -180.0);
+      expect(west.longitude, -180.0);
+    });
+
+    test('accepts origin (0, 0)', () {
+      final loc = PolyfenceLocation(latitude: 0.0, longitude: 0.0);
+      expect(loc.latitude, 0.0);
+      expect(loc.longitude, 0.0);
+    });
+
+    test('rejects latitude > 90', () {
+      expect(
+        () => PolyfenceLocation(latitude: 90.001, longitude: 0.0),
+        throwsArgumentError,
+      );
+    });
+
+    test('rejects latitude < -90', () {
+      expect(
+        () => PolyfenceLocation(latitude: -90.001, longitude: 0.0),
+        throwsArgumentError,
+      );
+    });
+
+    test('rejects latitude far out of range', () {
+      expect(
+        () => PolyfenceLocation(latitude: 999.0, longitude: 0.0),
+        throwsArgumentError,
+      );
+    });
+
+    test('rejects longitude > 180', () {
+      expect(
+        () => PolyfenceLocation(latitude: 0.0, longitude: 180.001),
+        throwsArgumentError,
+      );
+    });
+
+    test('rejects longitude < -180', () {
+      expect(
+        () => PolyfenceLocation(latitude: 0.0, longitude: -180.001),
+        throwsArgumentError,
+      );
+    });
+
+    test('rejects longitude far out of range', () {
+      expect(
+        () => PolyfenceLocation(latitude: 0.0, longitude: -500.0),
+        throwsArgumentError,
+      );
+    });
+
+    test('rejects both coordinates out of range', () {
+      expect(
+        () => PolyfenceLocation(latitude: 999.0, longitude: -500.0),
+        throwsArgumentError,
+      );
+    });
+
+    test('skips validation when isFallback is true', () {
+      // Platform data recovery path — 0.0/0.0 fallback with isFallback flag
+      final loc = PolyfenceLocation(
+        latitude: 0.0,
+        longitude: 0.0,
+        isFallback: true,
+      );
+      expect(loc.isFallback, isTrue);
+    });
+
+    test(
+        'fromJson with missing coordinates sets isFallback and skips validation',
+        () {
+      final loc = PolyfenceLocation.fromJson({});
+      expect(loc.latitude, 0.0);
+      expect(loc.longitude, 0.0);
+      expect(loc.isFallback, isTrue);
+    });
+
+    test('fromJson with valid coordinates passes validation', () {
+      final loc = PolyfenceLocation.fromJson({
+        'latitude': 51.5074,
+        'longitude': -0.1278,
+      });
+      expect(loc.latitude, 51.5074);
+      expect(loc.longitude, -0.1278);
+      expect(loc.isFallback, isFalse);
+    });
+  });
+
+  group('Zone Circle Radius Validation', () {
+    test('accepts positive radius', () {
+      final zone = Zone.circle(
+        id: 'test',
+        name: 'Test',
+        center: PolyfenceLocation(latitude: 37.422, longitude: -122.084),
+        radius: 150.0,
+      );
+      expect(zone.radius, 150.0);
+    });
+
+    test('accepts small positive radius', () {
+      final zone = Zone.circle(
+        id: 'test',
+        name: 'Test',
+        center: PolyfenceLocation(latitude: 37.422, longitude: -122.084),
+        radius: 0.001,
+      );
+      expect(zone.radius, 0.001);
+    });
+
+    test('rejects zero radius', () {
+      expect(
+        () => Zone.circle(
+          id: 'test',
+          name: 'Test',
+          center: PolyfenceLocation(latitude: 37.422, longitude: -122.084),
+          radius: 0.0,
+        ),
+        throwsArgumentError,
+      );
+    });
+
+    test('rejects negative radius', () {
+      expect(
+        () => Zone.circle(
+          id: 'test',
+          name: 'Test',
+          center: PolyfenceLocation(latitude: 37.422, longitude: -122.084),
+          radius: -50.0,
+        ),
+        throwsArgumentError,
+      );
+    });
+
+    test('rejects invalid center coordinates', () {
+      expect(
+        () => Zone.circle(
+          id: 'test',
+          name: 'Test',
+          center: PolyfenceLocation(latitude: 999.0, longitude: -122.084),
+          radius: 100.0,
+        ),
+        throwsArgumentError,
+      );
+    });
+  });
+
+  group('Zone Polygon Coordinate Validation', () {
+    test('rejects polygon with invalid coordinates', () {
+      expect(
+        () => Zone.polygon(
+          id: 'test',
+          name: 'Test',
+          polygon: [
+            PolyfenceLocation(latitude: 37.422, longitude: -122.084),
+            PolyfenceLocation(latitude: 37.423, longitude: -122.085),
+            PolyfenceLocation(latitude: 999.0, longitude: -122.086), // invalid
+          ],
+        ),
+        throwsArgumentError,
+      );
+    });
+
+    test('accepts polygon with valid boundary coordinates', () {
+      final zone = Zone.polygon(
+        id: 'test',
+        name: 'Test',
+        polygon: [
+          PolyfenceLocation(latitude: 90.0, longitude: -180.0),
+          PolyfenceLocation(latitude: -90.0, longitude: 180.0),
+          PolyfenceLocation(latitude: 0.0, longitude: 0.0),
+        ],
+      );
+      expect(zone.polygon?.length, 3);
     });
   });
 }

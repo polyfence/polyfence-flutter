@@ -58,9 +58,18 @@ class PolyfenceLocation {
 
   /// Creates a location with the given coordinates.
   ///
-  /// [latitude] and [longitude] are required. All other fields are optional
-  /// and typically populated by GPS readings.
-  const PolyfenceLocation({
+  /// [latitude] must be between -90 and 90 (inclusive).
+  /// [longitude] must be between -180 and 180 (inclusive).
+  ///
+  /// Throws [ArgumentError] if coordinates are out of bounds, unless
+  /// [isFallback] is `true` (used internally for platform data recovery
+  /// when coordinates are unavailable).
+  ///
+  /// **Note:** This constructor is intentionally non-const to enforce
+  /// coordinate validation at runtime in all build modes. Debug-only
+  /// assertions would silently pass invalid coordinates in release builds,
+  /// causing corrupt geofence math (haversine, ray-casting) with no error.
+  PolyfenceLocation({
     required this.latitude,
     required this.longitude,
     this.altitude,
@@ -70,7 +79,24 @@ class PolyfenceLocation {
     this.interval,
     this.isFallback = false,
     this.activity,
-  });
+  }) {
+    if (!isFallback) {
+      if (latitude < -90 || latitude > 90) {
+        throw ArgumentError.value(
+          latitude,
+          'latitude',
+          'Must be between -90 and 90, got $latitude',
+        );
+      }
+      if (longitude < -180 || longitude > 180) {
+        throw ArgumentError.value(
+          longitude,
+          'longitude',
+          'Must be between -180 and 180, got $longitude',
+        );
+      }
+    }
+  }
 
   Map<String, dynamic> toJson() {
     return {

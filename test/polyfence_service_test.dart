@@ -139,15 +139,6 @@ class MockPolyfencePlatform extends PolyfencePlatform
   }
 
   @override
-  Future<Map<String, dynamic>> getCurrentConfiguration() async {
-    calls.add('getCurrentConfiguration');
-    return {
-      'accuracyProfile': 'MAX_ACCURACY',
-      'updateStrategy': 'CONTINUOUS',
-    };
-  }
-
-  @override
   Future<List<Map<String, dynamic>>> getErrorHistory(
       Map<String, dynamic> params) async {
     calls.add('getErrorHistory');
@@ -233,10 +224,10 @@ void main() {
       );
     });
 
-    test('configuration throws PolyfenceNotInitializedException before initialize',
+    test('getConfiguration throws PolyfenceNotInitializedException before initialize',
         () {
       expect(
-        () => PolyfenceService.instance.configuration(),
+        () => PolyfenceService.instance.getConfiguration(),
         throwsA(isA<PolyfenceNotInitializedException>()),
       );
     });
@@ -408,47 +399,53 @@ void main() {
   });
 
   group('PolyfenceService — configuration', () {
-    test('configuration calls through to platform', () async {
-      mockPlatform.configResponse = {'gps_interval_ms': 5000};
+    test('getConfiguration returns typed PolyfenceConfiguration', () async {
+      mockPlatform.configResponse = {
+        'accuracyProfile': 'BALANCED',
+        'updateStrategy': 'CONTINUOUS',
+        'gpsAccuracyThreshold': 50.0,
+      };
       mockPlatform.calls.clear();
 
-      final config = await PolyfenceService.instance.configuration();
+      final config = await PolyfenceService.instance.getConfiguration();
 
       expect(mockPlatform.calls, contains('getConfiguration'));
-      expect(config['gps_interval_ms'], 5000);
+      expect(config, isA<PolyfenceConfiguration>());
+      expect(config.gpsAccuracyThreshold, 50.0);
     });
 
-    test('updateConfiguration calls through to platform', () async {
-      mockPlatform.calls.clear();
-
-      await PolyfenceService.instance
-          .updateConfiguration({'gps_interval_ms': 10000});
-
-      expect(mockPlatform.calls, contains('updateConfiguration'));
-    });
-
-    test('resetConfiguration calls through to platform', () async {
-      mockPlatform.calls.clear();
-
-      await PolyfenceService.instance.resetConfiguration();
-
-      expect(mockPlatform.calls, contains('resetConfiguration'));
-    });
-
-    test('updateGpsConfiguration sends serialized config to platform',
-        () async {
+    test('updateConfiguration sends serialized config to platform', () async {
       mockPlatform.calls.clear();
 
       final config = PolyfenceConfiguration(
         accuracyProfile: PolyfenceAccuracyProfile.balanced,
         gpsAccuracyThreshold: 50.0,
       );
-      await PolyfenceService.instance.updateGpsConfiguration(config);
+      await PolyfenceService.instance.updateConfiguration(config);
 
       expect(mockPlatform.calls, contains('updateConfiguration'));
       final sentConfig =
           mockPlatform.callArgs['updateConfiguration'] as Map<String, dynamic>;
       expect(sentConfig['gpsAccuracyThreshold'], 50.0);
+    });
+
+    test('resetConfiguration calls platform and resets local cache', () async {
+      // First set a non-default config
+      await PolyfenceService.instance.updateConfiguration(
+        PolyfenceConfiguration(
+          accuracyProfile: PolyfenceAccuracyProfile.batteryOptimal,
+        ),
+      );
+      mockPlatform.calls.clear();
+
+      await PolyfenceService.instance.resetConfiguration();
+
+      expect(mockPlatform.calls, contains('resetConfiguration'));
+      // Local cache should be reset to defaults
+      expect(
+        PolyfenceService.instance.currentConfiguration.accuracyProfile,
+        PolyfenceAccuracyProfile.maxAccuracy,
+      );
     });
 
     test('currentConfiguration returns cached configuration', () {

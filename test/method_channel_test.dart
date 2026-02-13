@@ -51,11 +51,6 @@ void main() {
             return <String, dynamic>{};
           case 'getErrorHistory':
             return <Map<String, dynamic>>[];
-          case 'getCurrentConfiguration':
-            return <String, dynamic>{
-              'accuracyProfile': 'MAX_ACCURACY',
-              'updateStrategy': 'CONTINUOUS',
-            };
           default:
             return null;
         }
@@ -253,13 +248,6 @@ void main() {
       expect(result, isA<List<Map<String, dynamic>>>());
     });
 
-    test('getCurrentConfiguration returns map', () async {
-      final result = await platform.getCurrentConfiguration();
-
-      expect(log, hasLength(1));
-      expect(log[0].method, 'getCurrentConfiguration');
-      expect(result['accuracyProfile'], 'MAX_ACCURACY');
-    });
   });
 
   group('MethodChannelPolyfence — platform error handling', () {

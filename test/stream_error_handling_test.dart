@@ -77,11 +77,6 @@ class MockPolyfencePlatform extends PolyfencePlatform
   @override
   Future<Map<String, dynamic>> getDebugInfo() async => {};
   @override
-  Future<Map<String, dynamic>> getCurrentConfiguration() async => {
-        'accuracyProfile': 'MAX_ACCURACY',
-        'updateStrategy': 'CONTINUOUS',
-      };
-  @override
   Future<List<Map<String, dynamic>>> getErrorHistory(
           Map<String, dynamic> params) async =>
       [];

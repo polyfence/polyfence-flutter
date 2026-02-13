@@ -52,7 +52,7 @@ class AnalyticsConfig {
 ///
 /// Collects performance data including detection times, GPS accuracy,
 /// battery usage, and error counts during a tracking session.
-class SessionMetrics {
+class _SessionMetrics {
   /// Total number of zone detections in this session.
   int detectionsTotal = 0;
 
@@ -242,7 +242,7 @@ class PolyfenceAnalytics {
   PolyfenceAnalytics._();
 
   AnalyticsConfig? _config;
-  SessionMetrics? _currentSession;
+  _SessionMetrics? _currentSession;
   String? _appIdentifier;
   String? _pluginVersion;
   final Battery _battery = Battery();
@@ -276,7 +276,7 @@ class PolyfenceAnalytics {
 
   /// Starts a new analytics session.
   void startSession() {
-    _currentSession = SessionMetrics();
+    _currentSession = _SessionMetrics();
     _currentSession?.startSession();
 
     _getBatteryLevel().then((level) {

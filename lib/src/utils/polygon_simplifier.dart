@@ -5,7 +5,7 @@ import '../models/location.dart';
 /// Douglas-Peucker polygon simplification algorithm
 /// Reduces polygon complexity while preserving shape accuracy
 ///
-/// Used as a fallback when polygons exceed the plugin limit
+/// Used to reduce complex polygons for efficient on-device processing
 class PolygonSimplifier {
   /// Default maximum points for simplified polygons
   static const int defaultTargetPoints = 500;

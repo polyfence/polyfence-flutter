@@ -1,4 +1,4 @@
-/// Industry categories for PolyFence plugin configuration and optimization
+/// Industry categories for Polyfence plugin configuration and optimization
 /// Helps provide industry-specific geofencing configurations
 enum IndustryCategory {
   delivery(

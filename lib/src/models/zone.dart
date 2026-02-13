@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 
 import 'location.dart';
 
+/// The geometric type of a geofence zone.
 enum ZoneType { circle, polygon }
 
 /// Zone model for geofencing

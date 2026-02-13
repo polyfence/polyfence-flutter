@@ -79,7 +79,10 @@ class PolyfenceConfiguration {
   /// Enable debug logging for GPS configuration changes
   final bool enableDebugLogging;
 
-  const PolyfenceConfiguration({
+  /// Creates a Polyfence configuration.
+  ///
+  /// Throws [ArgumentError] if [gpsAccuracyThreshold] is not positive.
+  PolyfenceConfiguration({
     this.accuracyProfile = PolyfenceAccuracyProfile.maxAccuracy,
     this.updateStrategy = PolyfenceUpdateStrategy.continuous,
     this.proximitySettings,
@@ -91,7 +94,15 @@ class PolyfenceConfiguration {
     this.activitySettings,
     this.gpsAccuracyThreshold = 100.0,
     this.enableDebugLogging = false,
-  });
+  }) {
+    if (gpsAccuracyThreshold <= 0) {
+      throw ArgumentError.value(
+        gpsAccuracyThreshold,
+        'gpsAccuracyThreshold',
+        'must be positive',
+      );
+    }
+  }
 
   /// Create a copy with updated values
   PolyfenceConfiguration copyWith({
@@ -215,12 +226,37 @@ class ProximitySettings {
   /// GPS update interval when far from zones
   final Duration farZoneUpdateInterval;
 
-  const ProximitySettings({
+  /// Creates proximity settings.
+  ///
+  /// Throws [ArgumentError] if thresholds are not positive or if
+  /// [nearZoneThresholdMeters] >= [farZoneThresholdMeters].
+  ProximitySettings({
     this.nearZoneThresholdMeters = 500.0,
     this.farZoneThresholdMeters = 2000.0,
     this.nearZoneUpdateInterval = const Duration(seconds: 5),
     this.farZoneUpdateInterval = const Duration(seconds: 60),
-  });
+  }) {
+    if (nearZoneThresholdMeters <= 0) {
+      throw ArgumentError.value(
+        nearZoneThresholdMeters,
+        'nearZoneThresholdMeters',
+        'must be positive',
+      );
+    }
+    if (farZoneThresholdMeters <= 0) {
+      throw ArgumentError.value(
+        farZoneThresholdMeters,
+        'farZoneThresholdMeters',
+        'must be positive',
+      );
+    }
+    if (nearZoneThresholdMeters >= farZoneThresholdMeters) {
+      throw ArgumentError(
+        'nearZoneThresholdMeters ($nearZoneThresholdMeters) must be less than '
+        'farZoneThresholdMeters ($farZoneThresholdMeters)',
+      );
+    }
+  }
 
   Map<String, dynamic> toMap() {
     return {
@@ -271,12 +307,23 @@ class MovementSettings {
   /// GPS update interval when device is moving
   final Duration movingUpdateInterval;
 
-  const MovementSettings({
+  /// Creates movement settings.
+  ///
+  /// Throws [ArgumentError] if [movementThresholdMeters] is not positive.
+  MovementSettings({
     this.stationaryThreshold = const Duration(minutes: 5),
     this.movementThresholdMeters = 50.0,
     this.stationaryUpdateInterval = const Duration(minutes: 2),
     this.movingUpdateInterval = const Duration(seconds: 10),
-  });
+  }) {
+    if (movementThresholdMeters <= 0) {
+      throw ArgumentError.value(
+        movementThresholdMeters,
+        'movementThresholdMeters',
+        'must be positive',
+      );
+    }
+  }
 
   Map<String, dynamic> toMap() {
     return {
@@ -323,10 +370,21 @@ class DwellSettings {
   /// Duration device must stay inside zone before DWELL event fires
   final Duration dwellThreshold;
 
-  const DwellSettings({
+  /// Creates dwell settings.
+  ///
+  /// Throws [ArgumentError] if [dwellThreshold] is not positive.
+  DwellSettings({
     this.enabled = true,
     this.dwellThreshold = const Duration(minutes: 5),
-  });
+  }) {
+    if (dwellThreshold.inMilliseconds <= 0) {
+      throw ArgumentError.value(
+        dwellThreshold,
+        'dwellThreshold',
+        'must be positive',
+      );
+    }
+  }
 
   Map<String, dynamic> toMap() {
     return {
@@ -371,11 +429,30 @@ class ClusterSettings {
   /// Default: 1000m (1km)
   final double refreshDistanceMeters;
 
-  const ClusterSettings({
+  /// Creates cluster settings.
+  ///
+  /// Throws [ArgumentError] if [activeRadiusMeters] or
+  /// [refreshDistanceMeters] are not positive.
+  ClusterSettings({
     this.enabled = false,
     this.activeRadiusMeters = 5000.0,
     this.refreshDistanceMeters = 1000.0,
-  });
+  }) {
+    if (activeRadiusMeters <= 0) {
+      throw ArgumentError.value(
+        activeRadiusMeters,
+        'activeRadiusMeters',
+        'must be positive',
+      );
+    }
+    if (refreshDistanceMeters <= 0) {
+      throw ArgumentError.value(
+        refreshDistanceMeters,
+        'refreshDistanceMeters',
+        'must be positive',
+      );
+    }
+  }
 
   Map<String, dynamic> toMap() {
     return {
@@ -412,10 +489,20 @@ class TimeOfDay {
   /// Minute (0-59)
   final int minute;
 
-  const TimeOfDay({
+  /// Creates a time of day.
+  ///
+  /// Throws [ArgumentError] if [hour] is not in 0..23 or [minute] not in 0..59.
+  TimeOfDay({
     required this.hour,
     required this.minute,
-  });
+  }) {
+    if (hour < 0 || hour > 23) {
+      throw ArgumentError.value(hour, 'hour', 'must be 0-23');
+    }
+    if (minute < 0 || minute > 59) {
+      throw ArgumentError.value(minute, 'minute', 'must be 0-59');
+    }
+  }
 
   Map<String, dynamic> toMap() {
     return {
@@ -449,11 +536,24 @@ class TimeWindow {
   /// Empty list means all days
   final List<int> daysOfWeek;
 
-  const TimeWindow({
+  /// Creates a time window.
+  ///
+  /// Throws [ArgumentError] if [daysOfWeek] contains values outside 1..7.
+  TimeWindow({
     required this.startTime,
     required this.endTime,
     this.daysOfWeek = const [],
-  });
+  }) {
+    for (final day in daysOfWeek) {
+      if (day < 1 || day > 7) {
+        throw ArgumentError.value(
+          daysOfWeek,
+          'daysOfWeek',
+          'values must be 1-7 (Monday-Sunday), got $day',
+        );
+      }
+    }
+  }
 
   Map<String, dynamic> toMap() {
     return {
@@ -496,7 +596,7 @@ class ScheduleSettings {
   /// Default: true
   final bool startImmediatelyIfInWindow;
 
-  const ScheduleSettings({
+  ScheduleSettings({
     this.enabled = false,
     this.timeWindows = const [],
     this.startImmediatelyIfInWindow = true,
@@ -589,7 +689,11 @@ class ActivitySettings {
   /// Default: 5 seconds
   final Duration? drivingInterval;
 
-  const ActivitySettings({
+  /// Creates activity settings.
+  ///
+  /// Throws [ArgumentError] if [confidenceThreshold] is not in 0..100
+  /// or [debounceSeconds] is negative.
+  ActivitySettings({
     this.enabled = false,
     this.confidenceThreshold = 75,
     this.debounceSeconds = 30,
@@ -598,18 +702,38 @@ class ActivitySettings {
     this.runningInterval,
     this.cyclingInterval,
     this.drivingInterval,
-  });
+  }) {
+    if (confidenceThreshold < 0 || confidenceThreshold > 100) {
+      throw ArgumentError.value(
+        confidenceThreshold,
+        'confidenceThreshold',
+        'must be 0-100',
+      );
+    }
+    if (debounceSeconds < 0) {
+      throw ArgumentError.value(
+        debounceSeconds,
+        'debounceSeconds',
+        'must not be negative',
+      );
+    }
+  }
 
   Map<String, dynamic> toMap() {
     return {
       'enabled': enabled,
       'confidenceThreshold': confidenceThreshold,
       'debounceSeconds': debounceSeconds,
-      if (stillInterval != null) 'stillIntervalMs': stillInterval!.inMilliseconds,
-      if (walkingInterval != null) 'walkingIntervalMs': walkingInterval!.inMilliseconds,
-      if (runningInterval != null) 'runningIntervalMs': runningInterval!.inMilliseconds,
-      if (cyclingInterval != null) 'cyclingIntervalMs': cyclingInterval!.inMilliseconds,
-      if (drivingInterval != null) 'drivingIntervalMs': drivingInterval!.inMilliseconds,
+      if (stillInterval != null)
+        'stillIntervalMs': stillInterval!.inMilliseconds,
+      if (walkingInterval != null)
+        'walkingIntervalMs': walkingInterval!.inMilliseconds,
+      if (runningInterval != null)
+        'runningIntervalMs': runningInterval!.inMilliseconds,
+      if (cyclingInterval != null)
+        'cyclingIntervalMs': cyclingInterval!.inMilliseconds,
+      if (drivingInterval != null)
+        'drivingIntervalMs': drivingInterval!.inMilliseconds,
     };
   }
 
@@ -665,12 +789,37 @@ class BatterySettings {
   /// Whether to pause GPS when battery is critical
   final bool pauseOnCriticalBattery;
 
-  const BatterySettings({
+  /// Creates battery settings.
+  ///
+  /// Throws [ArgumentError] if thresholds are not in 0..100 or
+  /// [criticalBatteryThreshold] >= [lowBatteryThreshold].
+  BatterySettings({
     this.lowBatteryThreshold = 20,
     this.criticalBatteryThreshold = 10,
     this.lowBatteryUpdateInterval = const Duration(seconds: 30),
     this.pauseOnCriticalBattery = true,
-  });
+  }) {
+    if (lowBatteryThreshold < 0 || lowBatteryThreshold > 100) {
+      throw ArgumentError.value(
+        lowBatteryThreshold,
+        'lowBatteryThreshold',
+        'must be 0-100',
+      );
+    }
+    if (criticalBatteryThreshold < 0 || criticalBatteryThreshold > 100) {
+      throw ArgumentError.value(
+        criticalBatteryThreshold,
+        'criticalBatteryThreshold',
+        'must be 0-100',
+      );
+    }
+    if (criticalBatteryThreshold >= lowBatteryThreshold) {
+      throw ArgumentError(
+        'criticalBatteryThreshold ($criticalBatteryThreshold) must be less '
+        'than lowBatteryThreshold ($lowBatteryThreshold)',
+      );
+    }
+  }
 
   Map<String, dynamic> toMap() {
     return {

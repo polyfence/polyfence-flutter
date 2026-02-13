@@ -35,15 +35,27 @@ class PolyfenceDebugInfo {
   });
 
   /// Creates debug info from a platform channel map.
+  ///
+  /// Safely handles missing or null nested maps by falling back to empty maps.
   factory PolyfenceDebugInfo.fromMap(Map<String, dynamic> map) {
     return PolyfenceDebugInfo(
-      systemStatus: PolyfenceSystemStatus.fromMap(map['systemStatus']),
-      performance: PolyfencePerformanceMetrics.fromMap(map['performance']),
-      battery: PolyfenceBatteryMetrics.fromMap(map['battery']),
-      zones: PolyfenceZoneStatus.fromMap(map['zones']),
-      recentErrors: (map['recentErrors'] as List)
-          .map((e) => PolyfenceErrorSummary.fromMap(e))
-          .toList(),
+      systemStatus: PolyfenceSystemStatus.fromMap(
+        Map<String, dynamic>.from(map['systemStatus'] ?? {}),
+      ),
+      performance: PolyfencePerformanceMetrics.fromMap(
+        Map<String, dynamic>.from(map['performance'] ?? {}),
+      ),
+      battery: PolyfenceBatteryMetrics.fromMap(
+        Map<String, dynamic>.from(map['battery'] ?? {}),
+      ),
+      zones: PolyfenceZoneStatus.fromMap(
+        Map<String, dynamic>.from(map['zones'] ?? {}),
+      ),
+      recentErrors: (map['recentErrors'] as List?)
+              ?.map((e) =>
+                  PolyfenceErrorSummary.fromMap(Map<String, dynamic>.from(e)))
+              .toList() ??
+          [],
     );
   }
 

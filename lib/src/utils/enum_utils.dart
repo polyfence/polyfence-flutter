@@ -14,11 +14,15 @@ class EnumUtils {
   /// Convert platform channel format to Dart enum
   ///
   /// Example: `MAX_ACCURACY` → finds `maxAccuracy` in values
+  ///
+  /// Returns [fallback] if [channelValue] is null or doesn't match any value.
   static T fromChannelFormat<T extends Enum>(
-    String channelValue,
+    String? channelValue,
     List<T> values,
     T fallback,
   ) {
+    if (channelValue == null) return fallback;
+
     final normalized =
         channelValue.toUpperCase().replaceAll(RegExp(r'[^A-Z0-9]'), '');
 

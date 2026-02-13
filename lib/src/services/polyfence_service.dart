@@ -138,7 +138,7 @@ class PolyfenceService {
   final Map<String, Zone> _zones = {};
 
   // Current GPS configuration
-  PolyfenceConfiguration _currentConfiguration = const PolyfenceConfiguration();
+  PolyfenceConfiguration _currentConfiguration = PolyfenceConfiguration();
 
   /// Initialize Polyfence plugin.
   ///
@@ -1186,7 +1186,7 @@ class PolyfenceService {
   /// Throws [PolyfenceNotInitializedException] if not initialized.
   /// Throws [PlatformOperationException] if platform error occurs.
   Future<void> enableIntelligentOptimization() async {
-    const config = PolyfenceConfiguration(
+    final config = PolyfenceConfiguration(
       accuracyProfile: PolyfenceAccuracyProfile.adaptive,
       updateStrategy: PolyfenceUpdateStrategy.intelligent,
       proximitySettings: ProximitySettings(),
@@ -1209,7 +1209,7 @@ class PolyfenceService {
   /// Throws [PolyfenceNotInitializedException] if not initialized.
   /// Throws [PlatformOperationException] if platform error occurs.
   Future<void> resetToDefaultConfiguration() async {
-    const config = PolyfenceConfiguration();
+    final config = PolyfenceConfiguration();
     await updateGpsConfiguration(config);
   }
 

@@ -3,7 +3,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:plugin_platform_interface/plugin_platform_interface.dart';
 import 'package:polyfence/polyfence.dart';
-import 'package:polyfence/src/models/polyfence_runtime_status.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 // Mock platform implementation using MockPlatformInterfaceMixin to bypass
@@ -440,7 +439,7 @@ void main() {
         () async {
       mockPlatform.calls.clear();
 
-      const config = PolyfenceConfiguration(
+      final config = PolyfenceConfiguration(
         accuracyProfile: PolyfenceAccuracyProfile.balanced,
         gpsAccuracyThreshold: 50.0,
       );
@@ -469,10 +468,6 @@ void main() {
   });
 
   group('PolyfenceService — debug and diagnostics', () {
-    // BUG: PolyfenceDebugInfo.fromMap does not null-check nested maps.
-    // If any of systemStatus, performance, battery, zones, or recentErrors
-    // is missing from the platform response, fromMap throws a TypeError.
-    // Must provide all required keys to avoid the crash.
     test('debugInfo calls through to platform and returns parsed result',
         () async {
       mockPlatform.debugInfoResponse = {
@@ -480,10 +475,6 @@ void main() {
           'pluginVersion': '0.9.0',
           'platformVersion': 'Android 14',
         },
-        'performance': <String, dynamic>{},
-        'battery': <String, dynamic>{},
-        'zones': <String, dynamic>{},
-        'recentErrors': <Map<String, dynamic>>[],
       };
       mockPlatform.calls.clear();
 
@@ -492,6 +483,11 @@ void main() {
       expect(mockPlatform.calls, contains('getDebugInfo'));
       expect(info, isA<PolyfenceDebugInfo>());
       expect(info.systemStatus.pluginVersion, '0.9.0');
+      // Missing keys now safely default to empty values
+      expect(info.performance.totalLocationUpdates, 0);
+      expect(info.battery.batteryLevel, 0);
+      expect(info.zones.activeZones, 0);
+      expect(info.recentErrors, isEmpty);
     });
 
     test('batteryOptimizationStatus calls platform', () async {

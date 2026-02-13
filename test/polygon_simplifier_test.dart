@@ -31,14 +31,7 @@ void main() {
       expect(result.length, 3);
     });
 
-    // BUG: The binary search in _findOptimalTolerance fails for perfectly
-    // collinear points. Any tolerance > 0 reduces them to 2 endpoints
-    // (perpendicular distance is always 0), which triggers the "too much
-    // simplification" branch (< targetPoints * 0.8). The binary search
-    // keeps lowering tolerance toward 0, eventually returning a near-zero
-    // tolerance that doesn't simplify at all. The fallback at line 189
-    // then also fails because the initial simplified result has all points.
-    test('collinear points are NOT reduced due to binary search limitation', () {
+    test('collinear points are reduced to endpoints', () {
       final collinear = List.generate(
         20,
         (i) => PolyfenceLocation(
@@ -48,17 +41,13 @@ void main() {
       );
 
       final result = PolygonSimplifier.simplify(collinear, targetPoints: 5);
-      // Returns all points unchanged — binary search can't find a tolerance
-      // that reduces to exactly 5 (it's either all 20 or just 2 endpoints)
-      expect(result.length, collinear.length);
+      // Collinear points all have perpendicular distance 0, so any positive
+      // tolerance collapses them to the 2 endpoints. The adaptive tolerance
+      // range now detects this correctly.
+      expect(result.length, lessThan(collinear.length));
     });
 
-    // BUG: Same binary search issue as collinear test. The maxTolerance
-    // (0.01) in _findOptimalTolerance is not large enough for this test data.
-    // With radius 0.01 degrees, the max perpendicular distance between
-    // adjacent points is tiny, so the binary search range [0.00001, 0.01]
-    // either over-simplifies or doesn't simplify at all.
-    test('large polygon with small radius is not simplified due to tolerance range', () {
+    test('large polygon with small radius is simplified with adaptive tolerance', () {
       final large = List.generate(
         1000,
         (i) {
@@ -71,8 +60,10 @@ void main() {
       );
 
       final result = PolygonSimplifier.simplify(large, targetPoints: 50);
-      // Returns unchanged — tolerance range can't find a good reduction
-      expect(result.length, large.length);
+      // Adaptive tolerance range now covers the actual point distances,
+      // so simplification works regardless of polygon scale.
+      expect(result.length, lessThan(large.length));
+      expect(result.length, greaterThan(2));
     });
 
     test('large polygon with wider radius is simplified', () {

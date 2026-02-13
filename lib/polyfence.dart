@@ -47,6 +47,7 @@ export 'src/models/zone.dart';
 export 'src/models/geofence_event.dart';
 export 'src/models/location.dart';
 export 'src/models/industry_category.dart';
+export 'src/models/polyfence_runtime_status.dart';
 export 'src/services/polyfence_service.dart';
 export 'src/services/analytics_service.dart';
 export 'src/services/app_lifecycle_manager.dart';

@@ -1,6 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:polyfence/polyfence.dart';
-import 'package:polyfence/src/models/polyfence_runtime_status.dart';
 
 void main() {
   group('PolyfenceRuntimeStatus', () {

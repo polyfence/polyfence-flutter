@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import '../models/location.dart';
 
 /// Douglas-Peucker polygon simplification algorithm
@@ -49,17 +51,8 @@ class PolygonSimplifier {
     );
   }
 
-  static double _sqrt(double x) => x >= 0 ? _fastSqrt(x) : 0;
+  static double _sqrt(double x) => x >= 0 ? math.sqrt(x) : 0;
   static double _pow(double x, int n) => n == 2 ? x * x : x;
-  static double _fastSqrt(double x) {
-    // Newton-Raphson approximation - good enough for distance comparisons
-    if (x == 0) return 0;
-    double guess = x / 2;
-    for (int i = 0; i < 10; i++) {
-      guess = (guess + x / guess) / 2;
-    }
-    return guess;
-  }
 
   /// Douglas-Peucker algorithm for polygon simplification
   static List<PolyfenceLocation> _douglasPeucker(
@@ -97,36 +90,97 @@ class PolygonSimplifier {
     }
   }
 
-  /// Calculate optimal tolerance to reach target point count
-  /// Uses binary search to find tolerance that gets close to target
+  /// Calculate the bounding box diagonal of a point set.
+  ///
+  /// Used to determine the overall spatial extent of the polygon for
+  /// detecting effectively-collinear point sets.
+  static double _boundingBoxDiagonal(List<PolyfenceLocation> points) {
+    if (points.isEmpty) return 0;
+
+    double minLat = points[0].latitude;
+    double maxLat = points[0].latitude;
+    double minLng = points[0].longitude;
+    double maxLng = points[0].longitude;
+
+    for (final p in points) {
+      if (p.latitude < minLat) minLat = p.latitude;
+      if (p.latitude > maxLat) maxLat = p.latitude;
+      if (p.longitude < minLng) minLng = p.longitude;
+      if (p.longitude > maxLng) maxLng = p.longitude;
+    }
+
+    final dlat = maxLat - minLat;
+    final dlng = maxLng - minLng;
+    return _sqrt(dlat * dlat + dlng * dlng);
+  }
+
+  /// Calculate the maximum perpendicular distance across all points.
+  ///
+  /// Used to determine the adaptive tolerance range for binary search.
+  static double _maxPerpendicularDistance(List<PolyfenceLocation> points) {
+    if (points.length <= 2) return 0;
+
+    double maxDist = 0;
+    final end = points.length - 1;
+    for (int i = 1; i < end; i++) {
+      final dist = _perpendicularDistance(points[i], points[0], points[end]);
+      if (dist > maxDist) maxDist = dist;
+    }
+    return maxDist;
+  }
+
+  /// Calculate optimal tolerance to reach target point count.
+  ///
+  /// Uses binary search with an adaptive tolerance range derived from the
+  /// actual point distances, rather than hardcoded bounds. This ensures
+  /// correct simplification for polygons of any scale — from tiny coordinate
+  /// differences to large geographic areas.
   static double _findOptimalTolerance(
     List<PolyfenceLocation> points,
-    int targetPoints, {
-    double minTolerance = 0.00001,
-    double maxTolerance = 0.01,
-  }) {
+    int targetPoints,
+  ) {
     if (points.length <= targetPoints) {
       return 0; // No simplification needed
     }
 
-    double low = minTolerance;
-    double high = maxTolerance;
-    double bestTolerance = minTolerance;
-    int iterations = 0;
-    const maxIterations = 20;
+    // Compute adaptive tolerance range from actual point geometry.
+    // maxDist is the largest perpendicular distance any point has from the
+    // first-to-last baseline. The optimal tolerance lies between 0 and this
+    // value — using it as the upper bound ensures binary search covers the
+    // full range regardless of polygon scale.
+    final maxDist = _maxPerpendicularDistance(points);
 
-    while (iterations < maxIterations && high - low > 0.000001) {
+    // Compute the polygon's bounding box diagonal as a measure of overall extent.
+    // If maxDist is negligible relative to this extent, the points are
+    // effectively collinear and any tolerance above maxDist will collapse
+    // them to endpoints.
+    final extent = _boundingBoxDiagonal(points);
+
+    if (maxDist == 0 || (extent > 0 && maxDist / extent < 1e-10)) {
+      // All points are collinear (or nearly so). Any tolerance above maxDist
+      // collapses everything to 2 endpoints. Return a value above maxDist
+      // to ensure simplification occurs.
+      return maxDist + extent * 0.01;
+    }
+
+    double low = 0;
+    double high = maxDist;
+    double bestTolerance = maxDist / 2;
+    int iterations = 0;
+    const maxIterations = 30;
+
+    while (iterations < maxIterations && high - low > maxDist * 1e-9) {
       final mid = (low + high) / 2;
       final simplified = _douglasPeucker(points, mid);
 
       if (simplified.length > targetPoints) {
-        // Need more simplification
+        // Need more simplification — increase tolerance
         low = mid;
       } else if (simplified.length < targetPoints * 0.8) {
-        // Simplified too much
+        // Simplified too much — decrease tolerance
         high = mid;
       } else {
-        // Close enough
+        // Close enough to target
         bestTolerance = mid;
         break;
       }

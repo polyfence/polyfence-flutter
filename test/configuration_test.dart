@@ -4,7 +4,7 @@ import 'package:polyfence/polyfence.dart';
 void main() {
   group('PolyfenceConfiguration', () {
     test('default values are correct', () {
-      const config = PolyfenceConfiguration();
+      final config = PolyfenceConfiguration();
 
       expect(config.accuracyProfile, PolyfenceAccuracyProfile.maxAccuracy);
       expect(config.updateStrategy, PolyfenceUpdateStrategy.continuous);
@@ -20,7 +20,7 @@ void main() {
     });
 
     test('toMap/fromMap round-trip preserves all fields', () {
-      const config = PolyfenceConfiguration(
+      final config = PolyfenceConfiguration(
         accuracyProfile: PolyfenceAccuracyProfile.balanced,
         updateStrategy: PolyfenceUpdateStrategy.intelligent,
         proximitySettings: ProximitySettings(
@@ -28,7 +28,7 @@ void main() {
           farZoneThresholdMeters: 3000.0,
         ),
         movementSettings: MovementSettings(
-          stationaryThreshold: Duration(minutes: 10),
+          stationaryThreshold: const Duration(minutes: 10),
           movementThresholdMeters: 25.0,
         ),
         batterySettings: BatterySettings(
@@ -37,7 +37,7 @@ void main() {
         ),
         dwellSettings: DwellSettings(
           enabled: true,
-          dwellThreshold: Duration(minutes: 10),
+          dwellThreshold: const Duration(minutes: 10),
         ),
         clusterSettings: ClusterSettings(
           enabled: true,
@@ -49,7 +49,7 @@ void main() {
             TimeWindow(
               startTime: TimeOfDay(hour: 9, minute: 0),
               endTime: TimeOfDay(hour: 17, minute: 30),
-              daysOfWeek: [1, 2, 3, 4, 5],
+              daysOfWeek: const [1, 2, 3, 4, 5],
             ),
           ],
         ),
@@ -57,8 +57,8 @@ void main() {
           enabled: true,
           confidenceThreshold: 80,
           debounceSeconds: 45,
-          stillInterval: Duration(seconds: 120),
-          drivingInterval: Duration(seconds: 3),
+          stillInterval: const Duration(seconds: 120),
+          drivingInterval: const Duration(seconds: 3),
         ),
         gpsAccuracyThreshold: 50.0,
         enableDebugLogging: true,
@@ -80,20 +80,20 @@ void main() {
       expect(restored.activitySettings, isNotNull);
     });
 
-    // BUG: PolyfenceConfiguration.fromMap({}) crashes with
-    // "type 'Null' is not a subtype of type 'String'" because
-    // EnumUtils.fromChannelFormat takes a non-nullable String but
-    // map['accuracyProfile'] is null for empty maps. The fromMap factory
-    // should null-check before calling EnumUtils.fromChannelFormat.
-    test('fromMap with empty map throws due to null enum values', () {
-      expect(
-        () => PolyfenceConfiguration.fromMap({}),
-        throwsA(isA<TypeError>()),
-      );
+    test('fromMap with empty map uses defaults', () {
+      final config = PolyfenceConfiguration.fromMap({});
+
+      expect(config.accuracyProfile, PolyfenceAccuracyProfile.maxAccuracy);
+      expect(config.updateStrategy, PolyfenceUpdateStrategy.continuous);
+      expect(config.gpsAccuracyThreshold, 100.0);
+      expect(config.enableDebugLogging, false);
+      expect(config.proximitySettings, isNull);
+      expect(config.movementSettings, isNull);
+      expect(config.batterySettings, isNull);
     });
 
     test('copyWith updates specified fields and preserves others', () {
-      const original = PolyfenceConfiguration(
+      final original = PolyfenceConfiguration(
         accuracyProfile: PolyfenceAccuracyProfile.maxAccuracy,
         gpsAccuracyThreshold: 100.0,
         enableDebugLogging: false,
@@ -132,7 +132,7 @@ void main() {
     });
 
     test('toString contains key fields', () {
-      const config = PolyfenceConfiguration();
+      final config = PolyfenceConfiguration();
       final str = config.toString();
       expect(str, contains('accuracyProfile'));
       expect(str, contains('updateStrategy'));
@@ -142,7 +142,7 @@ void main() {
 
   group('ProximitySettings', () {
     test('default values are correct', () {
-      const settings = ProximitySettings();
+      final settings = ProximitySettings();
       expect(settings.nearZoneThresholdMeters, 500.0);
       expect(settings.farZoneThresholdMeters, 2000.0);
       expect(settings.nearZoneUpdateInterval, const Duration(seconds: 5));
@@ -150,7 +150,7 @@ void main() {
     });
 
     test('toMap/fromMap round-trip preserves values', () {
-      const settings = ProximitySettings(
+      final settings = ProximitySettings(
         nearZoneThresholdMeters: 200.0,
         farZoneThresholdMeters: 5000.0,
         nearZoneUpdateInterval: Duration(seconds: 3),
@@ -173,7 +173,7 @@ void main() {
     });
 
     test('toMap serializes intervals as milliseconds', () {
-      const settings = ProximitySettings(
+      final settings = ProximitySettings(
         nearZoneUpdateInterval: Duration(seconds: 10),
         farZoneUpdateInterval: Duration(minutes: 2),
       );
@@ -185,7 +185,7 @@ void main() {
 
   group('MovementSettings', () {
     test('default values are correct', () {
-      const settings = MovementSettings();
+      final settings = MovementSettings();
       expect(settings.stationaryThreshold, const Duration(minutes: 5));
       expect(settings.movementThresholdMeters, 50.0);
       expect(settings.stationaryUpdateInterval, const Duration(minutes: 2));
@@ -193,7 +193,7 @@ void main() {
     });
 
     test('toMap/fromMap round-trip preserves values', () {
-      const settings = MovementSettings(
+      final settings = MovementSettings(
         stationaryThreshold: Duration(minutes: 10),
         movementThresholdMeters: 25.0,
         stationaryUpdateInterval: Duration(minutes: 5),
@@ -218,7 +218,7 @@ void main() {
 
   group('BatterySettings', () {
     test('default values are correct', () {
-      const settings = BatterySettings();
+      final settings = BatterySettings();
       expect(settings.lowBatteryThreshold, 20);
       expect(settings.criticalBatteryThreshold, 10);
       expect(
@@ -227,7 +227,7 @@ void main() {
     });
 
     test('toMap/fromMap round-trip preserves values', () {
-      const settings = BatterySettings(
+      final settings = BatterySettings(
         lowBatteryThreshold: 25,
         criticalBatteryThreshold: 5,
         lowBatteryUpdateInterval: Duration(minutes: 1),
@@ -252,13 +252,13 @@ void main() {
 
   group('DwellSettings', () {
     test('default values are correct', () {
-      const settings = DwellSettings();
+      final settings = DwellSettings();
       expect(settings.enabled, true);
       expect(settings.dwellThreshold, const Duration(minutes: 5));
     });
 
     test('toMap/fromMap round-trip preserves values', () {
-      const settings = DwellSettings(
+      final settings = DwellSettings(
         enabled: false,
         dwellThreshold: Duration(minutes: 15),
       );
@@ -279,14 +279,14 @@ void main() {
 
   group('ClusterSettings', () {
     test('default values are correct', () {
-      const settings = ClusterSettings();
+      final settings = ClusterSettings();
       expect(settings.enabled, false);
       expect(settings.activeRadiusMeters, 5000.0);
       expect(settings.refreshDistanceMeters, 1000.0);
     });
 
     test('toMap/fromMap round-trip preserves values', () {
-      const settings = ClusterSettings(
+      final settings = ClusterSettings(
         enabled: true,
         activeRadiusMeters: 10000.0,
         refreshDistanceMeters: 2000.0,
@@ -309,7 +309,7 @@ void main() {
 
   group('TimeOfDay', () {
     test('toMap/fromMap round-trip', () {
-      const tod = TimeOfDay(hour: 14, minute: 30);
+      final tod = TimeOfDay(hour: 14, minute: 30);
       final map = tod.toMap();
       final restored = TimeOfDay.fromMap(map);
 
@@ -318,12 +318,12 @@ void main() {
     });
 
     test('toString formats with leading zeros', () {
-      const tod = TimeOfDay(hour: 9, minute: 5);
+      final tod = TimeOfDay(hour: 9, minute: 5);
       expect(tod.toString(), '09:05');
     });
 
     test('toString formats midnight correctly', () {
-      const tod = TimeOfDay(hour: 0, minute: 0);
+      final tod = TimeOfDay(hour: 0, minute: 0);
       expect(tod.toString(), '00:00');
     });
 
@@ -336,7 +336,7 @@ void main() {
 
   group('TimeWindow', () {
     test('toMap/fromMap round-trip', () {
-      const window = TimeWindow(
+      final window = TimeWindow(
         startTime: TimeOfDay(hour: 9, minute: 0),
         endTime: TimeOfDay(hour: 17, minute: 0),
         daysOfWeek: [1, 2, 3, 4, 5],
@@ -351,7 +351,7 @@ void main() {
     });
 
     test('defaults to empty daysOfWeek (all days)', () {
-      const window = TimeWindow(
+      final window = TimeWindow(
         startTime: TimeOfDay(hour: 0, minute: 0),
         endTime: TimeOfDay(hour: 23, minute: 59),
       );
@@ -359,7 +359,7 @@ void main() {
     });
 
     test('toString includes time range and days', () {
-      const window = TimeWindow(
+      final window = TimeWindow(
         startTime: TimeOfDay(hour: 9, minute: 0),
         endTime: TimeOfDay(hour: 17, minute: 0),
         daysOfWeek: [1, 5],
@@ -373,14 +373,14 @@ void main() {
 
   group('ScheduleSettings', () {
     test('default values are correct', () {
-      const settings = ScheduleSettings();
+      final settings = ScheduleSettings();
       expect(settings.enabled, false);
       expect(settings.timeWindows, isEmpty);
       expect(settings.startImmediatelyIfInWindow, true);
     });
 
     test('toMap/fromMap round-trip with time windows', () {
-      const settings = ScheduleSettings(
+      final settings = ScheduleSettings(
         enabled: true,
         timeWindows: [
           TimeWindow(
@@ -410,7 +410,7 @@ void main() {
 
   group('ActivitySettings', () {
     test('default values are correct', () {
-      const settings = ActivitySettings();
+      final settings = ActivitySettings();
       expect(settings.enabled, false);
       expect(settings.confidenceThreshold, 75);
       expect(settings.debounceSeconds, 30);
@@ -422,7 +422,7 @@ void main() {
     });
 
     test('toMap/fromMap round-trip with all intervals', () {
-      const settings = ActivitySettings(
+      final settings = ActivitySettings(
         enabled: true,
         confidenceThreshold: 90,
         debounceSeconds: 60,
@@ -447,7 +447,7 @@ void main() {
     });
 
     test('toMap omits null intervals', () {
-      const settings = ActivitySettings(
+      final settings = ActivitySettings(
         stillInterval: Duration(seconds: 120),
       );
       final map = settings.toMap();
@@ -472,6 +472,291 @@ void main() {
       expect(settings.enabled, false);
       expect(settings.confidenceThreshold, 75);
       expect(settings.debounceSeconds, 30);
+    });
+  });
+
+  group('Configuration validation', () {
+    group('PolyfenceConfiguration', () {
+      test('rejects zero gpsAccuracyThreshold', () {
+        expect(
+          () => PolyfenceConfiguration(gpsAccuracyThreshold: 0),
+          throwsA(isA<ArgumentError>()),
+        );
+      });
+
+      test('rejects negative gpsAccuracyThreshold', () {
+        expect(
+          () => PolyfenceConfiguration(gpsAccuracyThreshold: -10.0),
+          throwsA(isA<ArgumentError>()),
+        );
+      });
+
+      test('accepts positive gpsAccuracyThreshold', () {
+        expect(
+          () => PolyfenceConfiguration(gpsAccuracyThreshold: 0.1),
+          returnsNormally,
+        );
+      });
+    });
+
+    group('ProximitySettings', () {
+      test('rejects zero nearZoneThresholdMeters', () {
+        expect(
+          () => ProximitySettings(nearZoneThresholdMeters: 0),
+          throwsA(isA<ArgumentError>()),
+        );
+      });
+
+      test('rejects negative farZoneThresholdMeters', () {
+        expect(
+          () => ProximitySettings(farZoneThresholdMeters: -100),
+          throwsA(isA<ArgumentError>()),
+        );
+      });
+
+      test('rejects near >= far threshold', () {
+        expect(
+          () => ProximitySettings(
+            nearZoneThresholdMeters: 2000.0,
+            farZoneThresholdMeters: 2000.0,
+          ),
+          throwsA(isA<ArgumentError>()),
+        );
+      });
+
+      test('rejects near > far threshold', () {
+        expect(
+          () => ProximitySettings(
+            nearZoneThresholdMeters: 3000.0,
+            farZoneThresholdMeters: 1000.0,
+          ),
+          throwsA(isA<ArgumentError>()),
+        );
+      });
+
+      test('accepts valid near < far thresholds', () {
+        expect(
+          () => ProximitySettings(
+            nearZoneThresholdMeters: 100.0,
+            farZoneThresholdMeters: 500.0,
+          ),
+          returnsNormally,
+        );
+      });
+    });
+
+    group('MovementSettings', () {
+      test('rejects zero movementThresholdMeters', () {
+        expect(
+          () => MovementSettings(movementThresholdMeters: 0),
+          throwsA(isA<ArgumentError>()),
+        );
+      });
+
+      test('rejects negative movementThresholdMeters', () {
+        expect(
+          () => MovementSettings(movementThresholdMeters: -1),
+          throwsA(isA<ArgumentError>()),
+        );
+      });
+    });
+
+    group('DwellSettings', () {
+      test('rejects zero dwellThreshold', () {
+        expect(
+          () => DwellSettings(dwellThreshold: Duration.zero),
+          throwsA(isA<ArgumentError>()),
+        );
+      });
+
+      test('rejects negative dwellThreshold', () {
+        expect(
+          () => DwellSettings(
+            dwellThreshold: const Duration(milliseconds: -1),
+          ),
+          throwsA(isA<ArgumentError>()),
+        );
+      });
+    });
+
+    group('ClusterSettings', () {
+      test('rejects zero activeRadiusMeters', () {
+        expect(
+          () => ClusterSettings(activeRadiusMeters: 0),
+          throwsA(isA<ArgumentError>()),
+        );
+      });
+
+      test('rejects negative refreshDistanceMeters', () {
+        expect(
+          () => ClusterSettings(refreshDistanceMeters: -500),
+          throwsA(isA<ArgumentError>()),
+        );
+      });
+    });
+
+    group('TimeOfDay', () {
+      test('rejects hour < 0', () {
+        expect(
+          () => TimeOfDay(hour: -1, minute: 0),
+          throwsA(isA<ArgumentError>()),
+        );
+      });
+
+      test('rejects hour > 23', () {
+        expect(
+          () => TimeOfDay(hour: 24, minute: 0),
+          throwsA(isA<ArgumentError>()),
+        );
+      });
+
+      test('rejects minute < 0', () {
+        expect(
+          () => TimeOfDay(hour: 0, minute: -1),
+          throwsA(isA<ArgumentError>()),
+        );
+      });
+
+      test('rejects minute > 59', () {
+        expect(
+          () => TimeOfDay(hour: 0, minute: 60),
+          throwsA(isA<ArgumentError>()),
+        );
+      });
+
+      test('accepts boundary values (0:00 and 23:59)', () {
+        expect(() => TimeOfDay(hour: 0, minute: 0), returnsNormally);
+        expect(() => TimeOfDay(hour: 23, minute: 59), returnsNormally);
+      });
+    });
+
+    group('TimeWindow', () {
+      test('rejects daysOfWeek value < 1', () {
+        expect(
+          () => TimeWindow(
+            startTime: TimeOfDay(hour: 9, minute: 0),
+            endTime: TimeOfDay(hour: 17, minute: 0),
+            daysOfWeek: const [0],
+          ),
+          throwsA(isA<ArgumentError>()),
+        );
+      });
+
+      test('rejects daysOfWeek value > 7', () {
+        expect(
+          () => TimeWindow(
+            startTime: TimeOfDay(hour: 9, minute: 0),
+            endTime: TimeOfDay(hour: 17, minute: 0),
+            daysOfWeek: const [8],
+          ),
+          throwsA(isA<ArgumentError>()),
+        );
+      });
+
+      test('accepts valid daysOfWeek 1-7', () {
+        expect(
+          () => TimeWindow(
+            startTime: TimeOfDay(hour: 9, minute: 0),
+            endTime: TimeOfDay(hour: 17, minute: 0),
+            daysOfWeek: const [1, 2, 3, 4, 5, 6, 7],
+          ),
+          returnsNormally,
+        );
+      });
+    });
+
+    group('BatterySettings', () {
+      test('rejects lowBatteryThreshold < 0', () {
+        expect(
+          () => BatterySettings(
+            lowBatteryThreshold: -1,
+            criticalBatteryThreshold: -2,
+          ),
+          throwsA(isA<ArgumentError>()),
+        );
+      });
+
+      test('rejects lowBatteryThreshold > 100', () {
+        expect(
+          () => BatterySettings(lowBatteryThreshold: 101),
+          throwsA(isA<ArgumentError>()),
+        );
+      });
+
+      test('rejects criticalBatteryThreshold > 100', () {
+        expect(
+          () => BatterySettings(
+            lowBatteryThreshold: 100,
+            criticalBatteryThreshold: 101,
+          ),
+          throwsA(isA<ArgumentError>()),
+        );
+      });
+
+      test('rejects critical >= low', () {
+        expect(
+          () => BatterySettings(
+            lowBatteryThreshold: 20,
+            criticalBatteryThreshold: 20,
+          ),
+          throwsA(isA<ArgumentError>()),
+        );
+      });
+
+      test('rejects critical > low', () {
+        expect(
+          () => BatterySettings(
+            lowBatteryThreshold: 10,
+            criticalBatteryThreshold: 20,
+          ),
+          throwsA(isA<ArgumentError>()),
+        );
+      });
+
+      test('accepts valid thresholds', () {
+        expect(
+          () => BatterySettings(
+            lowBatteryThreshold: 20,
+            criticalBatteryThreshold: 5,
+          ),
+          returnsNormally,
+        );
+      });
+    });
+
+    group('ActivitySettings', () {
+      test('rejects confidenceThreshold < 0', () {
+        expect(
+          () => ActivitySettings(confidenceThreshold: -1),
+          throwsA(isA<ArgumentError>()),
+        );
+      });
+
+      test('rejects confidenceThreshold > 100', () {
+        expect(
+          () => ActivitySettings(confidenceThreshold: 101),
+          throwsA(isA<ArgumentError>()),
+        );
+      });
+
+      test('rejects negative debounceSeconds', () {
+        expect(
+          () => ActivitySettings(debounceSeconds: -1),
+          throwsA(isA<ArgumentError>()),
+        );
+      });
+
+      test('accepts boundary values (0 and 100 confidence)', () {
+        expect(() => ActivitySettings(confidenceThreshold: 0), returnsNormally);
+        expect(
+          () => ActivitySettings(confidenceThreshold: 100),
+          returnsNormally,
+        );
+      });
+
+      test('accepts zero debounceSeconds', () {
+        expect(() => ActivitySettings(debounceSeconds: 0), returnsNormally);
+      });
     });
   });
 }

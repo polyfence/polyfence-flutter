@@ -502,7 +502,7 @@ Polyfence includes comprehensive battery optimizations that reduce drain by an e
 | **Callback Throttling** | Reduce Flutter callbacks to 30s when stationary | Android & iOS |
 | **Profile-based Wake Lock** | Wake lock duration tied to accuracy profile (4-12 hours) | Android |
 | **Consolidated Timers** | Reduced health check timers from 4 to 2 | Android |
-| **OEM Device Detection** | Detects Samsung/Xiaomi/Huawei for optimized defaults | Android |
+| **OEM Device Detection** | Detects Samsung/Xiaomi/Huawei and logs device info for debugging | Android |
 
 **Default Profile**: BALANCED (provides good accuracy with reasonable battery impact)
 
@@ -638,17 +638,7 @@ Zones are automatically persisted across app restarts — no manual persistence 
 
 ### OEM Battery Restrictions (Android)
 
-Some manufacturers aggressively kill background services. If tracking stops working on specific devices:
-
-| Manufacturer | Setting Path |
-|:---|:---|
-| **Samsung** | Settings → Battery → Background usage limits → Add your app to "Never sleeping apps" |
-| **Xiaomi (MIUI)** | Settings → Apps → Manage apps → Your app → Autostart (enable) + Battery saver → No restrictions |
-| **Huawei (EMUI)** | Settings → Battery → App launch → Your app → Manage manually → Enable all toggles |
-| **OnePlus (OxygenOS)** | Settings → Battery → Battery optimization → Your app → Don't optimize |
-| **Oppo (ColorOS)** | Settings → Battery → Energy saver → Your app → Allow background activity |
-
-For a comprehensive list, see [dontkillmyapp.com](https://dontkillmyapp.com).
+Some Android manufacturers (Samsung, Xiaomi, Huawei, OnePlus, Oppo) aggressively kill background services. If tracking stops on specific devices, the user likely needs to whitelist your app from battery optimization. See [dontkillmyapp.com](https://dontkillmyapp.com) for device-specific instructions.
 
 ### Debugging
 

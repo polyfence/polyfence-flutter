@@ -113,10 +113,17 @@ class PolyfenceError {
   });
 
   /// Creates an error from a map (used for platform channel deserialization).
+  ///
+  /// Handles both camelCase (Dart convention, e.g. `"permissionRevoked"`) and
+  /// snake_case (native convention, e.g. `"permission_revoked"`) type strings.
   factory PolyfenceError.fromMap(Map<String, dynamic> map) {
+    final rawType = map['type'] as String? ?? '';
+    // Normalize: convert snake_case to camelCase for matching against enum names
+    final normalizedType = _snakeToCamel(rawType);
+
     return PolyfenceError(
       type: PolyfenceErrorType.values.firstWhere(
-        (e) => e.toString().split('.').last == map['type'],
+        (e) => e.toString().split('.').last == normalizedType,
         orElse: () => PolyfenceErrorType.unknown,
       ),
       message: map['message'] ?? '',
@@ -124,6 +131,21 @@ class PolyfenceError {
       timestamp: DateTime.fromMillisecondsSinceEpoch(map['timestamp'] ?? 0),
       correlationId: map['correlationId'],
     );
+  }
+
+  /// Converts a snake_case string to camelCase.
+  /// Returns the input unchanged if it's already camelCase or has no underscores.
+  static String _snakeToCamel(String input) {
+    if (!input.contains('_')) return input;
+    final parts = input.split('_');
+    final buffer = StringBuffer(parts.first);
+    for (var i = 1; i < parts.length; i++) {
+      if (parts[i].isNotEmpty) {
+        buffer.write(parts[i][0].toUpperCase());
+        buffer.write(parts[i].substring(1));
+      }
+    }
+    return buffer.toString();
   }
 
   /// Converts this error to a map for serialization.

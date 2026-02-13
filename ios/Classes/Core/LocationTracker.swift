@@ -820,6 +820,20 @@ extension LocationTracker: CLLocationManagerDelegate {
                 }
             }
         case .denied, .restricted:
+            // Emit permission revocation error to Flutter error stream before stopping
+            if isRunning || trackingEnabled {
+                let statusName = status == .denied ? "denied" : "restricted"
+                NSLog("[LocationTracker] Location permission changed to \(statusName) while tracking was active")
+                PolyfenceErrorManager.shared.reportError(
+                    type: "permission_revoked",
+                    message: "Location permission was revoked while tracking was active (status: \(statusName))",
+                    context: [
+                        "platform": "ios",
+                        "authorizationStatus": statusName,
+                        "timestamp": Int64(Date().timeIntervalSince1970 * 1000)
+                    ]
+                )
+            }
             handlePermissionLoss()
         case .notDetermined:
             break

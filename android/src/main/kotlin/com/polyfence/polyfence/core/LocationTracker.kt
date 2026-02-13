@@ -383,11 +383,16 @@ class LocationTracker : Service() {
             Log.d(TAG, "GPS updates started with profile: ${smartConfig.accuracyProfile}")
         } catch (e: SecurityException) {
             Log.e(TAG, "Location permission denied: ${e.message}")
+            PolyfenceErrorManager.reportError(
+                "permission_revoked",
+                "Location permission was revoked - SecurityException during GPS start",
+                mapOf("platform" to "android", "error" to (e.message ?: ""), "timestamp" to System.currentTimeMillis())
+            )
             errorRecovery.handlePermissionLoss()
             stopSelf()
         }
     }
-    
+
     private fun stopTracking() {
         
         isRunning = false
@@ -927,6 +932,11 @@ private fun handleGeofenceEvent(zoneId: String, eventType: String, location: and
                     )
                 } catch (e: SecurityException) {
                     Log.e(TAG, "GPS restart failed - permission denied: ${e.message}")
+                    PolyfenceErrorManager.reportError(
+                        "permission_revoked",
+                        "Location permission was revoked - SecurityException during GPS restart",
+                        mapOf("platform" to "android", "error" to (e.message ?: ""), "timestamp" to System.currentTimeMillis())
+                    )
                     errorRecovery.handlePermissionLoss()
                 }
             }
@@ -1101,6 +1111,11 @@ private fun handleGeofenceEvent(zoneId: String, eventType: String, location: and
             emitRuntimeStatus()
         } catch (e: SecurityException) {
             Log.e(TAG, "Security exception updating location request: ${e.message}")
+            PolyfenceErrorManager.reportError(
+                "permission_revoked",
+                "Location permission was revoked - SecurityException during GPS update",
+                mapOf("platform" to "android", "error" to (e.message ?: ""), "timestamp" to System.currentTimeMillis())
+            )
             errorRecovery.handlePermissionLoss()
             stopSelf()
         }

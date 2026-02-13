@@ -135,6 +135,34 @@ class PolyfenceLocation {
   }
 
   @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is PolyfenceLocation &&
+        other.latitude == latitude &&
+        other.longitude == longitude &&
+        other.altitude == altitude &&
+        other.accuracy == accuracy &&
+        other.timestamp == timestamp &&
+        other.speed == speed &&
+        other.interval == interval &&
+        other.isFallback == isFallback &&
+        other.activity == activity;
+  }
+
+  @override
+  int get hashCode => Object.hash(
+        latitude,
+        longitude,
+        altitude,
+        accuracy,
+        timestamp,
+        speed,
+        interval,
+        isFallback,
+        activity,
+      );
+
+  @override
   String toString() {
     return 'PolyfenceLocation(lat: $latitude, lng: $longitude)';
   }

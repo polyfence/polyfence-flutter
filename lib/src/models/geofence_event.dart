@@ -87,4 +87,18 @@ class GeofenceEvent {
       zone: json['zone'] != null ? Zone.fromJson(json['zone']) : null,
     );
   }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is GeofenceEvent &&
+        other.zoneId == zoneId &&
+        other.type == type &&
+        other.location == location &&
+        other.timestamp == timestamp &&
+        other.zone == zone;
+  }
+
+  @override
+  int get hashCode => Object.hash(zoneId, type, location, timestamp, zone);
 }

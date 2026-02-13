@@ -2,6 +2,8 @@
 /// Provides flexible GPS accuracy/battery profiles for different use cases
 library polyfence_configuration;
 
+import 'package:flutter/foundation.dart';
+
 import '../utils/enum_utils.dart';
 
 /// GPS accuracy profiles that balance precision vs battery consumption
@@ -195,6 +197,38 @@ class PolyfenceConfiguration {
   }
 
   @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is PolyfenceConfiguration &&
+        other.accuracyProfile == accuracyProfile &&
+        other.updateStrategy == updateStrategy &&
+        other.proximitySettings == proximitySettings &&
+        other.movementSettings == movementSettings &&
+        other.batterySettings == batterySettings &&
+        other.dwellSettings == dwellSettings &&
+        other.clusterSettings == clusterSettings &&
+        other.scheduleSettings == scheduleSettings &&
+        other.activitySettings == activitySettings &&
+        other.gpsAccuracyThreshold == gpsAccuracyThreshold &&
+        other.enableDebugLogging == enableDebugLogging;
+  }
+
+  @override
+  int get hashCode => Object.hash(
+        accuracyProfile,
+        updateStrategy,
+        proximitySettings,
+        movementSettings,
+        batterySettings,
+        dwellSettings,
+        clusterSettings,
+        scheduleSettings,
+        activitySettings,
+        gpsAccuracyThreshold,
+        enableDebugLogging,
+      );
+
+  @override
   String toString() {
     return 'PolyfenceConfiguration('
         'accuracyProfile: $accuracyProfile, '
@@ -283,6 +317,24 @@ class ProximitySettings {
   }
 
   @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is ProximitySettings &&
+        other.nearZoneThresholdMeters == nearZoneThresholdMeters &&
+        other.farZoneThresholdMeters == farZoneThresholdMeters &&
+        other.nearZoneUpdateInterval == nearZoneUpdateInterval &&
+        other.farZoneUpdateInterval == farZoneUpdateInterval;
+  }
+
+  @override
+  int get hashCode => Object.hash(
+        nearZoneThresholdMeters,
+        farZoneThresholdMeters,
+        nearZoneUpdateInterval,
+        farZoneUpdateInterval,
+      );
+
+  @override
   String toString() {
     return 'ProximitySettings('
         'nearZoneThresholdMeters: $nearZoneThresholdMeters, '
@@ -351,6 +403,24 @@ class MovementSettings {
   }
 
   @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is MovementSettings &&
+        other.stationaryThreshold == stationaryThreshold &&
+        other.movementThresholdMeters == movementThresholdMeters &&
+        other.stationaryUpdateInterval == stationaryUpdateInterval &&
+        other.movingUpdateInterval == movingUpdateInterval;
+  }
+
+  @override
+  int get hashCode => Object.hash(
+        stationaryThreshold,
+        movementThresholdMeters,
+        stationaryUpdateInterval,
+        movingUpdateInterval,
+      );
+
+  @override
   String toString() {
     return 'MovementSettings('
         'stationaryThreshold: $stationaryThreshold, '
@@ -401,6 +471,17 @@ class DwellSettings {
       ),
     );
   }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is DwellSettings &&
+        other.enabled == enabled &&
+        other.dwellThreshold == dwellThreshold;
+  }
+
+  @override
+  int get hashCode => Object.hash(enabled, dwellThreshold);
 
   @override
   String toString() {
@@ -471,6 +552,19 @@ class ClusterSettings {
   }
 
   @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is ClusterSettings &&
+        other.enabled == enabled &&
+        other.activeRadiusMeters == activeRadiusMeters &&
+        other.refreshDistanceMeters == refreshDistanceMeters;
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(enabled, activeRadiusMeters, refreshDistanceMeters);
+
+  @override
   String toString() {
     return 'ClusterSettings('
         'enabled: $enabled, '
@@ -517,6 +611,15 @@ class TimeOfDay {
       minute: map['minute']?.toInt() ?? 0,
     );
   }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is TimeOfDay && other.hour == hour && other.minute == minute;
+  }
+
+  @override
+  int get hashCode => Object.hash(hour, minute);
 
   @override
   String toString() {
@@ -575,6 +678,19 @@ class TimeWindow {
   }
 
   @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is TimeWindow &&
+        other.startTime == startTime &&
+        other.endTime == endTime &&
+        listEquals(other.daysOfWeek, daysOfWeek);
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(startTime, endTime, Object.hashAll(daysOfWeek));
+
+  @override
   String toString() {
     final days = daysOfWeek.isEmpty ? 'all days' : daysOfWeek.join(',');
     return 'TimeWindow($startTime - $endTime on $days)';
@@ -620,6 +736,22 @@ class ScheduleSettings {
       startImmediatelyIfInWindow: map['startImmediatelyIfInWindow'] ?? true,
     );
   }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is ScheduleSettings &&
+        other.enabled == enabled &&
+        listEquals(other.timeWindows, timeWindows) &&
+        other.startImmediatelyIfInWindow == startImmediatelyIfInWindow;
+  }
+
+  @override
+  int get hashCode => Object.hash(
+        enabled,
+        Object.hashAll(timeWindows),
+        startImmediatelyIfInWindow,
+      );
 
   @override
   String toString() {
@@ -761,6 +893,32 @@ class ActivitySettings {
   }
 
   @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is ActivitySettings &&
+        other.enabled == enabled &&
+        other.confidenceThreshold == confidenceThreshold &&
+        other.debounceSeconds == debounceSeconds &&
+        other.stillInterval == stillInterval &&
+        other.walkingInterval == walkingInterval &&
+        other.runningInterval == runningInterval &&
+        other.cyclingInterval == cyclingInterval &&
+        other.drivingInterval == drivingInterval;
+  }
+
+  @override
+  int get hashCode => Object.hash(
+        enabled,
+        confidenceThreshold,
+        debounceSeconds,
+        stillInterval,
+        walkingInterval,
+        runningInterval,
+        cyclingInterval,
+        drivingInterval,
+      );
+
+  @override
   String toString() {
     return 'ActivitySettings('
         'enabled: $enabled, '
@@ -840,6 +998,24 @@ class BatterySettings {
       pauseOnCriticalBattery: map['pauseOnCriticalBattery'] ?? true,
     );
   }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is BatterySettings &&
+        other.lowBatteryThreshold == lowBatteryThreshold &&
+        other.criticalBatteryThreshold == criticalBatteryThreshold &&
+        other.lowBatteryUpdateInterval == lowBatteryUpdateInterval &&
+        other.pauseOnCriticalBattery == pauseOnCriticalBattery;
+  }
+
+  @override
+  int get hashCode => Object.hash(
+        lowBatteryThreshold,
+        criticalBatteryThreshold,
+        lowBatteryUpdateInterval,
+        pauseOnCriticalBattery,
+      );
 
   @override
   String toString() {

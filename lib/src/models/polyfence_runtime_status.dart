@@ -42,4 +42,17 @@ class PolyfenceRuntimeStatus {
       return 'Far from zones (${nearestZoneDistanceM.toStringAsFixed(0)}m)';
     }
   }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is PolyfenceRuntimeStatus &&
+        other.intervalMs == intervalMs &&
+        other.nearestZoneDistanceM == nearestZoneDistanceM &&
+        other.timestamp == timestamp;
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(intervalMs, nearestZoneDistanceM, timestamp);
 }

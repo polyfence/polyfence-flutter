@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 import 'location.dart';
 
 enum ZoneType { circle, polygon }
@@ -155,6 +157,35 @@ class Zone {
               .toList()
           : null,
       metadata: json['metadata'],
+    );
+  }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is Zone &&
+        other.id == id &&
+        other.name == name &&
+        other.type == type &&
+        other.center == center &&
+        other.radius == radius &&
+        listEquals(other.polygon, polygon) &&
+        mapEquals(other.metadata, metadata);
+  }
+
+  @override
+  int get hashCode {
+    var metadataHash = 0;
+    if (metadata != null) {
+      final sortedKeys = metadata!.keys.toList()..sort();
+      for (final key in sortedKeys) {
+        metadataHash = Object.hash(metadataHash, key, metadata![key]);
+      }
+    }
+    return Object.hash(
+      id, name, type, center, radius,
+      polygon != null ? Object.hashAll(polygon!) : null,
+      metadataHash,
     );
   }
 }

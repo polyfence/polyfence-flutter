@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 /// Categories of errors that can occur in Polyfence.
 ///
 /// Errors are emitted through [PolyfenceService.onError] and can be used
@@ -157,6 +159,27 @@ class PolyfenceError {
       'timestamp': timestamp.millisecondsSinceEpoch,
       'correlationId': correlationId,
     };
+  }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is PolyfenceError &&
+        other.type == type &&
+        other.message == message &&
+        mapEquals(other.context, context) &&
+        other.timestamp == timestamp &&
+        other.correlationId == correlationId;
+  }
+
+  @override
+  int get hashCode {
+    var contextHash = 0;
+    final sortedKeys = context.keys.toList()..sort();
+    for (final key in sortedKeys) {
+      contextHash = Object.hash(contextHash, key, context[key]);
+    }
+    return Object.hash(type, message, contextHash, timestamp, correlationId);
   }
 
   @override

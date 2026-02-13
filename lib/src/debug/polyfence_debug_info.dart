@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 /// Comprehensive debug information about the Polyfence plugin state.
 ///
 /// Returned by [PolyfenceService.debugInfo] for troubleshooting and monitoring.
@@ -58,6 +60,26 @@ class PolyfenceDebugInfo {
           [],
     );
   }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is PolyfenceDebugInfo &&
+        other.systemStatus == systemStatus &&
+        other.performance == performance &&
+        other.battery == battery &&
+        other.zones == zones &&
+        listEquals(other.recentErrors, recentErrors);
+  }
+
+  @override
+  int get hashCode => Object.hash(
+        systemStatus,
+        performance,
+        battery,
+        zones,
+        Object.hashAll(recentErrors),
+      );
 
   /// Converts to a map for serialization.
   Map<String, dynamic> toMap() {
@@ -131,6 +153,34 @@ class PolyfenceSystemStatus {
     );
   }
 
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is PolyfenceSystemStatus &&
+        other.isLocationPermissionGranted == isLocationPermissionGranted &&
+        other.isBackgroundLocationEnabled == isBackgroundLocationEnabled &&
+        other.isBatteryOptimizationDisabled == isBatteryOptimizationDisabled &&
+        other.isGpsEnabled == isGpsEnabled &&
+        other.isWakeLockAcquired == isWakeLockAcquired &&
+        other.lastKnownAccuracy == lastKnownAccuracy &&
+        other.lastLocationUpdate == lastLocationUpdate &&
+        other.platformVersion == platformVersion &&
+        other.pluginVersion == pluginVersion;
+  }
+
+  @override
+  int get hashCode => Object.hash(
+        isLocationPermissionGranted,
+        isBackgroundLocationEnabled,
+        isBatteryOptimizationDisabled,
+        isGpsEnabled,
+        isWakeLockAcquired,
+        lastKnownAccuracy,
+        lastLocationUpdate,
+        platformVersion,
+        pluginVersion,
+      );
+
   /// Converts to a map for serialization.
   Map<String, dynamic> toMap() {
     return {
@@ -195,6 +245,30 @@ class PolyfencePerformanceMetrics {
     );
   }
 
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is PolyfencePerformanceMetrics &&
+        other.uptime == uptime &&
+        other.totalLocationUpdates == totalLocationUpdates &&
+        other.totalZoneDetections == totalZoneDetections &&
+        other.averageDetectionLatency == averageDetectionLatency &&
+        other.memoryUsageMB == memoryUsageMB &&
+        other.cpuUsagePercent == cpuUsagePercent &&
+        other.restartCount == restartCount;
+  }
+
+  @override
+  int get hashCode => Object.hash(
+        uptime,
+        totalLocationUpdates,
+        totalZoneDetections,
+        averageDetectionLatency,
+        memoryUsageMB,
+        cpuUsagePercent,
+        restartCount,
+      );
+
   /// Converts to a map for serialization.
   Map<String, dynamic> toMap() {
     return {
@@ -251,6 +325,28 @@ class PolyfenceBatteryMetrics {
     );
   }
 
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is PolyfenceBatteryMetrics &&
+        other.estimatedHourlyDrain == estimatedHourlyDrain &&
+        other.gpsActiveTimePercent == gpsActiveTimePercent &&
+        other.wakeUpCount == wakeUpCount &&
+        other.isCharging == isCharging &&
+        other.batteryLevel == batteryLevel &&
+        other.totalActiveTime == totalActiveTime;
+  }
+
+  @override
+  int get hashCode => Object.hash(
+        estimatedHourlyDrain,
+        gpsActiveTimePercent,
+        wakeUpCount,
+        isCharging,
+        batteryLevel,
+        totalActiveTime,
+      );
+
   /// Converts to a map for serialization.
   Map<String, dynamic> toMap() {
     return {
@@ -303,6 +399,29 @@ class PolyfenceZoneStatus {
     );
   }
 
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is PolyfenceZoneStatus &&
+        other.activeZones == activeZones &&
+        other.circleZones == circleZones &&
+        other.polygonZones == polygonZones &&
+        other.lastZoneUpdate == lastZoneUpdate &&
+        mapEquals(other.zoneEventCounts, zoneEventCounts);
+  }
+
+  @override
+  int get hashCode {
+    var mapHash = 0;
+    final sortedKeys = zoneEventCounts.keys.toList()..sort();
+    for (final key in sortedKeys) {
+      mapHash = Object.hash(mapHash, key, zoneEventCounts[key]);
+    }
+    return Object.hash(
+      activeZones, circleZones, polygonZones, lastZoneUpdate, mapHash,
+    );
+  }
+
   /// Converts to a map for serialization.
   Map<String, dynamic> toMap() {
     return {
@@ -352,6 +471,27 @@ class PolyfenceErrorSummary {
       correlationId: map['correlationId'],
       context: Map<String, dynamic>.from(map['context'] ?? {}),
     );
+  }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is PolyfenceErrorSummary &&
+        other.type == type &&
+        other.message == message &&
+        other.timestamp == timestamp &&
+        other.correlationId == correlationId &&
+        mapEquals(other.context, context);
+  }
+
+  @override
+  int get hashCode {
+    var contextHash = 0;
+    final sortedKeys = context.keys.toList()..sort();
+    for (final key in sortedKeys) {
+      contextHash = Object.hash(contextHash, key, context[key]);
+    }
+    return Object.hash(type, message, timestamp, correlationId, contextHash);
   }
 
   /// Converts to a map for serialization.

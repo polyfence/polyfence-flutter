@@ -271,18 +271,52 @@ class PolyfenceService {
             'Polyfence: App lifecycle manager initialization failed: $e');
       }
 
-      // Listen to SEPARATE streams
-      _locationSubscription =
-          _platform.onLocationUpdate.listen(_handleLocationUpdate);
-      _geofenceSubscription =
-          _platform.onGeofenceEvent.listen(_handleGeofenceEvent);
-      _errorSubscription = _platform.onError.listen(_handleError);
-      _performanceSubscription = _platform.performanceStream.listen((event) {
-        _handlePerformanceEvent(event);
-        if (event['type'] == 'status') {
-          _statusController.add(event);
-        }
-      });
+      // Listen to SEPARATE streams — each with onError to prevent uncaught
+      // async exceptions and onDone to detect unexpected stream closures.
+      _locationSubscription = _platform.onLocationUpdate.listen(
+        _handleLocationUpdate,
+        onError: (Object error, StackTrace stackTrace) {
+          _emitStreamError('location', error, stackTrace);
+        },
+        onDone: () {
+          _emitStreamDone('location');
+        },
+      );
+      _geofenceSubscription = _platform.onGeofenceEvent.listen(
+        _handleGeofenceEvent,
+        onError: (Object error, StackTrace stackTrace) {
+          _emitStreamError('geofence', error, stackTrace);
+        },
+        onDone: () {
+          _emitStreamDone('geofence');
+        },
+      );
+      _errorSubscription = _platform.onError.listen(
+        _handleError,
+        onError: (Object error, StackTrace stackTrace) {
+          // Error stream itself failed — emit directly without recursion.
+          // Use debugPrint as fallback since _errorController is the
+          // destination and the source stream is the one that errored.
+          _emitStreamError('error', error, stackTrace);
+        },
+        onDone: () {
+          _emitStreamDone('error');
+        },
+      );
+      _performanceSubscription = _platform.performanceStream.listen(
+        (event) {
+          _handlePerformanceEvent(event);
+          if (event['type'] == 'status') {
+            _statusController.add(event);
+          }
+        },
+        onError: (Object error, StackTrace stackTrace) {
+          _emitStreamError('performance', error, stackTrace);
+        },
+        onDone: () {
+          _emitStreamDone('performance');
+        },
+      );
 
       _isInitialized = true;
     } on PlatformException catch (e, stackTrace) {
@@ -1337,6 +1371,40 @@ class PolyfenceService {
     } catch (_) {
       // Silently ignore — analytics must never crash core operations
     }
+  }
+
+  /// Routes a platform stream error to the developer-facing error stream.
+  /// Called from onError callbacks on all platform stream subscriptions.
+  void _emitStreamError(String streamName, Object error, StackTrace stackTrace) {
+    if (_errorController.isClosed) return;
+
+    final message = error is PlatformException
+        ? 'Platform stream "$streamName" error: ${error.message}'
+        : 'Platform stream "$streamName" error: $error';
+
+    _errorController.add(PolyfenceError(
+      type: PolyfenceErrorType.unknown,
+      message: message,
+      context: {
+        'stream': streamName,
+        'error': error.toString(),
+        'stackTrace': stackTrace.toString(),
+        if (error is PlatformException) 'platformCode': error.code,
+      },
+      timestamp: DateTime.now(),
+    ));
+  }
+
+  /// Emits a warning when a platform stream closes unexpectedly.
+  void _emitStreamDone(String streamName) {
+    if (_errorController.isClosed) return;
+
+    _errorController.add(PolyfenceError(
+      type: PolyfenceErrorType.unknown,
+      message: 'Platform stream "$streamName" closed unexpectedly',
+      context: {'stream': streamName},
+      timestamp: DateTime.now(),
+    ));
   }
 
   void _handlePerformanceEvent(Map<String, dynamic> event) {

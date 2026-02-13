@@ -1,7 +1,7 @@
 # Polyfence Telemetry Reference
 
-**Last updated:** 2026-01-25
-**Plugin version:** 0.8.0+
+**Last updated:** 2026-02-13
+**Plugin version:** 0.9.0+
 
 ---
 
@@ -333,8 +333,8 @@ The plugin is **open source**. You can verify exactly what's sent by reading the
 **Telemetry code:** [`lib/src/services/analytics_service.dart`](../lib/src/services/analytics_service.dart)
 
 **Key methods:**
-- `_sendSessionSummary()` (line 299) - Sends telemetry payload
-- `toSessionSummary()` (line 118) - Builds session payload
+- `_sendSessionSummary()` - Sends telemetry payload
+- `toSessionSummary()` - Builds session payload
 
 ### Test Telemetry Locally
 
@@ -348,8 +348,7 @@ await Polyfence.instance.initialize();
 await Polyfence.instance.addZone(Zone.circle(...));
 await Polyfence.instance.startTracking();
 
-// Check analytics service state
-print('Session active: ${PolyfenceAnalytics.instance._currentSession != null}');
+// Use network inspection tools (Charles Proxy, Wireshark) to verify the payload
 ```
 
 **Network inspection:** Use Charles Proxy or Wireshark to inspect network calls and verify the payload.

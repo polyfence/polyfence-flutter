@@ -174,7 +174,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Smart disclosure informs developers (once per install, only debug builds, state-aware)
   - API key no longer required for telemetry (optional - only needed for additional Polyfence.io services)
   - Environment variables (`POLYFENCE_ANALYTICS_ENABLED`) can still override runtime config
-  - Comprehensive telemetry documentation added: `docs/TELEMETRY.md`
+  - Comprehensive telemetry documentation added: `doc/TELEMETRY.md`
 
 ### Added
 - **New `disableTelemetry` parameter** in `AnalyticsConfig` for simple opt-out
@@ -183,7 +183,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Shows again if telemetry state changes (enabled/disabled toggled)
   - Only in debug builds (production logs stay clean)
   - Uses SharedPreferences to track disclosure state
-- **Complete telemetry reference**: `docs/TELEMETRY.md` with field-by-field payload breakdown
+- **Complete telemetry reference**: `doc/TELEMETRY.md` with field-by-field payload breakdown
 - **Stakeholder review document**: `SIMPLE_TERMS_TELEMETRY.md` for non-technical review
 
 ### Breaking Changes
@@ -197,13 +197,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Migration Guide
 - **No action needed** if you're okay with anonymous telemetry (recommended)
 - **To opt-out**: Add `analyticsConfig: AnalyticsConfig(disableTelemetry: true)` to your `initialize()` call
-- **See full details**: Read `docs/TELEMETRY.md` to understand exactly what's sent
+- **See full details**: Read `doc/TELEMETRY.md` to understand exactly what's sent
 
 ### Privacy Commitment
 - **What's sent**: Plugin version, platform, app package name, performance metrics (detection times, GPS accuracy, battery usage), error counts, zone type usage (circle/polygon counts)
 - **What's NEVER sent**: GPS coordinates, location data, zone definitions, user identifiers, personal information
 - **Data retention**: 24 months (2 years) for trend analysis and product improvement
-- **Full transparency**: See `docs/TELEMETRY.md` for complete payload reference
+- **Full transparency**: See `doc/TELEMETRY.md` for complete payload reference
 
 ## [0.2.5] - 2025-12-26
 

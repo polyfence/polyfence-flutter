@@ -135,7 +135,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
       // Initialize Polyfence plugin
       // Anonymous plugin telemetry enabled by default (no location data or PII sent)
-      // See what's sent: https://github.com/blackabass/polyfence-plugin/blob/main/docs/TELEMETRY.md
+      // See what's sent: https://github.com/blackabass/polyfence-plugin/blob/main/doc/TELEMETRY.md
       await polyfence.Polyfence.instance.initialize();
 
       // Configuration examples:

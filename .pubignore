@@ -1,0 +1,50 @@
+# Build artifacts
+build/
+tool/
+
+# Generated API docs (hand-written docs like doc/TELEMETRY.md are kept)
+doc/api/
+doc/static-assets/
+doc/__404error.html
+doc/categories.json
+doc/index.html
+doc/index.json
+doc/logo.svg
+doc/polyfence/
+doc/search.html
+
+# Internal project files
+.claude/
+CLAUDE.md
+.cursorrules
+ROADMAP.md
+PUBLISH_CHECKLIST.md
+.github/
+
+# Repo-only docs (not needed by package consumers)
+CONTRIBUTING.md
+SECURITY.md
+CODE_OF_CONDUCT.md
+ios/ios_setup_instructions.md
+
+# Scripts (dev tooling, not needed by consumers)
+scripts/
+
+# iOS build artifacts in example
+example/ios/Podfile.lock
+example/ios/Pods/
+example/ios/Runner.xcodeproj/
+example/ios/Runner.xcworkspace/
+example/ios/Flutter/
+example/ios/.symlinks/
+example/ios/RunnerTests/
+
+# Android build artifacts in example
+example/android/.gradle/
+example/android/app/build/
+example/android/build/
+example/android/local.properties
+
+# OS files
+.DS_Store
+Thumbs.db

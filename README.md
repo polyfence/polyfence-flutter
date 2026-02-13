@@ -184,7 +184,7 @@ await Polyfence.instance.addZone(Zone.polygon(
 ));
 ```
 
-Zones are automatically persisted across app restarts — no database setup needed. There is no hard limit on zone count (tested with 100+ zones on both platforms). Large polygons (1000+ points) are supported; the plugin uses Douglas-Peucker simplification to optimize complex polygons.
+Zones are automatically persisted across app restarts — no database setup needed. There is no hard limit on zone count (tested with 100+ zones on both platforms). Large polygons (1000+ points) are supported; the plugin uses Douglas-Peucker simplification to optimize complex polygons. Unlike plugins that rely on the OS native region monitoring APIs, Polyfence performs its own on-device calculations — so the iOS 20-region limit does not apply.
 
 ### Step 4: Listen for Events
 
@@ -716,7 +716,7 @@ Polyfence is built with privacy as the foundation.
 
 To monitor plugin performance and improve reliability, Polyfence sends **anonymous performance metrics**: plugin version and platform (Android/iOS), app package name, performance metrics (detection times, GPS accuracy averages), battery impact statistics, error counts and types, and zone type usage (circle/polygon counts — not locations).
 
-**See exactly what's sent:** [Full Telemetry Reference](docs/TELEMETRY.md)
+**See exactly what's sent:** [Full Telemetry Reference](doc/TELEMETRY.md)
 
 ### Telemetry Opt-Out
 

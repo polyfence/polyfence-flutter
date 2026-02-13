@@ -38,9 +38,9 @@ test_industry_implementation.md
 INDEX.md
 
 # Generated documentation (regenerate with: dart doc)
-# Uncomment to commit docs for GitHub Pages:
-# !docs/
-docs/
+# Exclude generated API docs but keep hand-written docs (e.g. doc/TELEMETRY.md)
+doc/api/
+doc/static-assets/
 
 # Security - Never commit API keys or secrets
 ADMIN_API_KEYS

@@ -7,6 +7,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-02-13
+
+### Breaking Changes
+- Renamed `updateGpsConfiguration()` to `updateConfiguration()`
+- Renamed `gpsConfiguration()` to `getConfiguration()`
+- Removed `getCurrentConfiguration()` from platform interface
+
+### Added
+- Coordinate validation on all Location and Zone constructors
+- Configuration validation with descriptive error messages on all config classes
+- Stream listener `onError` and `onDone` handlers on all internal streams
+- Permission revocation detection and error reporting (Android + iOS)
+- `kDebugMode` gating on all debug output (no debug strings in release builds)
+- HTTPS validation on analytics endpoint
+- Value equality (`==`, `hashCode`) on 21 model classes
+- 324 unit tests (up from 16)
+- `.pubignore` for clean pub.dev packaging (318KB)
+- iOS 20-region limit note in README (Polyfence is not subject to this limit)
+
+### Fixed
+- Snake_case to camelCase normalization bug in `PolyfenceError.fromMap()` — all native error types were silently falling back to `unknown` since v0.1.0
+- `PolygonSimplifier` Newton-Raphson sqrt precision error on small values — replaced with `dart:math`
+- `debugPrint` not stripped in release builds — now gated behind `kDebugMode`
+- 4 configuration validation bugs (negative radius, invalid coordinates, zero intervals, null nested maps)
+- `AppLifecycleManager` incorrectly bundled inside analytics try-catch — now independent
+
+### Changed
+- Analytics service fully decoupled from core geofencing — analytics failures never block tracking
+- `AppLifecycleManager` has its own availability flag and independent dispose
+- `SessionMetrics` made private (`_SessionMetrics`)
+- README restructured from 1384 to 749 lines — no content lost, all duplication removed
+- Documentation sweep across all .md files for stale references
+
+### Removed
+- Dead `getCurrentConfiguration` platform channel handler (Kotlin + Swift)
+- Unused stopwatch in `PolyfenceService`
+
 ## [0.9.0] - 2026-02-07
 
 ### Added

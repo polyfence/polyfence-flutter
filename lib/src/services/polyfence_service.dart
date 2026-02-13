@@ -256,7 +256,9 @@ class PolyfenceService {
         // Analytics failed — log and continue. Core geofencing must not
         // be blocked by telemetry failures.
         _analyticsAvailable = false;
-        debugPrint('Polyfence: Analytics initialization failed: $e');
+        if (kDebugMode) {
+          debugPrint('Polyfence: Analytics initialization failed: $e');
+        }
       }
 
       // Initialize app lifecycle manager — separate concern from analytics.
@@ -267,8 +269,10 @@ class PolyfenceService {
         _lifecycleManagerAvailable = true;
       } catch (e) {
         _lifecycleManagerAvailable = false;
-        debugPrint(
-            'Polyfence: App lifecycle manager initialization failed: $e');
+        if (kDebugMode) {
+          debugPrint(
+              'Polyfence: App lifecycle manager initialization failed: $e');
+        }
       }
 
       // Listen to SEPARATE streams — each with onError to prevent uncaught
@@ -678,7 +682,9 @@ class PolyfenceService {
         context: {
           'rawEvent': eventData,
           'error': e.toString(),
-          'stackTrace': stackTrace.toString(),
+          // Only include stack traces in debug builds to avoid leaking
+          // internal file paths and implementation details in production.
+          if (kDebugMode) 'stackTrace': stackTrace.toString(),
         },
         timestamp: DateTime.now(),
       ));
@@ -1281,7 +1287,9 @@ class PolyfenceService {
       }
     } catch (e) {
       // Log disposal error but don't throw (disposal should never fail)
-      debugPrint('Polyfence: Error during disposal: $e');
+      if (kDebugMode) {
+        debugPrint('Polyfence: Error during disposal: $e');
+      }
     }
   }
 
@@ -1311,7 +1319,9 @@ class PolyfenceService {
       context: {
         'stream': streamName,
         'error': error.toString(),
-        'stackTrace': stackTrace.toString(),
+        // Only include stack traces in debug builds to avoid leaking
+        // internal file paths and implementation details in production.
+        if (kDebugMode) 'stackTrace': stackTrace.toString(),
         if (error is PlatformException) 'platformCode': error.code,
       },
       timestamp: DateTime.now(),

@@ -257,9 +257,13 @@ class PolyfenceAnalytics {
   }) async {
     if (config.apiEndpoint != null) {
       final uri = Uri.tryParse(config.apiEndpoint!);
-      if (uri == null || uri.scheme != 'https') {
+      if (uri == null ||
+          uri.scheme != 'https' ||
+          uri.host.isEmpty ||
+          !uri.host.contains('.')) {
         throw ArgumentError(
-          'Analytics endpoint must use HTTPS for security. Got: ${config.apiEndpoint}',
+          'Analytics endpoint must be a valid HTTPS URL with a hostname. '
+          'Got: ${config.apiEndpoint}',
         );
       }
     }

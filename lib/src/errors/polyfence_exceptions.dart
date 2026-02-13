@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 /// Base exception for all Polyfence exceptions
 abstract class PolyfenceException implements Exception {
   final String message;
@@ -41,14 +43,19 @@ class PlatformOperationException extends PolyfenceException {
   @override
   String toString() {
     final buffer = StringBuffer(super.toString());
-    if (details != null && details!.isNotEmpty) {
-      buffer.write('\nDetails: $details');
-    }
-    if (innerException != null) {
-      buffer.write('\nInner exception: $innerException');
-    }
-    if (stackTrace != null) {
-      buffer.write('\nStack trace:\n$stackTrace');
+    // Only include internal details (stack traces, inner exceptions, debug
+    // context) in debug builds to prevent leaking implementation paths,
+    // class names, and internal state in production error messages.
+    if (kDebugMode) {
+      if (details != null && details!.isNotEmpty) {
+        buffer.write('\nDetails: $details');
+      }
+      if (innerException != null) {
+        buffer.write('\nInner exception: $innerException');
+      }
+      if (stackTrace != null) {
+        buffer.write('\nStack trace:\n$stackTrace');
+      }
     }
     return buffer.toString();
   }

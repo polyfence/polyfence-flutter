@@ -66,7 +66,7 @@ class _AnalyticsExampleState extends State<AnalyticsExample> {
       final zone = Zone.circle(
         id: 'test_zone_${DateTime.now().millisecondsSinceEpoch}',
         name: 'Test Zone',
-        center: const PolyfenceLocation(
+        center: PolyfenceLocation(
           latitude: 37.422,
           longitude: -122.084,
         ),

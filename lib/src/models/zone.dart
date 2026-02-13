@@ -31,6 +31,17 @@ class Zone {
     if (id.isEmpty) throw ArgumentError('Zone ID required');
     if (name.isEmpty) throw ArgumentError('Zone name required');
 
+    // Validate circle radius
+    if (type == ZoneType.circle && radius != null) {
+      if (radius! <= 0) {
+        throw ArgumentError.value(
+          radius,
+          'radius',
+          'Circle radius must be greater than 0, got $radius',
+        );
+      }
+    }
+
     // Validate polygon points
     if (type == ZoneType.polygon && polygon != null) {
       if (polygon!.length < 3) {
@@ -55,7 +66,8 @@ class Zone {
   /// );
   /// ```
   ///
-  /// Throws [ArgumentError] if `id` or `name` is empty.
+  /// Throws [ArgumentError] if `id` or `name` is empty, if `radius` is <= 0,
+  /// or if `center` coordinates are out of bounds.
   factory Zone.circle({
     required String id,
     required String name,

@@ -41,9 +41,9 @@ test_industry_implementation.md
 INDEX.md
 
 # Generated documentation (regenerate with: dart doc)
-# Exclude generated API docs but keep hand-written docs (e.g. doc/TELEMETRY.md)
-doc/api/
-doc/static-assets/
+# Ignore everything in doc/ except hand-written files
+doc/*
+!doc/TELEMETRY.md
 
 # Security - Never commit API keys or secrets
 ADMIN_API_KEYS

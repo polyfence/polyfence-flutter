@@ -30,6 +30,15 @@ class PolyfenceService {
   // Disposal guard to prevent use-after-disposal
   bool _isDisposed = false;
 
+  // Analytics availability flag — false if analytics initialization failed.
+  // When false, all analytics calls are silently skipped so analytics
+  // can never take down core geofencing functionality.
+  bool _analyticsAvailable = false;
+
+  // Lifecycle manager availability flag — false if initialization failed.
+  // When false, lifecycle cleanup is skipped during dispose.
+  bool _lifecycleManagerAvailable = false;
+
   // Event streams for the app
   final StreamController<GeofenceEvent> _eventController =
       StreamController<GeofenceEvent>.broadcast();
@@ -194,56 +203,73 @@ class PolyfenceService {
         },
       );
 
-      // Initialize analytics - data collection happens automatically
-      // Anonymous plugin telemetry enabled by default
-      // Apps can opt-out with: AnalyticsConfig(disableTelemetry: true)
-      // No location data or PII ever sent - only plugin performance metrics
+      // Initialize analytics — isolated so failures never block geofencing.
+      // Anonymous plugin telemetry enabled by default. No location data or PII
+      // ever sent — only plugin performance metrics.
+      try {
+        // Check if developer opted out
+        final bool telemetryDisabled =
+            analyticsConfig?.disableTelemetry ?? false;
 
-      // Check if developer opted out
-      final bool telemetryDisabled = analyticsConfig?.disableTelemetry ?? false;
+        // Environment variables can still override for production builds
+        const String analyticsEnabledEnv = String.fromEnvironment(
+          'POLYFENCE_ANALYTICS_ENABLED',
+          defaultValue: '',
+        );
+        final bool envOverride = analyticsEnabledEnv.isNotEmpty;
+        final bool envEnabled = analyticsEnabledEnv.toLowerCase() == 'true';
 
-      // Environment variables can still override for production builds
-      const String analyticsEnabledEnv = String.fromEnvironment(
-        'POLYFENCE_ANALYTICS_ENABLED',
-        defaultValue: '',
-      );
-      final bool envOverride = analyticsEnabledEnv.isNotEmpty;
-      final bool envEnabled = analyticsEnabledEnv.toLowerCase() == 'true';
+        const String apiKeyEnv =
+            String.fromEnvironment('POLYFENCE_API_KEY', defaultValue: '');
+        const String apiEndpointEnv =
+            String.fromEnvironment('POLYFENCE_API_ENDPOINT', defaultValue: '');
 
-      const String apiKeyEnv =
-          String.fromEnvironment('POLYFENCE_API_KEY', defaultValue: '');
-      const String apiEndpointEnv =
-          String.fromEnvironment('POLYFENCE_API_ENDPOINT', defaultValue: '');
+        // Determine final telemetry state:
+        // 1. If env var set → use it (production override)
+        // 2. If developer set disableTelemetry: true → respect it
+        // 3. Otherwise → enabled by default
+        final bool telemetryEnabled =
+            envOverride ? envEnabled : !telemetryDisabled;
 
-      // Determine final telemetry state:
-      // 1. If env var set → use it (production override)
-      // 2. If developer set disableTelemetry: true → respect it
-      // 3. Otherwise → enabled by default
-      final bool telemetryEnabled =
-          envOverride ? envEnabled : !telemetryDisabled;
+        final analyticsConfigToUse = AnalyticsConfig(
+          enabled: telemetryEnabled,
+          disableTelemetry: telemetryDisabled,
+          apiKey:
+              analyticsConfig?.apiKey ?? (apiKeyEnv.isEmpty ? null : apiKeyEnv),
+          apiEndpoint: analyticsConfig?.apiEndpoint ??
+              (apiEndpointEnv.isEmpty ? null : apiEndpointEnv),
+          industryCategory: analyticsConfig?.industryCategory,
+          useCase: analyticsConfig?.useCase,
+        );
 
-      final analyticsConfigToUse = AnalyticsConfig(
-        enabled: telemetryEnabled,
-        disableTelemetry: telemetryDisabled,
-        apiKey:
-            analyticsConfig?.apiKey ?? (apiKeyEnv.isEmpty ? null : apiKeyEnv),
-        apiEndpoint: analyticsConfig?.apiEndpoint ??
-            (apiEndpointEnv.isEmpty ? null : apiEndpointEnv),
-        industryCategory: analyticsConfig?.industryCategory,
-        useCase: analyticsConfig?.useCase,
-      );
+        await PolyfenceAnalytics.instance.initialize(
+          config: analyticsConfigToUse,
+          pluginVersion: pluginVersion,
+        );
 
-      await PolyfenceAnalytics.instance.initialize(
-        config: analyticsConfigToUse,
-        pluginVersion: pluginVersion,
-      );
+        _analyticsAvailable = true;
 
-      // Telemetry disclosure: show once per install or when state changes
-      // Only in debug builds to avoid production log spam
-      await _showTelemetryDisclosureIfNeeded(telemetryEnabled);
+        // Telemetry disclosure: show once per install or when state changes
+        // Only in debug builds to avoid production log spam
+        await _showTelemetryDisclosureIfNeeded(telemetryEnabled);
+      } catch (e) {
+        // Analytics failed — log and continue. Core geofencing must not
+        // be blocked by telemetry failures.
+        _analyticsAvailable = false;
+        debugPrint('Polyfence: Analytics initialization failed: $e');
+      }
 
-      // Initialize app lifecycle management for analytics
-      AppLifecycleManager.instance.initialize();
+      // Initialize app lifecycle manager — separate concern from analytics.
+      // Manages foreground/background session transitions. Failures must not
+      // block geofencing.
+      try {
+        AppLifecycleManager.instance.initialize();
+        _lifecycleManagerAvailable = true;
+      } catch (e) {
+        _lifecycleManagerAvailable = false;
+        debugPrint(
+            'Polyfence: App lifecycle manager initialization failed: $e');
+      }
 
       // Listen to SEPARATE streams
       _locationSubscription =
@@ -443,7 +469,7 @@ class PolyfenceService {
     // Request permissions if needed
     final hasPermissions = await _platform.requestPermissions();
     if (!hasPermissions) {
-      PolyfenceAnalytics.instance.recordError('permission_denied');
+      _tryRecordAnalyticsError('permission_denied');
       throw PlatformOperationException(
           'startTracking', 'Location permissions not granted');
     }
@@ -452,7 +478,7 @@ class PolyfenceService {
     try {
       await _platform.startTracking();
     } on PlatformException catch (e, stackTrace) {
-      PolyfenceAnalytics.instance.recordError('tracking_start_failed');
+      _tryRecordAnalyticsError('tracking_start_failed');
       throw PlatformOperationException(
         'startTracking',
         e.message ?? 'Unknown error',
@@ -562,13 +588,17 @@ class PolyfenceService {
       // Get zone from cache
       final zone = _zones[zoneId];
 
-      // Record analytics for detection
-      if (zone != null) {
-        PolyfenceAnalytics.instance.recordDetection(
-          detectionTimeMs: detectionTimeMs,
-          gpsAccuracy: gpsAccuracy,
-          zoneType: zone.type.name.toLowerCase(), // 'circle' or 'polygon'
-        );
+      // Record analytics for detection (fire-and-forget)
+      if (zone != null && _analyticsAvailable) {
+        try {
+          PolyfenceAnalytics.instance.recordDetection(
+            detectionTimeMs: detectionTimeMs,
+            gpsAccuracy: gpsAccuracy,
+            zoneType: zone.type.name.toLowerCase(), // 'circle' or 'polygon'
+          );
+        } catch (_) {
+          // Analytics must never crash geofence event handling
+        }
       }
 
       // Extract optional coordinates if provided by platform
@@ -635,10 +665,8 @@ class PolyfenceService {
       // Emit error to developer stream
       _errorController.add(error);
 
-      // Still record in analytics for plugin owner metrics
-      PolyfenceAnalytics.instance.recordError(
-        error.type.toString().split('.').last,
-      );
+      // Still record in analytics for plugin owner metrics (fire-and-forget)
+      _tryRecordAnalyticsError(error.type.toString().split('.').last);
     } catch (e) {
       // If error parsing fails, create a generic error
       final genericError = PolyfenceError(
@@ -1262,25 +1290,31 @@ class PolyfenceService {
       await _errorController.close();
       await _statusController.close();
 
-      // 4. Cleanup analytics session
-      try {
-        await PolyfenceAnalytics.instance.endSession();
-      } catch (_) {
-        // Analytics cleanup is best-effort
+      // 4. Cleanup analytics session (only if analytics initialized)
+      if (_analyticsAvailable) {
+        try {
+          await PolyfenceAnalytics.instance.endSession();
+        } catch (_) {
+          // Analytics cleanup is best-effort
+        }
       }
 
-      // 5. Dispose app lifecycle manager
-      try {
-        AppLifecycleManager.instance.dispose();
-      } catch (_) {
-        // Lifecycle cleanup is best-effort
+      // 5. Dispose app lifecycle manager (independent of analytics)
+      if (_lifecycleManagerAvailable) {
+        try {
+          AppLifecycleManager.instance.dispose();
+        } catch (_) {
+          // Lifecycle cleanup is best-effort
+        }
       }
 
       // 6. Clear zone cache
       _zones.clear();
 
-      // 7. Reset initialization flag
+      // 7. Reset initialization, analytics, and lifecycle flags
       _isInitialized = false;
+      _analyticsAvailable = false;
+      _lifecycleManagerAvailable = false;
 
       // 8. Notify platform of disposal
       try {
@@ -1291,6 +1325,17 @@ class PolyfenceService {
     } catch (e) {
       // Log disposal error but don't throw (disposal should never fail)
       debugPrint('Polyfence: Error during disposal: $e');
+    }
+  }
+
+  /// Record an analytics error if analytics is available.
+  /// Fire-and-forget — analytics must never interfere with core operations.
+  void _tryRecordAnalyticsError(String errorType) {
+    if (!_analyticsAvailable) return;
+    try {
+      PolyfenceAnalytics.instance.recordError(errorType);
+    } catch (_) {
+      // Silently ignore — analytics must never crash core operations
     }
   }
 

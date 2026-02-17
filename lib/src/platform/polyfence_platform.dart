@@ -55,6 +55,19 @@ abstract class PolyfencePlatform extends PlatformInterface {
   Stream<Map<String, dynamic>> get performanceStream;
   Future<List<Map<String, dynamic>>> getErrorHistory(
       Map<String, dynamic> params);
+
+  /// Returns the current persisted zone states from the native engine.
+  ///
+  /// The returned map uses:
+  /// - keys: zone IDs
+  /// - values: `true` if the engine's persisted state says the device is
+  ///   currently INSIDE the zone, `false` if it says OUTSIDE.
+  ///
+  /// This reflects the same internal `GeofenceEngine` state that powers
+  /// `reconcileZoneStates` and `RECOVERY_ENTER`/`RECOVERY_EXIT` events. It is
+  /// **not** a fresh GPS point-in-polygon calculation, and only zones currently
+  /// tracked by the engine are included.
+  Future<Map<String, bool>> getZoneStates();
 }
 
 class MethodChannelPolyfence extends PolyfencePlatform {
@@ -207,6 +220,25 @@ class MethodChannelPolyfence extends PolyfencePlatform {
     return (result ?? [])
         .map((e) => Map<String, dynamic>.from(e as Map))
         .toList();
+  }
+
+  @override
+  Future<Map<String, bool>> getZoneStates() async {
+    final result = await _channel
+        .invokeMethod<Map<Object?, Object?>>('getCurrentZoneStates');
+
+    if (result == null) {
+      return <String, bool>{};
+    }
+
+    // Channel returns Map<String, bool> on both platforms; we defensively
+    // coerce keys to String and values to bool with a false default.
+    return result.map(
+      (key, value) => MapEntry(
+        key as String,
+        (value as bool?) ?? false,
+      ),
+    );
   }
 
   @override

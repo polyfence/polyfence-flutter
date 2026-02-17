@@ -81,6 +81,8 @@ class MockPolyfencePlatform extends PolyfencePlatform
           Map<String, dynamic> params) async =>
       [];
   @override
+  Future<Map<String, bool>> getZoneStates() async => {};
+  @override
   Future<void> dispose() async {
     calls.add('dispose');
     await locationController.close();

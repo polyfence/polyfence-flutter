@@ -28,6 +28,7 @@ class MockPolyfencePlatform extends PolyfencePlatform
   Map<String, dynamic> configResponse = {};
   Map<String, dynamic> debugInfoResponse = {};
   List<Map<String, dynamic>> errorHistoryResponse = [];
+  Map<String, bool> zoneStatesResponse = const {};
 
   // Error injection
   PlatformException? errorToThrow;
@@ -146,6 +147,12 @@ class MockPolyfencePlatform extends PolyfencePlatform
   }
 
   @override
+  Future<Map<String, bool>> getZoneStates() async {
+    calls.add('getZoneStates');
+    return zoneStatesResponse;
+  }
+
+  @override
   Future<void> dispose() async {
     calls.add('dispose');
     await locationController.close();
@@ -255,6 +262,14 @@ void main() {
         throwsA(isA<PolyfenceNotInitializedException>()),
       );
     });
+
+    test('getZoneStates throws PolyfenceNotInitializedException before initialize',
+        () {
+      expect(
+        () => PolyfenceService.instance.getZoneStates(),
+        throwsA(isA<PolyfenceNotInitializedException>()),
+      );
+    });
   });
 
   group('PolyfenceService — initialization', () {
@@ -345,6 +360,21 @@ void main() {
 
       expect(mockPlatform.calls, contains('clearAllZones'));
       expect(PolyfenceService.instance.zones, isEmpty);
+    });
+
+    test('getZoneStates calls through to platform and returns map', () async {
+      mockPlatform.zoneStatesResponse = const {
+        'zoneA': true,
+        'zoneB': false,
+      };
+      mockPlatform.calls.clear();
+
+      final states = await PolyfenceService.instance.getZoneStates();
+
+      expect(mockPlatform.calls, contains('getZoneStates'));
+      expect(states, isA<Map<String, bool>>());
+      expect(states['zoneA'], isTrue);
+      expect(states['zoneB'], isFalse);
     });
   });
 

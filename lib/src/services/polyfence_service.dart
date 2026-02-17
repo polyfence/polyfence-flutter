@@ -459,6 +459,45 @@ class PolyfenceService {
   /// ```
   List<Zone> get zones => _zones.values.toList();
 
+  /// Gets the current INSIDE/OUTSIDE state for all monitored zones.
+  ///
+  /// Returns a map where:
+  /// - Keys are zone IDs.
+  /// - Values are `true` if the native engine's persisted state says the
+  ///   device is currently INSIDE the zone, `false` if it says OUTSIDE.
+  ///
+  /// This is the same internal state used by the native `GeofenceEngine`
+  /// for `reconcileZoneStates` and `RECOVERY_ENTER`/`RECOVERY_EXIT` events.
+  /// It does **not** perform a fresh GPS point-in-polygon check.
+  ///
+  /// Only zones currently tracked by the engine are included in the map.
+  ///
+  /// **Example:**
+  /// ```dart
+  /// final states = await Polyfence.instance.getZoneStates();
+  /// if (states['office'] == true) {
+  ///   print('Device is currently inside the office zone');
+  /// }
+  /// ```
+  ///
+  /// Throws [PolyfenceNotInitializedException] if not initialized.
+  /// Throws [PlatformOperationException] if platform error occurs.
+  Future<Map<String, bool>> getZoneStates() async {
+    if (!_isInitialized) throw PolyfenceNotInitializedException();
+
+    try {
+      return await _platform.getZoneStates();
+    } on PlatformException catch (e, stackTrace) {
+      throw PlatformOperationException(
+        'getZoneStates',
+        e.message ?? 'Unknown error',
+        details: {'code': e.code, 'details': e.details},
+        innerException: e,
+        stackTrace: stackTrace,
+      );
+    }
+  }
+
   /// Starts background location tracking and geofence monitoring.
   ///
   /// This method will:

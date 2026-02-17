@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.1] - 2026-02-17
+
+### Added
+- **`getZoneStates()` API** — Query the current INSIDE/OUTSIDE state for all monitored zones.
+  - Returns `Map<String, bool>` where `true` = device is INSIDE, `false` = OUTSIDE.
+  - Exposes the same persisted `GeofenceEngine` state used for `reconcileZoneStates` and `RECOVERY_ENTER`/`RECOVERY_EXIT` events.
+  - Available via `Polyfence.instance.getZoneStates()`.
+  - Useful for session management and state reconciliation in consumer apps.
+  - Native implementations already existed on both platforms; this release adds the Dart bridge via MethodChannel.
+
 ## [0.10.0] - 2026-02-13
 
 ### Breaking Changes

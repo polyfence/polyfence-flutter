@@ -27,6 +27,12 @@ class LocationTracker: NSObject {
     private var consecutiveGpsFailures: Int = 0
     private var isRunning: Bool = false
     private var pendingStartAfterAuthorization: Bool = false
+
+    // GPS Health Tracking
+    private var currentGpsAccuracy: Double?
+    private var gpsAvailabilityDropTimestamps: [TimeInterval] = []
+    private var lastGpsUnreliableErrorTime: TimeInterval = 0
+    private let gpsUnreliableErrorCooldownSeconds: TimeInterval = 60.0 // Emit error max once per minute
     
     // CRITICAL: Prevent auto-tracking to match Android behavior
     private var trackingEnabled: Bool = false
@@ -734,9 +740,13 @@ extension LocationTracker: CLLocationManagerDelegate {
         // Log proximity debug info
         logProximityDebugInfo(location)
 
-        // Update health tracking
+        // Update GPS health tracking
         lastLocationTime = Date().timeIntervalSince1970
         consecutiveGpsFailures = 0
+        currentGpsAccuracy = location.horizontalAccuracy >= 0 ? location.horizontalAccuracy : nil
+
+        // Check for unreliable GPS (large accuracy swings, poor accuracy)
+        checkGpsReliability(location)
 
         // P7: Reset fallback timer since we received a valid location
         resetFallbackTimer()
@@ -781,6 +791,17 @@ extension LocationTracker: CLLocationManagerDelegate {
     
     func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
         consecutiveGpsFailures += 1
+
+        // Track GPS availability drop for health metrics
+        let currentTime = Date().timeIntervalSince1970
+        gpsAvailabilityDropTimestamps.append(currentTime)
+        cleanupOldGpsDrops(currentTime)
+
+        // Emit gpsUnreliable error if we've had multiple drops recently
+        let drops5Min = getGpsAvailabilityDrops5Min()
+        if drops5Min >= 3 {
+            emitGpsUnreliableError(drops: drops5Min, accuracy: nil)
+        }
         
         // Report GPS error to developer stream
         PolyfenceErrorManager.shared.reportGpsError(
@@ -1351,6 +1372,73 @@ extension LocationTracker: CLLocationManagerDelegate {
         }
     }
     
+    // MARK: - GPS Health Monitoring
+
+    /**
+     * Check GPS reliability based on accuracy and consistency
+     */
+    private func checkGpsReliability(_ location: CLLocation) {
+        let accuracy = location.horizontalAccuracy
+        guard accuracy >= 0 else { return }
+
+        // Detect unreliable GPS: accuracy > 150m is considered unreliable
+        // iOS CoreLocation can feed locations with poor accuracy during signal loss
+        if accuracy > 150.0 {
+            emitGpsUnreliableError(drops: getGpsAvailabilityDrops5Min(), accuracy: accuracy)
+        }
+    }
+
+    /**
+     * Remove GPS availability drop timestamps older than 5 minutes
+     */
+    private func cleanupOldGpsDrops(_ currentTime: TimeInterval) {
+        let fiveMinutesAgo = currentTime - 300.0
+        gpsAvailabilityDropTimestamps.removeAll { $0 < fiveMinutesAgo }
+    }
+
+    /**
+     * Get number of GPS availability drops in the last 5 minutes
+     */
+    private func getGpsAvailabilityDrops5Min() -> Int {
+        let currentTime = Date().timeIntervalSince1970
+        cleanupOldGpsDrops(currentTime)
+        return gpsAvailabilityDropTimestamps.count
+    }
+
+    /**
+     * Emit gpsUnreliable error (with cooldown to prevent spam)
+     */
+    private func emitGpsUnreliableError(drops: Int, accuracy: Double?) {
+        let currentTime = Date().timeIntervalSince1970
+        if currentTime - lastGpsUnreliableErrorTime < gpsUnreliableErrorCooldownSeconds {
+            return // Cooldown active - don't spam errors
+        }
+
+        lastGpsUnreliableErrorTime = currentTime
+
+        let message: String
+        var context: [String: Any] = [
+            "platform": "ios",
+            "drops5Min": drops,
+            "timestamp": Int64(currentTime * 1000)
+        ]
+
+        if let acc = accuracy {
+            message = "GPS signal unreliable - poor accuracy (\(Int(acc))m)"
+            context["accuracy"] = acc
+        } else {
+            message = "GPS signal unreliable - \(drops) availability drops in last 5 minutes"
+        }
+
+        NSLog("[LocationTracker] GPS unreliable: drops=\(drops), accuracy=\(accuracy?.description ?? "nil")")
+
+        PolyfenceErrorManager.shared.reportError(
+            type: "gps_unreliable",
+            message: message,
+            context: context
+        )
+    }
+
     // MARK: - Runtime Status Emission
 
     /**
@@ -1360,7 +1448,17 @@ extension LocationTracker: CLLocationManagerDelegate {
     private func emitRuntimeStatus() {
         guard let location = lastKnownLocation else { return }
 
-        let status: [String: Any] = [
+        let currentTime = Date().timeIntervalSince1970
+
+        // Calculate seconds since last GPS fix
+        let secondsSinceLastFix: Int
+        if lastLocationTime > 0 {
+            secondsSinceLastFix = Int(currentTime - lastLocationTime)
+        } else {
+            secondsSinceLastFix = 0
+        }
+
+        var status: [String: Any] = [
             "strategy": smartConfig.updateStrategy.rawValue,
             "intervalMs": Int(currentGpsInterval * 1000),
             "accuracyProfile": smartConfig.accuracyProfile.rawValue,
@@ -1368,8 +1466,16 @@ extension LocationTracker: CLLocationManagerDelegate {
             "isStationary": isStationary,
             "batteryMode": getCurrentBatteryMode(),
             "gpsAccuracy": location.horizontalAccuracy,
-            "timestamp": Int64(Date().timeIntervalSince1970 * 1000)
+            "timestamp": Int64(currentTime * 1000),
+            // New GPS health fields
+            "secondsSinceLastGpsFix": secondsSinceLastFix,
+            "gpsAvailabilityDrops5Min": getGpsAvailabilityDrops5Min()
         ]
+
+        // Add currentGpsAccuracy if available
+        if let accuracy = currentGpsAccuracy, accuracy >= 0 {
+            status["currentGpsAccuracy"] = accuracy
+        }
 
         // Only emit if status changed or 30 seconds elapsed
         let currentTime = Date().timeIntervalSince1970

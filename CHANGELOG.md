@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.2] - 2026-02-18
+
+### Added
+- **GPS Health Monitoring in RuntimeStatus** — New metrics to detect GPS signal issues in real-time.
+  - `currentGpsAccuracy` (double?) — Current GPS accuracy in meters, null if no fix available.
+  - `secondsSinceLastGpsFix` (int) — Time elapsed since last valid GPS fix, increases when signal is lost.
+  - `gpsAvailabilityDrops5Min` (int) — Count of GPS availability drops in the last 5 minutes, useful for detecting intermittent GPS issues.
+  - Emitted via existing `onPerformanceEvent` stream with type `runtime_status`.
+  - Enables apps to show "GPS signal lost" or "GPS unstable" banners to users.
+
+- **`PolyfenceErrorType.gpsUnreliable` Error Event** — Automatically detects and reports unreliable GPS conditions.
+  - Fires when GPS accuracy exceeds 150m (Android FLP feeding poor quality data during signal loss).
+  - Fires when 3+ GPS availability drops occur within 5 minutes (frequent signal dropout).
+  - Includes context: `drops5Min`, `accuracy`, `platform`, `timestamp`.
+  - 60-second cooldown prevents error spam.
+  - Available via existing `onError` stream — slots into existing error handlers without breaking changes.
+
+- **Active Zone IDs in Cluster Logs** — Cluster refresh log messages now include zone names/IDs.
+  - Android: `Cluster refreshed at (lat, lng): 11 of 29 zones active - [Signal Drive, Clifton, Hillmorton, ...]`
+  - iOS: Same format for platform parity.
+  - Invaluable for debugging which zones are included in active cluster.
+  - Resolves blind spots where only counts were visible.
+
+### Implementation Notes
+- All changes are additive and non-breaking.
+- GPS health metrics have sensible defaults in `fromMap()` (0 for counts, null for accuracy).
+- Android and iOS implementations maintain platform parity for all features.
+- Addresses GPS quality issues identified in live drive testing where Android FLP was feeding unreliable location data.
+
 ## [0.10.1] - 2026-02-17
 
 ### Added

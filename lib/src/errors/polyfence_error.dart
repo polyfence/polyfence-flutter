@@ -19,6 +19,10 @@ enum PolyfenceErrorType {
   /// GPS accuracy is below the configured threshold.
   gpsAccuracyPoor,
 
+  /// GPS signal is unreliable (frequent dropouts, large accuracy swings).
+  /// This indicates Android FLP is feeding inconsistent location data.
+  gpsUnreliable,
+
   // Service Related
 
   /// Background tracking service failed to start.

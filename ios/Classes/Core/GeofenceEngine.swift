@@ -153,7 +153,7 @@ class GeofenceEngine {
         clusterCenterLng = location.coordinate.longitude
         activeZoneIds.removeAll()
 
-        var activatedCount = 0
+        var activatedZonesList: [String] = []
 
         for (zoneId, zone) in zones {
             let zoneCenter = zone.calculateCenter()
@@ -165,11 +165,11 @@ class GeofenceEngine {
             let effectiveRadius = clusterActiveRadiusMeters + (zone.radius ?? 0.0)
             if distance <= effectiveRadius {
                 activeZoneIds.insert(zoneId)
-                activatedCount += 1
+                activatedZonesList.append(zone.name.isEmpty ? zoneId : zone.name)
             }
         }
 
-        NSLog("[\(GeofenceEngine.TAG)] Cluster refreshed at (\(location.coordinate.latitude), \(location.coordinate.longitude)): \(activatedCount) of \(zones.count) zones active")
+        NSLog("[\(GeofenceEngine.TAG)] Cluster refreshed at (\(location.coordinate.latitude), \(location.coordinate.longitude)): \(activatedZonesList.count) of \(zones.count) zones active - [\(activatedZonesList.joined(separator: ", "))]")
     }
 
     /**

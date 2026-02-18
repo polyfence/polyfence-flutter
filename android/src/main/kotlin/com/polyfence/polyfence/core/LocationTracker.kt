@@ -142,6 +142,12 @@ class LocationTracker : Service() {
     private var healthCheckHandler: android.os.Handler? = null
     private var lastLocationTime: Long = 0L
     private var consecutiveGpsFailures: Int = 0
+
+    // GPS Health Tracking
+    private var currentGpsAccuracy: Float? = null
+    private val gpsAvailabilityDropTimestamps = mutableListOf<Long>()
+    private var lastGpsUnreliableErrorTime: Long = 0L
+    private val GPS_UNRELIABLE_ERROR_COOLDOWN_MS = 60_000L // Emit error max once per minute
     
     // Wake Lock Management
     private var wakeLock: PowerManager.WakeLock? = null
@@ -840,9 +846,13 @@ private fun handleGeofenceEvent(zoneId: String, eventType: String, location: and
                 // Log proximity debug info
                 logProximityDebugInfo(location)
 
-                // Update health tracking
+                // Update GPS health tracking
                 lastLocationTime = System.currentTimeMillis()
                 consecutiveGpsFailures = 0
+                currentGpsAccuracy = if (location.hasAccuracy()) location.accuracy else null
+
+                // Check for unreliable GPS (large accuracy swings, poor accuracy)
+                checkGpsReliability(location)
 
                 // Reset error recovery attempts on successful location
                 errorRecovery.resetRestartAttempts()
@@ -879,6 +889,17 @@ private fun handleGeofenceEvent(zoneId: String, eventType: String, location: and
             if (!locationAvailability.isLocationAvailable) {
                 Log.w(TAG, "Location availability lost")
                 consecutiveGpsFailures++
+
+                // Track GPS availability drop for health metrics
+                val currentTime = System.currentTimeMillis()
+                gpsAvailabilityDropTimestamps.add(currentTime)
+                cleanupOldGpsDrops(currentTime)
+
+                // Emit gpsUnreliable error if we've had multiple drops recently
+                val drops5Min = getGpsAvailabilityDrops5Min()
+                if (drops5Min >= 3) {
+                    emitGpsUnreliableError(drops5Min)
+                }
                 
                 // Trigger recovery for GPS failures (up to 5 consecutive failures)
                 // After 5 failures, stop trying to avoid battery drain
@@ -967,6 +988,78 @@ private fun handleGeofenceEvent(zoneId: String, eventType: String, location: and
         }
     }
     
+    // ============================================================================
+    // GPS HEALTH MONITORING
+    // ============================================================================
+
+    /**
+     * Check GPS reliability based on accuracy and consistency
+     */
+    private fun checkGpsReliability(location: android.location.Location) {
+        if (!location.hasAccuracy()) return
+
+        val accuracy = location.accuracy
+
+        // Detect unreliable GPS: accuracy > 150m is considered unreliable
+        // Android FLP can feed locations with 500m+ accuracy during signal loss
+        if (accuracy > 150.0f) {
+            emitGpsUnreliableError(getGpsAvailabilityDrops5Min(), accuracy.toDouble())
+        }
+    }
+
+    /**
+     * Remove GPS availability drop timestamps older than 5 minutes
+     */
+    private fun cleanupOldGpsDrops(currentTime: Long) {
+        val fiveMinutesAgo = currentTime - 300_000L
+        gpsAvailabilityDropTimestamps.removeAll { it < fiveMinutesAgo }
+    }
+
+    /**
+     * Get number of GPS availability drops in the last 5 minutes
+     */
+    private fun getGpsAvailabilityDrops5Min(): Int {
+        val currentTime = System.currentTimeMillis()
+        cleanupOldGpsDrops(currentTime)
+        return gpsAvailabilityDropTimestamps.size
+    }
+
+    /**
+     * Emit gpsUnreliable error (with cooldown to prevent spam)
+     */
+    private fun emitGpsUnreliableError(drops: Int, accuracy: Double? = null) {
+        val currentTime = System.currentTimeMillis()
+        if (currentTime - lastGpsUnreliableErrorTime < GPS_UNRELIABLE_ERROR_COOLDOWN_MS) {
+            return // Cooldown active - don't spam errors
+        }
+
+        lastGpsUnreliableErrorTime = currentTime
+
+        val message = if (accuracy != null) {
+            "GPS signal unreliable - poor accuracy (${accuracy.toInt()}m)"
+        } else {
+            "GPS signal unreliable - $drops availability drops in last 5 minutes"
+        }
+
+        val context = mutableMapOf<String, Any>(
+            "platform" to "android",
+            "drops5Min" to drops,
+            "timestamp" to currentTime
+        )
+
+        if (accuracy != null) {
+            context["accuracy"] = accuracy
+        }
+
+        Log.w(TAG, "GPS unreliable: drops=$drops, accuracy=$accuracy")
+
+        PolyfenceErrorManager.reportError(
+            "gps_unreliable",
+            message,
+            context
+        )
+    }
+
     // ============================================================================
     // SMART GPS CONFIGURATION METHODS
     // ============================================================================
@@ -1549,8 +1642,16 @@ private fun handleGeofenceEvent(zoneId: String, eventType: String, location: and
      */
     private fun emitRuntimeStatus() {
         val location = lastKnownLocation ?: return
+        val currentTime = System.currentTimeMillis()
+
+        // Calculate seconds since last GPS fix
+        val secondsSinceLastFix = if (lastLocationTime > 0) {
+            ((currentTime - lastLocationTime) / 1000).toInt()
+        } else {
+            0
+        }
         
-        val status = mapOf(
+        val status = mutableMapOf<String, Any>(
             "strategy" to smartConfig.updateStrategy.name,
             "intervalMs" to currentGpsInterval,
             "accuracyProfile" to smartConfig.accuracyProfile.name,
@@ -1558,11 +1659,19 @@ private fun handleGeofenceEvent(zoneId: String, eventType: String, location: and
             "isStationary" to isStationary,
             "batteryMode" to getCurrentBatteryMode(),
             "gpsAccuracy" to location.accuracy,
-            "timestamp" to System.currentTimeMillis()
+            "timestamp" to currentTime,
+            // New GPS health fields
+            "secondsSinceLastGpsFix" to secondsSinceLastFix,
+            "gpsAvailabilityDrops5Min" to getGpsAvailabilityDrops5Min()
         )
+
+        // Add currentGpsAccuracy if available
+        currentGpsAccuracy?.let {
+            status["currentGpsAccuracy"] = it.toDouble()
+        }
         
         // Only emit if status changed or 30 seconds elapsed
-        val timeSinceLastEmit = System.currentTimeMillis() - lastStatusEmitTime
+        val timeSinceLastEmit = currentTime - lastStatusEmitTime
         if (status != lastEmittedStatus || timeSinceLastEmit >= 30000) {
             // Send via existing performance event channel
             PolyfencePlugin.sendPerformanceEvent(mapOf(
@@ -1570,7 +1679,7 @@ private fun handleGeofenceEvent(zoneId: String, eventType: String, location: and
                 "data" to status
             ))
             lastEmittedStatus = status
-            lastStatusEmitTime = System.currentTimeMillis()
+            lastStatusEmitTime = currentTime
             Log.d(TAG, "Runtime status emitted: $status")
         }
     }

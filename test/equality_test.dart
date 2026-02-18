@@ -348,11 +348,17 @@ void main() {
         intervalMs: 5000,
         nearestZoneDistanceM: 150.0,
         timestamp: ts,
+        currentGpsAccuracy: 10.0,
+        secondsSinceLastGpsFix: 0,
+        gpsAvailabilityDrops5Min: 0,
       );
       final b = PolyfenceRuntimeStatus(
         intervalMs: 5000,
         nearestZoneDistanceM: 150.0,
         timestamp: ts,
+        currentGpsAccuracy: 10.0,
+        secondsSinceLastGpsFix: 0,
+        gpsAvailabilityDrops5Min: 0,
       );
 
       expect(a, equals(b));
@@ -365,11 +371,17 @@ void main() {
         intervalMs: 5000,
         nearestZoneDistanceM: 150.0,
         timestamp: ts,
+        currentGpsAccuracy: 10.0,
+        secondsSinceLastGpsFix: 0,
+        gpsAvailabilityDrops5Min: 0,
       );
       final b = PolyfenceRuntimeStatus(
         intervalMs: 10000,
         nearestZoneDistanceM: 150.0,
         timestamp: ts,
+        currentGpsAccuracy: 10.0,
+        secondsSinceLastGpsFix: 0,
+        gpsAvailabilityDrops5Min: 0,
       );
 
       expect(a, isNot(equals(b)));

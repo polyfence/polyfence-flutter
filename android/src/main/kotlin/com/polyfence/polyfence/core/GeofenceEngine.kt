@@ -233,7 +233,7 @@ fun getZoneName(zoneId: String): String? {
         activeZoneIds.clear()
 
         val userLocation = LatLng(location.latitude, location.longitude)
-        var activatedCount = 0
+        val activatedZonesList = mutableListOf<String>()
 
         zones.forEach { (zoneId, zone) ->
             val zoneCenter = zone.calculateCenter()
@@ -244,11 +244,11 @@ fun getZoneName(zoneId: String): String? {
             val effectiveRadius = clusterActiveRadiusMeters + (zone.radius ?: 0.0)
             if (distance <= effectiveRadius) {
                 activeZoneIds.add(zoneId)
-                activatedCount++
+                activatedZonesList.add(zone.name.ifEmpty { zoneId })
             }
         }
 
-        Log.d(TAG, "Cluster refreshed at (${location.latitude}, ${location.longitude}): $activatedCount of ${zones.size} zones active")
+        Log.d(TAG, "Cluster refreshed at (${location.latitude}, ${location.longitude}): ${activatedZonesList.size} of ${zones.size} zones active - [${activatedZonesList.joinToString(", ")}]")
     }
 
     /**

@@ -12,6 +12,7 @@ pubspec.lock
 # IDE
 .idea/
 .vscode/
+.cursor/
 *.iml
 *.ipr
 *.iws

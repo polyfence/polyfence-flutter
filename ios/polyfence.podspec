@@ -14,8 +14,8 @@ Privacy-first polygon and circle geofencing for Flutter. True background trackin
   s.platform = :ios, '12.0'
   s.swift_version = '5.0'
   
-  # Add Core Location and UserNotifications frameworks
-  s.frameworks = 'CoreLocation', 'UserNotifications'
+  # Add required system frameworks
+  s.frameworks = 'CoreLocation', 'CoreMotion', 'UserNotifications'
   
   # Add background modes capability
   s.pod_target_xcconfig = {

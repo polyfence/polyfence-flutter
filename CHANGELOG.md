@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.2] - 2026-02-25
+
+### Fixed
+- **iOS podspec: add CoreMotion framework dependency** — `ActivityRecognitionManager.swift` imports
+  `CoreMotion` but the podspec only declared `CoreLocation, UserNotifications`. In release builds
+  with link-time optimization, the framework could fail to link correctly. Now explicitly declared
+  as `CoreLocation, CoreMotion, UserNotifications`.
+
 ## [0.11.1] - 2026-02-25
 
 ### Fixed

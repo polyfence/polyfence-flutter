@@ -85,7 +85,7 @@ class PolyfenceConfiguration {
   ///
   /// Throws [ArgumentError] if [gpsAccuracyThreshold] is not positive.
   PolyfenceConfiguration({
-    this.accuracyProfile = PolyfenceAccuracyProfile.maxAccuracy,
+    this.accuracyProfile = PolyfenceAccuracyProfile.balanced,
     this.updateStrategy = PolyfenceUpdateStrategy.continuous,
     this.proximitySettings,
     this.movementSettings,
@@ -162,7 +162,7 @@ class PolyfenceConfiguration {
       accuracyProfile: EnumUtils.fromChannelFormat(
         map['accuracyProfile'],
         PolyfenceAccuracyProfile.values,
-        PolyfenceAccuracyProfile.maxAccuracy,
+        PolyfenceAccuracyProfile.balanced,
       ),
       updateStrategy: EnumUtils.fromChannelFormat(
         map['updateStrategy'],

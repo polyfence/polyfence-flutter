@@ -19,9 +19,12 @@ import 'widgets/error_banner.dart';
 import 'zone_api_service.dart';
 import 'config.dart';
 import 'demo_data.dart';
+import 'utils/logger.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await LogBuffer.initialize();
+  logDebug('App started', level: LogLevel.info);
   runApp(const PolyfenceApp());
 }
 
@@ -45,6 +48,15 @@ Future<bool> ensureAndroidTrackingPermissions() async {
     // Some OEMs require going to settings; guide user
     await openAppSettings();
     return false;
+  }
+
+  // Activity recognition (API 29+) - needed for activity-based GPS optimization
+  if (await Permission.activityRecognition.isDenied) {
+    final activity = await Permission.activityRecognition.request();
+    if (!activity.isGranted) {
+      // Activity recognition is optional - continue without it
+      logDebug('Activity recognition permission not granted - continuing without it');
+    }
   }
 
   return true;
@@ -95,6 +107,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   // Simple status tracking
   double? _gpsAccuracy;
   double _currentSpeed = 0.0;
+  String _currentActivity = 'unknown';
   polyfence.PolyfenceAccuracyProfile _currentProfile =
       polyfence.PolyfenceAccuracyProfile.balanced;
 
@@ -112,14 +125,19 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    LogBuffer.dispose();
     super.dispose();
   }
 
   // App lifecycle handling (analytics lifecycle managed by plugin when enabled)
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    // Plugin's AppLifecycleManager handles analytics lifecycle automatically
-    // when analytics is configured. No manual handling needed here.
+    // Flush logs to disk on app pause/background
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.detached) {
+      LogBuffer.flush();
+      logDebug('App lifecycle: ${state.name}', level: LogLevel.info);
+    }
   }
 
   Future<void> _initializePolyfence() async {
@@ -137,6 +155,45 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       // Anonymous plugin telemetry enabled by default (no location data or PII sent)
       // See what's sent: https://github.com/blackabass/polyfence-plugin/blob/main/doc/TELEMETRY.md
       await polyfence.Polyfence.instance.initialize();
+
+      // Enable SmartGPS: INTELLIGENT strategy with proximity, movement, and battery
+      // awareness. This dramatically reduces battery drain when stationary.
+      // On iOS, activity settings are excluded to avoid CMMotionActivityManager crash
+      // (confirmed in Roadie v0.10.0 upgrade) — all other optimizations are sent.
+      {
+        final current = await polyfence.Polyfence.instance.getConfiguration();
+        final clusterSettings = polyfence.ClusterSettings(
+          enabled: true,
+          activeRadiusMeters: 5000, // 5km radius - only monitor nearby zones
+        );
+
+        if (Platform.isIOS) {
+          await polyfence.Polyfence.instance.updateConfiguration(
+            current.copyWith(
+              updateStrategy: polyfence.PolyfenceUpdateStrategy.intelligent,
+              proximitySettings: polyfence.ProximitySettings(),
+              movementSettings: polyfence.MovementSettings(),
+              batterySettings: polyfence.BatterySettings(),
+              clusterSettings: clusterSettings,
+            ),
+          );
+        } else {
+          await polyfence.Polyfence.instance.updateConfiguration(
+            current.copyWith(
+              updateStrategy: polyfence.PolyfenceUpdateStrategy.intelligent,
+              proximitySettings: polyfence.ProximitySettings(),
+              movementSettings: polyfence.MovementSettings(),
+              batterySettings: polyfence.BatterySettings(),
+              activitySettings: polyfence.ActivitySettings(
+                enabled: true,
+                confidenceThreshold: 75,
+                debounceSeconds: 10, // Reduced for demo (default is 30)
+              ),
+              clusterSettings: clusterSettings,
+            ),
+          );
+        }
+      }
 
       // Configuration examples:
 
@@ -183,6 +240,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             _gpsAccuracy = location.accuracy;
             _currentSpeed = location.speed ??
                 0.0; // Already converted to km/h by native code
+            _currentActivity = location.activity ?? 'unknown';
           });
         }
       });
@@ -235,14 +293,17 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           }
         }
 
-        // Add new zones (efficient: only new zones)
+        // Add all zones (ensure they're registered with plugin)
+        // Note: Plugin handles deduplication internally, so it's safe to add all zones
         for (final zone in zones) {
-          if (zonesToAdd.contains(zone.id)) {
-            try {
-              await polyfence.Polyfence.instance.addZone(zone);
-            } catch (e) {
+          try {
+            await polyfence.Polyfence.instance.addZone(zone);
+          } catch (e) {
+            // Only log error if it's actually a new zone (not a duplicate)
+            if (zonesToAdd.contains(zone.id)) {
               _addErrorEvent('Failed to add zone ${zone.id}: $e');
             }
+            // Silently ignore duplicate zone errors from plugin
           }
         }
 
@@ -325,7 +386,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       await prefs.setString('events', jsonEncode(_events));
     } catch (e) {
       // Failed to save events - log but don't show error banner
-      debugPrint('Failed to save events: $e');
+      logDebug('Failed to save events: $e');
     }
   }
 
@@ -497,7 +558,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               break;
           }
         } catch (e) {
-          debugPrint('Zone distance calculation failed for ${zone.name}: $e');
+          logDebug('Zone distance calculation failed for ${zone.name}: $e');
         }
       }
 
@@ -645,45 +706,74 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(64),
-        child: Container(
-          decoration: const BoxDecoration(
-            color: AppTheme.background,
-            border: Border(
-              bottom: BorderSide(color: AppTheme.border),
-            ),
-          ),
-          child: SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppTheme.spacingLg,
-                vertical: AppTheme.spacingMd,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Text(
-                    'Polyfence',
-                    style: TextStyle(
-                      fontSize: 20, // text-xl
-                      fontWeight: FontWeight.w600, // font-semibold
-                      color: AppTheme.foreground, // text-gray-900
-                    ),
-                  ),
-                  const Text(
-                    'Flutter Example App',
-                    style: TextStyle(
-                      fontSize: 14, // text-sm
-                      color: AppTheme.mutedForeground, // text-gray-500
-                    ),
-                  ),
-                ],
+      appBar: AppBar(
+        backgroundColor: AppTheme.background,
+        foregroundColor: AppTheme.foreground,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        title: const Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Polyfence',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w600,
+                color: AppTheme.foreground,
               ),
             ),
+            Text(
+              'Flutter Example App',
+              style: TextStyle(
+                fontSize: 14,
+                color: AppTheme.mutedForeground,
+              ),
+            ),
+          ],
+        ),
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1),
+          child: Container(
+            height: 1,
+            color: AppTheme.border,
           ),
         ),
+        actions: [
+          Builder(
+            builder: (btnContext) => IconButton(
+              icon: Badge(
+                label: Text('${LogBuffer.length}'),
+                isLabelVisible: LogBuffer.length > 0,
+                child: const Icon(Icons.share, color: AppTheme.foreground),
+              ),
+              tooltip: 'Export Logs (${LogBuffer.length})',
+              onPressed: () async {
+                if (LogBuffer.length == 0) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('No logs to export')),
+                    );
+                  }
+                  return;
+                }
+                try {
+                  final box = btnContext.findRenderObject() as RenderBox?;
+                  final origin = box != null
+                      ? box.localToGlobal(Offset.zero) & box.size
+                      : null;
+                  await LogBuffer.exportLogs(shareOrigin: origin);
+                } catch (e) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Export failed: $e')),
+                    );
+                  }
+                }
+              },
+            ),
+          ),
+        ],
       ),
       body: Stack(
         children: [
@@ -713,6 +803,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                         location: _getCurrentLocation(),
                         accuracy: _gpsAccuracy,
                         speed: _currentSpeed,
+                        activity: _currentActivity,
                         gpsProfile: _convertToGpsProfile(_currentProfile),
                         locationStatus: _locationStatus,
                       ),

@@ -171,6 +171,10 @@ class LocationTracker : Service() {
     private var currentGpsInterval: Long = 5000L
     private var isStationary: Boolean = false
 
+    // Movement tracking for stationary detection (independent of movementSettings)
+    private var lastMovementLocation: android.location.Location? = null
+    private var lastMovementTime: Long = 0L
+
     // P9: Track last location where zone check was performed
     private var lastZoneCheckLocation: android.location.Location? = null
     private val MIN_MOVEMENT_FOR_ZONE_CHECK_METERS = 5.0f  // Only recheck zones if moved >5m
@@ -1273,33 +1277,47 @@ private fun handleGeofenceEvent(zoneId: String, eventType: String, location: and
     }
     
     /**
-     * Calculate interval using intelligent combination of factors
+     * Calculate interval using intelligent combination of factors.
      *
-     * HIERARCHY: Proximity is king - when near a zone, fast updates regardless of battery/activity.
-     * Battery and activity savings only apply when FAR from zones.
+     * HIERARCHY (fixed):
+     * - When near a zone AND moving → fast proximity interval (detect entry/exit quickly)
+     * - When near a zone AND stationary → respect stationary interval (save battery at home)
+     * - When far from all zones → use most battery-friendly interval
      */
     private fun calculateIntelligentInterval(): Long {
         val proximitySettings = smartConfig.proximitySettings
         val lastLocation = lastKnownLocation
+        var proximityInterval: Long? = null
 
-        // Check if we're near a zone - proximity is king
+        // Check if we're near a zone
         if (proximitySettings != null && lastLocation != null) {
             val nearestZoneDistance = calculateDistanceToNearestZone(lastLocation)
 
             if (nearestZoneDistance <= proximitySettings.nearZoneThresholdMeters) {
-                // NEAR zone - use fast updates, ignore battery/activity savings
-                val proximityInterval = calculateProximityBasedInterval()
-                Log.d(TAG, "Near zone (${nearestZoneDistance}m) - proximity is king: ${proximityInterval}ms")
-                return proximityInterval
+                proximityInterval = calculateProximityBasedInterval()
+                Log.d(TAG, "Near zone (${nearestZoneDistance}m) - proximity interval: ${proximityInterval}ms, isStationary=$isStationary")
             }
         }
 
-        // FAR from zones - now we can optimize for battery/activity
+        // Collect other strategy intervals
         val movementInterval = calculateMovementBasedInterval()
         val batteryInterval = calculateBatteryBasedInterval()
         val activityInterval = calculateActivityBasedInterval()
 
-        // When far from zones, use the most battery-friendly (longest) interval
+        // Near a zone AND stationary → respect stationary interval to save battery
+        if (proximityInterval != null && isStationary) {
+            val stationaryInterval = smartConfig.movementSettings?.stationaryUpdateIntervalMs ?: 120_000L
+            val result = maxOf(proximityInterval, stationaryInterval)
+            Log.d(TAG, "Near zone but stationary - using: ${result}ms (proximity=$proximityInterval, stationary=$stationaryInterval)")
+            return result
+        }
+
+        // Near a zone AND moving → proximity wins (fast updates for entry/exit detection)
+        if (proximityInterval != null) {
+            return proximityInterval
+        }
+
+        // Far from zones → use the most battery-friendly (longest) interval
         val result = maxOf(movementInterval, batteryInterval, activityInterval)
         Log.d(TAG, "Far from zones - using longest interval: ${result}ms (movement=$movementInterval, battery=$batteryInterval, activity=$activityInterval)")
         return result
@@ -1520,42 +1538,51 @@ private fun handleGeofenceEvent(zoneId: String, eventType: String, location: and
     }
     
     /**
-     * Update movement state based on location changes
+     * Update movement state based on location changes.
+     *
+     * Stationary detection always runs using sensible defaults, even when
+     * movementSettings is null. This ensures isStationary is always accurate,
+     * which is critical for INTELLIGENT strategy and P11 callback throttling.
      */
     private fun updateMovementState(location: android.location.Location) {
         lastKnownLocation = location
         val currentTime = System.currentTimeMillis()
         val movementSettings = smartConfig.movementSettings
 
-        if (movementSettings == null) {
-            lastLocationTime = currentTime
-            return
-        }
-        
-        if (lastLocationTime > 0) {
-            val timeDiff = currentTime - lastLocationTime
-            val distance = lastKnownLocation?.let { 
-                location.distanceTo(it) 
-            } ?: 0f
-            
-            // Check if device is stationary
-            if (timeDiff >= movementSettings.stationaryThresholdMs) {
-                if (distance < movementSettings.movementThresholdMeters) {
-                    if (!isStationary) {
-                        isStationary = true
-                        Log.d(TAG, "Device is now stationary")
-                        updateLocationRequest() // Update GPS interval
-                        emitRuntimeStatus() // Emit status on movement state change
-                    }
-                } else if (isStationary) {
-                    isStationary = false
-                    Log.d(TAG, "Device is now moving")
-                    updateLocationRequest() // Update GPS interval
-                    emitRuntimeStatus() // Emit status on movement state change
-                }
+        // Always compute stationary state — use defaults when movementSettings is null
+        val moveThreshold = movementSettings?.movementThresholdMeters?.toFloat() ?: 50.0f
+        val timeThreshold = movementSettings?.stationaryThresholdMs ?: 300_000L
+
+        // Distance from last significant movement position (not from lastKnownLocation,
+        // which was just overwritten above — comparing to itself would always yield 0)
+        val distance = lastMovementLocation?.let { location.distanceTo(it) } ?: Float.MAX_VALUE
+
+        if (distance > moveThreshold) {
+            // Significant movement detected — update movement anchor
+            lastMovementLocation = location
+            lastMovementTime = currentTime
+            if (isStationary) {
+                isStationary = false
+                Log.d(TAG, "Device started moving (moved ${String.format("%.1f", distance)}m)")
+                updateLocationRequest()
+                emitRuntimeStatus()
+            }
+        } else if (lastMovementTime > 0 && currentTime - lastMovementTime >= timeThreshold) {
+            // No significant movement for threshold duration
+            if (!isStationary) {
+                isStationary = true
+                Log.d(TAG, "Device is now stationary (no movement > ${moveThreshold}m in ${timeThreshold / 1000}s)")
+                updateLocationRequest()
+                emitRuntimeStatus()
             }
         }
-        
+
+        // Initialize movement tracking on first location
+        if (lastMovementLocation == null) {
+            lastMovementLocation = location
+            lastMovementTime = currentTime
+        }
+
         lastLocationTime = currentTime
     }
     

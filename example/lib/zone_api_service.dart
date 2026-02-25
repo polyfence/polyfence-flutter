@@ -3,12 +3,13 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:polyfence/polyfence.dart';
 import 'config.dart';
+import 'utils/logger.dart';
 
 /// Centralized error logging for example app
 class _Logger {
   static void logError(String message, [Object? error]) {
     final errorMsg = error != null ? ' - $error' : '';
-    print('ZoneAPI error: $message$errorMsg');
+    logDebug('ZoneAPI error: $message$errorMsg');
   }
 }
 

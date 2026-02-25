@@ -10,6 +10,7 @@ class StatusSection extends StatefulWidget {
   final LatLng? location;
   final double? accuracy;
   final double speed;
+  final String activity;
   final GpsProfile gpsProfile;
   final String? locationStatus;
 
@@ -19,6 +20,7 @@ class StatusSection extends StatefulWidget {
     this.location,
     required this.accuracy,
     required this.speed,
+    this.activity = 'unknown',
     required this.gpsProfile,
     this.locationStatus,
   });
@@ -28,6 +30,23 @@ class StatusSection extends StatefulWidget {
 }
 
 class _StatusSectionState extends State<StatusSection> {
+  String _formatActivity(String activity) {
+    switch (activity.toLowerCase()) {
+      case 'still':
+        return '🧍 Still';
+      case 'walking':
+        return '🚶 Walking';
+      case 'running':
+        return '🏃 Running';
+      case 'cycling':
+        return '🚴 Cycling';
+      case 'driving':
+        return '🚗 Driving';
+      default:
+        return '❓ Unknown';
+    }
+  }
+
   Future<void> _copyToClipboard() async {
     if (widget.location == null) return;
 
@@ -137,7 +156,7 @@ class _StatusSectionState extends State<StatusSection> {
           ),
           const SizedBox(height: AppTheme.spacingMd),
 
-          // Metrics Grid
+          // Metrics Grid - 2x2 layout
           Row(
             children: [
               Expanded(
@@ -152,7 +171,20 @@ class _StatusSectionState extends State<StatusSection> {
                 child: _MetricTile(
                   label: 'Speed',
                   value: widget.isTracking
-                      ? widget.speed.toStringAsFixed(1)
+                      ? '${widget.speed.toStringAsFixed(1)} km/h'
+                      : '—',
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppTheme.spacingSm),
+          Row(
+            children: [
+              Expanded(
+                child: _MetricTile(
+                  label: 'Activity',
+                  value: widget.isTracking
+                      ? _formatActivity(widget.activity)
                       : '—',
                 ),
               ),

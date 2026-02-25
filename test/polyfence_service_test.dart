@@ -474,7 +474,7 @@ void main() {
       // Local cache should be reset to defaults
       expect(
         PolyfenceService.instance.currentConfiguration.accuracyProfile,
-        PolyfenceAccuracyProfile.maxAccuracy,
+        PolyfenceAccuracyProfile.balanced,
       );
     });
 

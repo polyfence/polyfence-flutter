@@ -6,7 +6,7 @@ void main() {
     test('default values are correct', () {
       final config = PolyfenceConfiguration();
 
-      expect(config.accuracyProfile, PolyfenceAccuracyProfile.maxAccuracy);
+      expect(config.accuracyProfile, PolyfenceAccuracyProfile.balanced);
       expect(config.updateStrategy, PolyfenceUpdateStrategy.continuous);
       expect(config.proximitySettings, isNull);
       expect(config.movementSettings, isNull);
@@ -83,7 +83,7 @@ void main() {
     test('fromMap with empty map uses defaults', () {
       final config = PolyfenceConfiguration.fromMap({});
 
-      expect(config.accuracyProfile, PolyfenceAccuracyProfile.maxAccuracy);
+      expect(config.accuracyProfile, PolyfenceAccuracyProfile.balanced);
       expect(config.updateStrategy, PolyfenceUpdateStrategy.continuous);
       expect(config.gpsAccuracyThreshold, 100.0);
       expect(config.enableDebugLogging, false);

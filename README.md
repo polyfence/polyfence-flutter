@@ -48,10 +48,10 @@ All three approaches use the **same plugin API** — switch anytime without code
 ```yaml
 # pubspec.yaml
 dependencies:
-  polyfence: ^0.9.0
+  polyfence: ^0.11.0
 ```
 
-**Current version:** 0.9.0
+**Current version:** 0.11.0
 
 ```bash
 flutter pub get
@@ -490,7 +490,7 @@ await Polyfence.instance.updateConfiguration(
 
 ## Background Reliability & Battery Optimization
 
-### Battery-Saving Features (v0.8.0+)
+### Battery-Saving Features (v0.8.0+, enhanced in v0.11.0)
 
 Polyfence includes comprehensive battery optimizations that reduce drain by an estimated 40-50%:
 
@@ -505,6 +505,11 @@ Polyfence includes comprehensive battery optimizations that reduce drain by an e
 | **OEM Device Detection** | Detects Samsung/Xiaomi/Huawei and logs device info for debugging | Android |
 
 **Default Profile**: BALANCED (provides good accuracy with reasonable battery impact)
+
+**v0.11.0 SmartGPS Improvements:**
+- INTELLIGENT strategy now correctly detects stationary state even without explicit `movementSettings`
+- Stationary devices near zones use 2-minute intervals instead of aggressive 5-second polling
+- Default accuracy profile aligned across Dart and native platforms (BALANCED)
 
 ### Android Background Operation
 
@@ -584,6 +589,7 @@ try {
 | `serviceKilled` | Background service terminated | Show restart notification |
 | `serviceStartFailed` | Failed to start location service | Check permissions |
 | `gpsTimeout` | GPS signal timeout | Retry or show status |
+| `gpsUnreliable` | GPS accuracy poor or signal dropping | Show GPS quality banner |
 
 ## Debug Information API
 
@@ -615,6 +621,18 @@ final recentErrors = await Polyfence.instance.errorHistory(
   timeRange: Duration(hours: 24),
 );
 ```
+
+### Zone State Query
+
+```dart
+// Get current INSIDE/OUTSIDE state for all monitored zones
+final states = await Polyfence.instance.getZoneStates();
+states.forEach((zoneId, isInside) {
+  print('$zoneId: ${isInside ? "INSIDE" : "OUTSIDE"}');
+});
+```
+
+Useful for session management and state reconciliation after app restarts.
 
 ## Common Gotchas
 

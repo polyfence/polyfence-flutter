@@ -7,6 +7,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-02-25
+
+### Fixed
+- **Stationary detection decoupled from movementSettings** — `isStationary` was permanently `false`
+  when `movementSettings` was null (the default). Now always computed using sensible defaults
+  (50m threshold, 5min timeout), independent of whether movementSettings is provided.
+- **Self-referencing distance bug in updateMovementState()** — Distance was computed as
+  `lastKnownLocation.distanceTo(lastKnownLocation)` (always 0) due to updating the reference
+  before computing distance. Introduced `lastMovementLocation` for correct tracking.
+- **Proximity hierarchy in INTELLIGENT strategy** — `calculateIntelligentInterval()` no longer
+  returns fast 5s interval unconditionally when near a zone. Now respects stationary state:
+  near zone + stationary → 2min interval, near zone + moving → fast proximity interval.
+
+### Changed
+- **Default `accuracyProfile` aligned with native platforms** — Dart default changed from
+  `maxAccuracy` (5s interval, 0m filter) to `balanced` (10s interval, 10m+ filter), matching
+  Android and iOS native SmartGpsConfig defaults. Prevents `toMap()` from silently overwriting
+  native BALANCED with MAX_ACCURACY.
+
+### Added
+- **Diagnostic logging in example app** — LogBuffer ring buffer with disk persistence,
+  battery/network tracking, and platform share export. Supports complete session export
+  from disk file (not truncated at 5000-entry ring buffer limit).
+- **SmartGPS INTELLIGENT strategy in example app** — Example now demonstrates recommended
+  configuration: INTELLIGENT strategy with ProximitySettings, MovementSettings, BatterySettings,
+  and ClusterSettings. iOS receives all config except activity settings (CoreMotion safety).
+
+### Implementation Notes
+- All engine fixes applied identically to Android (Kotlin) and iOS (Swift) for platform parity.
+- Stationary detection changes are backward-compatible: apps providing movementSettings will
+  use their custom values; apps without get sensible defaults.
+- The default profile change is a **behavioral change** for apps creating `PolyfenceConfiguration()`
+  without specifying `accuracyProfile` — they now get BALANCED instead of MAX_ACCURACY.
+
 ## [0.10.2] - 2026-02-18
 
 ### Added

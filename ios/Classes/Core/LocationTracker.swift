@@ -69,6 +69,10 @@ class LocationTracker: NSObject {
     private var currentGpsInterval: TimeInterval = 5.0
     private var isStationary: Bool = false
     private var lastKnownLocation: CLLocation?
+
+    // Movement tracking for stationary detection (independent of movementSettings)
+    private var lastMovementLocation: CLLocation?
+    private var lastMovementTime: TimeInterval = 0
     
     // Runtime Status Emission
     private var lastEmittedStatus: [String: Any] = [:]
@@ -1071,32 +1075,46 @@ extension LocationTracker: CLLocationManagerDelegate {
     }
     
     /**
-     * Calculate interval using intelligent combination of factors
+     * Calculate interval using intelligent combination of factors.
      *
-     * HIERARCHY: Proximity is king - when near a zone, fast updates regardless of battery/activity.
-     * Battery and activity savings only apply when FAR from zones.
+     * HIERARCHY (fixed):
+     * - When near a zone AND moving → fast proximity interval (detect entry/exit quickly)
+     * - When near a zone AND stationary → respect stationary interval (save battery at home)
+     * - When far from all zones → use most battery-friendly interval
      */
     private func calculateIntelligentInterval() -> TimeInterval {
         let proximitySettings = smartConfig.proximitySettings
+        var proximityInterval: TimeInterval? = nil
 
-        // Check if we're near a zone - proximity is king
+        // Check if we're near a zone
         if let settings = proximitySettings, let location = lastKnownLocation {
             let nearestZoneDistance = calculateDistanceToNearestZone(location)
 
             if nearestZoneDistance <= settings.nearZoneThresholdMeters {
-                // NEAR zone - use fast updates, ignore battery/activity savings
-                let proximityInterval = calculateProximityBasedInterval()
-                print("\(Self.TAG): Near zone (\(nearestZoneDistance)m) - proximity is king: \(proximityInterval)s")
-                return proximityInterval
+                proximityInterval = calculateProximityBasedInterval()
+                print("\(Self.TAG): Near zone (\(nearestZoneDistance)m) - proximity interval: \(proximityInterval!)s, isStationary=\(isStationary)")
             }
         }
 
-        // FAR from zones - now we can optimize for battery/activity
+        // Collect other strategy intervals
         let movementInterval = calculateMovementBasedInterval()
         let batteryInterval = calculateBatteryBasedInterval()
         let activityInterval = calculateActivityBasedInterval()
 
-        // When far from zones, use the most battery-friendly (longest) interval
+        // Near a zone AND stationary → respect stationary interval to save battery
+        if let proxInterval = proximityInterval, isStationary {
+            let stationaryInterval = smartConfig.movementSettings?.stationaryUpdateIntervalMs ?? 120.0 // seconds
+            let result = max(proxInterval, stationaryInterval)
+            print("\(Self.TAG): Near zone but stationary - using: \(result)s (proximity=\(proxInterval), stationary=\(stationaryInterval))")
+            return result
+        }
+
+        // Near a zone AND moving → proximity wins (fast updates for entry/exit detection)
+        if let proxInterval = proximityInterval {
+            return proxInterval
+        }
+
+        // Far from zones → use the most battery-friendly (longest) interval
         let result = max(movementInterval, batteryInterval, activityInterval)
         print("\(Self.TAG): Far from zones - using longest interval: \(result)s (movement=\(movementInterval), battery=\(batteryInterval), activity=\(activityInterval))")
         return result
@@ -1310,38 +1328,49 @@ extension LocationTracker: CLLocationManagerDelegate {
     }
     
     /**
-     * Update movement state based on location changes
+     * Update movement state based on location changes.
+     *
+     * Stationary detection always runs using sensible defaults, even when
+     * movementSettings is nil. This ensures isStationary is always accurate,
+     * which is critical for INTELLIGENT strategy and P11 callback throttling.
      */
     private func updateMovementState(_ location: CLLocation) {
         lastKnownLocation = location
         let currentTime = Date().timeIntervalSince1970
-        guard let movementSettings = smartConfig.movementSettings else {
-            lastLocationTime = currentTime
-            return
-        }
-        
-        if lastLocationTime > 0 {
-            let timeDiff = currentTime - lastLocationTime
-            let distance = lastKnownLocation?.distance(from: location) ?? 0
-            
-            // Check if device is stationary
-            if timeDiff >= movementSettings.stationaryThresholdMs {
-                if distance < movementSettings.movementThresholdMeters {
-                    if !isStationary {
-                        isStationary = true
-                        print("\(Self.TAG): Device is now stationary")
-                        updateLocationManagerSettings() // Update GPS settings (also emits status)
-                    }
-                } else {
-                    if isStationary {
-                        isStationary = false
-                        print("\(Self.TAG): Device is now moving")
-                        updateLocationManagerSettings() // Update GPS settings (also emits status)
-                    }
-                }
+        let movementSettings = smartConfig.movementSettings
+
+        // Always compute stationary state — use defaults when movementSettings is nil
+        let moveThreshold = movementSettings?.movementThresholdMeters ?? 50.0
+        let timeThreshold = movementSettings?.stationaryThresholdMs ?? 300.0 // seconds
+
+        // Distance from last significant movement position (not from lastKnownLocation,
+        // which was just overwritten above — comparing to itself would always yield 0)
+        let distance: Double = lastMovementLocation.map { location.distance(from: $0) } ?? Double.greatestFiniteMagnitude
+
+        if distance > moveThreshold {
+            // Significant movement detected — update movement anchor
+            lastMovementLocation = location
+            lastMovementTime = currentTime
+            if isStationary {
+                isStationary = false
+                print("\(Self.TAG): Device started moving (moved \(String(format: "%.1f", distance))m)")
+                updateLocationManagerSettings()
+            }
+        } else if lastMovementTime > 0 && currentTime - lastMovementTime >= timeThreshold {
+            // No significant movement for threshold duration
+            if !isStationary {
+                isStationary = true
+                print("\(Self.TAG): Device is now stationary (no movement > \(moveThreshold)m in \(timeThreshold)s)")
+                updateLocationManagerSettings()
             }
         }
-        
+
+        // Initialize movement tracking on first location
+        if lastMovementLocation == nil {
+            lastMovementLocation = location
+            lastMovementTime = currentTime
+        }
+
         lastLocationTime = currentTime
     }
     

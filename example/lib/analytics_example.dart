@@ -3,6 +3,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:polyfence/polyfence.dart';
+import 'utils/logger.dart';
 
 /// Example showing how to integrate Polyfence Analytics
 class AnalyticsExample extends StatefulWidget {
@@ -41,7 +42,7 @@ class _AnalyticsExampleState extends State<AnalyticsExample> {
         _updateSessionData();
       });
     } catch (e) {
-      debugPrint('Failed to initialize analytics: $e');
+      logDebug('Failed to initialize analytics: $e');
     }
   }
 
@@ -74,9 +75,9 @@ class _AnalyticsExampleState extends State<AnalyticsExample> {
       );
 
       await Polyfence.instance.addZone(zone);
-      debugPrint('Test zone added for analytics testing');
+      logDebug('Test zone added for analytics testing');
     } catch (e) {
-      debugPrint('Failed to add test zone: $e');
+      logDebug('Failed to add test zone: $e');
     }
   }
 
@@ -88,7 +89,7 @@ class _AnalyticsExampleState extends State<AnalyticsExample> {
       zoneType: 'circle',
     );
 
-    debugPrint('Simulated detection recorded');
+    logDebug('Simulated detection recorded');
     _updateSessionData();
   }
 
@@ -96,7 +97,7 @@ class _AnalyticsExampleState extends State<AnalyticsExample> {
     // Simulate an error for testing
     PolyfenceAnalytics.instance.recordError('gps_timeout');
 
-    debugPrint('Simulated error recorded');
+    logDebug('Simulated error recorded');
     _updateSessionData();
   }
 

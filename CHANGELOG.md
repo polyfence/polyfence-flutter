@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.1] - 2026-02-25
+
+### Fixed
+- **iOS compilation: `ZoneData.name` → `ZoneData.zoneName`** — Cluster zone activation log
+  referenced non-existent `name` property on iOS `ZoneData` (property is `zoneName`).
+  Android `ZoneData` uses `name`, causing the iOS parity mismatch.
+- **iOS compilation: duplicate `currentTime` declaration** — `emitRuntimeStatus()` declared
+  `let currentTime` twice in the same scope. Removed redundant re-declaration, reusing the
+  existing variable from the function's outer scope (matching Android pattern).
+
 ## [0.11.0] - 2026-02-25
 
 ### Fixed

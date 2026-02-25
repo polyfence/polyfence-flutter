@@ -1507,7 +1507,6 @@ extension LocationTracker: CLLocationManagerDelegate {
         }
 
         // Only emit if status changed or 30 seconds elapsed
-        let currentTime = Date().timeIntervalSince1970
         let timeSinceLastEmit = currentTime - lastStatusEmitTime
 
         // Compare status dictionaries (simplified comparison - check key values)

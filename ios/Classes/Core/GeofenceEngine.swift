@@ -165,7 +165,7 @@ class GeofenceEngine {
             let effectiveRadius = clusterActiveRadiusMeters + (zone.radius ?? 0.0)
             if distance <= effectiveRadius {
                 activeZoneIds.insert(zoneId)
-                activatedZonesList.append(zone.name.isEmpty ? zoneId : zone.name)
+                activatedZonesList.append(zone.zoneName.isEmpty ? zoneId : zone.zoneName)
             }
         }
 

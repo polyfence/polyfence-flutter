@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.SharedPreferences
+import android.location.LocationManager
 import android.net.Uri
 import android.os.Build
 import android.os.PowerManager
@@ -246,9 +247,17 @@ class PolyfencePlugin: FlutterPlugin, MethodCallHandler, ActivityAware {
             }
             
             "isLocationServiceEnabled" -> {
-                // Location services status checked by system
-                // Service status check managed by LocationTracker
-                result.success(true)
+                val enabled = try {
+                    val locationManager = context.getSystemService(Context.LOCATION_SERVICE) as? LocationManager
+                    locationManager?.let {
+                        it.isProviderEnabled(LocationManager.GPS_PROVIDER) ||
+                        it.isProviderEnabled(LocationManager.NETWORK_PROVIDER)
+                    } ?: false
+                } catch (e: Exception) {
+                    Log.e("PolyfencePlugin", "Error checking location services: ${e.message}")
+                    false
+                }
+                result.success(enabled)
             }
             
             "getConfiguration" -> {

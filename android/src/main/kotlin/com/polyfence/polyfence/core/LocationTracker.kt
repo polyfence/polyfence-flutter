@@ -140,6 +140,7 @@ class LocationTracker : Service() {
     // Error Recovery Properties
     private lateinit var errorRecovery: PolyfenceErrorRecovery
     private var healthCheckHandler: android.os.Handler? = null
+    private var pendingSmartConfigReapplyRunnable: Runnable? = null
     private var lastLocationTime: Long = 0L
     private var consecutiveGpsFailures: Int = 0
 
@@ -955,6 +956,23 @@ private fun handleGeofenceEvent(zoneId: String, eventType: String, location: and
                         callback,
                         Looper.getMainLooper()
                     )
+
+                    // Reapply smart GPS configuration after recovery stabilizes
+                    if (smartConfig.updateStrategy != SmartGpsConfig.UpdateStrategy.CONTINUOUS) {
+                        pendingSmartConfigReapplyRunnable?.let {
+                            healthCheckHandler?.removeCallbacks(it)
+                        }
+                        val runnable = Runnable {
+                            pendingSmartConfigReapplyRunnable = null
+                            if (isRunning) {
+                                Log.d(TAG, "Reapplying smart GPS configuration after recovery")
+                                updateLocationRequest()
+                            }
+                        }
+                        pendingSmartConfigReapplyRunnable = runnable
+                        Log.d(TAG, "GPS recovery: will reapply smart config in 10s")
+                        healthCheckHandler?.postDelayed(runnable, 10000L)
+                    }
                 } catch (e: SecurityException) {
                     Log.e(TAG, "GPS restart failed - permission denied: ${e.message}")
                     PolyfenceErrorManager.reportError(

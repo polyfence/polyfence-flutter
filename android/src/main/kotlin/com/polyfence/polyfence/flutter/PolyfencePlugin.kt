@@ -39,6 +39,7 @@ class PolyfencePlugin: FlutterPlugin, MethodCallHandler, ActivityAware {
         private const val METHOD_CHANNEL = "polyfence"
         private const val LOCATION_CHANNEL = "polyfence/location"
         private const val GEOFENCE_CHANNEL = "polyfence/geofence"
+        private const val ERROR_CHANNEL = "polyfence/error"
         private const val PERFORMANCE_CHANNEL = "polyfence/performance"
         private const val PREFS_NAME = "polyfence_state"
         private const val KEY_TRACKING_ENABLED = "tracking_enabled"
@@ -46,6 +47,7 @@ class PolyfencePlugin: FlutterPlugin, MethodCallHandler, ActivityAware {
         // Separate event sinks
         private var locationSink: EventChannel.EventSink? = null
         private var geofenceSink: EventChannel.EventSink? = null
+        private var errorSink: EventChannel.EventSink? = null
         private var performanceSink: EventChannel.EventSink? = null
         private var methodChannelRef: MethodChannel? = null
 
@@ -135,15 +137,30 @@ class PolyfencePlugin: FlutterPlugin, MethodCallHandler, ActivityAware {
     private lateinit var methodChannel: MethodChannel
     private lateinit var locationChannel: EventChannel
     private lateinit var geofenceChannel: EventChannel
+    private lateinit var errorChannel: EventChannel
     private lateinit var performanceChannel: EventChannel
     private lateinit var context: Context
-    
-    
+
+
     override fun onAttachedToEngine(@NonNull flutterPluginBinding: FlutterPlugin.FlutterPluginBinding) {
         context = flutterPluginBinding.applicationContext
-        
-        // Initialize error manager
-        PolyfenceErrorManager.initialize(flutterPluginBinding.binaryMessenger)
+
+        // Setup error event channel — bridges core PolyfenceErrorManager to Flutter
+        errorChannel = EventChannel(flutterPluginBinding.binaryMessenger, ERROR_CHANNEL)
+        errorChannel.setStreamHandler(object : EventChannel.StreamHandler {
+            override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
+                errorSink = events
+                PolyfenceErrorManager.initialize { errorMap ->
+                    events?.success(errorMap)
+                }
+                Log.d("PolyfencePlugin", "Error stream listener connected")
+            }
+            override fun onCancel(arguments: Any?) {
+                errorSink = null
+                PolyfenceErrorManager.dispose()
+                Log.d("PolyfencePlugin", "Error stream listener disconnected")
+            }
+        })
         
         // Setup method channel
         methodChannel = MethodChannel(flutterPluginBinding.binaryMessenger, METHOD_CHANNEL)

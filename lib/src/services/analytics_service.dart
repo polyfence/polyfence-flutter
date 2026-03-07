@@ -157,7 +157,9 @@ class _SessionMetrics {
     if (speedMps != null && speedMps >= 0) {
       speedsAtEvent.add(speedMps);
     }
-    if (boundaryDistanceM != null && boundaryDistanceM >= 0 && boundaryDistanceM <= 50.0) {
+    if (boundaryDistanceM != null &&
+        boundaryDistanceM >= 0 &&
+        boundaryDistanceM <= 50.0) {
       boundaryEventsCount++;
     }
   }
@@ -315,7 +317,8 @@ class _SessionMetrics {
       }
       // Native false_event_count overrides Dart-side if present
       if (nativeSessionTelemetry!.containsKey('false_event_count')) {
-        summary['false_event_count'] = nativeSessionTelemetry!['false_event_count'];
+        summary['false_event_count'] =
+            nativeSessionTelemetry!['false_event_count'];
       }
     }
 

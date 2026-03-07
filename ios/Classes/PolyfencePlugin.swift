@@ -423,8 +423,8 @@ extension PolyfencePlugin: FlutterStreamHandler {
                 geofenceSink = events
             case "error":
                 errorSink = events
-                // Initialize error manager with the event sink
-                PolyfenceErrorManager.shared.initialize(eventSink: events)
+                // Bridge error manager to Flutter via closure wrapper
+                PolyfenceErrorManager.shared.initialize(errorCallback: { data in events(data) })
             case "performance":
                 performanceSink = events
             default:
@@ -438,7 +438,7 @@ extension PolyfencePlugin: FlutterStreamHandler {
                 geofenceSink = events
             } else if errorSink == nil {
                 errorSink = events
-                PolyfenceErrorManager.shared.initialize(eventSink: events)
+                PolyfenceErrorManager.shared.initialize(errorCallback: { data in events(data) })
             } else if performanceSink == nil {
                 performanceSink = events
             }
@@ -456,6 +456,7 @@ extension PolyfencePlugin: FlutterStreamHandler {
                 geofenceSink = nil
             case "error":
                 errorSink = nil
+                PolyfenceErrorManager.shared.dispose()
             case "performance":
                 performanceSink = nil
             default:
@@ -466,6 +467,7 @@ extension PolyfencePlugin: FlutterStreamHandler {
             locationSink = nil
             geofenceSink = nil
             errorSink = nil
+            PolyfenceErrorManager.shared.dispose()
             performanceSink = nil
         }
         return nil

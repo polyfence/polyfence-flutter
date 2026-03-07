@@ -5,7 +5,6 @@ import android.util.Log
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.*
 import kotlin.math.abs
-import io.flutter.plugin.common.MethodChannel
 
 /**
  * Core geofencing detection engine

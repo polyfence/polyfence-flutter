@@ -672,8 +672,7 @@ class PolyfenceService {
       // Record analytics for detection (fire-and-forget)
       if (zone != null && _analyticsAvailable) {
         try {
-          final speedMps =
-              (eventData['speedMps'] as num?)?.toDouble();
+          final speedMps = (eventData['speedMps'] as num?)?.toDouble();
           final distanceToBoundaryM =
               (eventData['distanceToBoundaryM'] as num?)?.toDouble();
 

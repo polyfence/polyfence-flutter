@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.3] - 2026-02-28
+
+### Fixed
+- **Android: use actual location provider check for isLocationServiceEnabled** — Uses
+  `LocationManager.isProviderEnabled()` with try/catch instead of previous check.
+- **Android: reapply SmartGpsConfig after GPS restart recovery** — After GPS recovery,
+  `updateLocationRequest()` is now called so the correct config is reapplied.
+
+### Added
+- **Algorithm parity reference vectors** — Test vectors for Kotlin/Swift parity validation.
+- **_handleGeofenceEvent unit tests** — Comprehensive tests for geofence event handling.
+- **Lifecycle edge case tests** — Tests for start/stop/restart behavior.
+- **Geofence algorithms test improvements** — Shared helper, stronger expectations, edge cases.
+
 ## [0.11.2] - 2026-02-25
 
 ### Fixed

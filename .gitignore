@@ -80,6 +80,7 @@ ANALYTICS_REMOVAL_LOG.md
 android/.gradle/
 
 # Internal docs (keep locally, don't publish)
+docs/
 .claude/
 CLAUDE.md
 .cursorrules

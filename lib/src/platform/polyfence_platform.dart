@@ -260,12 +260,15 @@ class MethodChannelPolyfence extends PolyfencePlatform {
     return raw.map((key, value) {
       final castKey = key as String;
       if (value is Map) {
-        return MapEntry(castKey, _deepCastMap(Map<Object?, Object?>.from(value)));
+        return MapEntry(
+            castKey, _deepCastMap(Map<Object?, Object?>.from(value)));
       } else if (value is List) {
-        return MapEntry(castKey, value.map((e) {
-          if (e is Map) return _deepCastMap(Map<Object?, Object?>.from(e));
-          return e;
-        }).toList());
+        return MapEntry(
+            castKey,
+            value.map((e) {
+              if (e is Map) return _deepCastMap(Map<Object?, Object?>.from(e));
+              return e;
+            }).toList());
       }
       return MapEntry(castKey, value);
     });

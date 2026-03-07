@@ -62,12 +62,24 @@ class LocationTracker: NSObject {
     
     // Callbacks
     private var locationCallback: (([String: Any]) -> Void)?
-    private var geofenceCallback: ((String, String, String, Double, Double, Double, Double) -> Void)?
+    private var geofenceCallback: (([String: Any]) -> Void)?
     
     // Smart GPS Configuration
     private var smartConfig = SmartGpsConfig()
     private var currentGpsInterval: TimeInterval = 5.0
     private var isStationary: Bool = false
+
+    // ML Telemetry: GPS interval distribution (seconds → time spent)
+    private var intervalTime: [String: TimeInterval] = [:]
+    private var lastIntervalChangeTime: TimeInterval = Date().timeIntervalSince1970
+    private var lastTrackedIntervalMs: Int = 5000
+    private var totalIntervalMs: Int = 0
+    private var intervalSampleCount: Int = 0
+
+    // ML Telemetry: stationary tracking
+    private var cumulativeStationaryTime: TimeInterval = 0
+    private var stationaryStartTime: TimeInterval?
+    private var trackingStartTime: TimeInterval = Date().timeIntervalSince1970
     private var lastKnownLocation: CLLocation?
 
     // Movement tracking for stationary detection (independent of movementSettings)
@@ -307,7 +319,7 @@ class LocationTracker: NSObject {
         locationCallback = callback
     }
     
-    func setGeofenceCallback(_ callback: @escaping (String, String, String, Double, Double, Double, Double) -> Void) {
+    func setGeofenceCallback(_ callback: @escaping ([String: Any]) -> Void) {
         geofenceCallback = callback
     }
     
@@ -437,24 +449,45 @@ class LocationTracker: NSObject {
      * Handle geofence events safely on main thread
      */
     private func handleGeofenceEvent(zoneId: String, eventType: String, location: CLLocation, detectionTimeMs: Double) {
-        
+
         // CRITICAL: Only process geofence events if tracking is explicitly enabled
         guard trackingEnabled else {
             return
         }
-        
+
         // Get zone name from GeofenceEngine
         let zoneName = geofenceEngine.getZoneName(zoneId) ?? zoneId
-        
+
         // Use the detection duration passed from GeofenceEngine (already in milliseconds)
         // This is the actual time it took to detect the geofence event, not GPS age
-        
+
         // Get GPS accuracy
         let gpsAccuracy = location.horizontalAccuracy
-        
+
+        // ML Telemetry: per-event enrichment
+        let speedMps = max(0.0, location.speed) // CLLocation.speed is m/s, -1 if unavailable
+        let activityType = activityRecognitionManager?.getCurrentActivity().rawValue.lowercased() ?? "unknown"
+        let distanceToBoundary = geofenceEngine.getDistanceToBoundary(zoneId: zoneId, location: location)
+
+        // Build enriched event dictionary
+        let eventData: [String: Any] = [
+            "zoneId": zoneId,
+            "zoneName": zoneName,
+            "eventType": eventType,
+            "timestamp": Int64(Date().timeIntervalSince1970 * 1000),
+            "detectionTimeMs": detectionTimeMs,
+            "gpsAccuracy": gpsAccuracy,
+            "latitude": location.coordinate.latitude,
+            "longitude": location.coordinate.longitude,
+            "accuracy": gpsAccuracy,
+            "speedMps": speedMps,
+            "activityAtEvent": activityType,
+            "distanceToBoundaryM": distanceToBoundary
+        ]
+
         // Send event to Flutter on main thread
         DispatchQueue.main.async {
-            self.geofenceCallback?(zoneId, zoneName, eventType, detectionTimeMs, gpsAccuracy, location.coordinate.latitude, location.coordinate.longitude)
+            self.geofenceCallback?(eventData)
         }
         
         // Show notification with proper zone name
@@ -1001,14 +1034,21 @@ extension LocationTracker: CLLocationManagerDelegate {
      */
     private func updateLocationManagerSettings() {
         guard let locationManager = locationManager else { return }
-        
+
         let accuracy = smartConfig.getCLLocationAccuracy()
         let distanceFilter = smartConfig.getDistanceFilter()
-        
+
         locationManager.desiredAccuracy = accuracy
         locationManager.distanceFilter = distanceFilter
         locationManager.pausesLocationUpdatesAutomatically = smartConfig.shouldPauseAutomatically()
-        
+
+        // ML Telemetry: track interval changes
+        let newIntervalMs = Int(calculateCurrentInterval() * 1000)
+        if newIntervalMs != lastTrackedIntervalMs {
+            accumulateIntervalTime(newIntervalMs: newIntervalMs)
+        }
+        currentGpsInterval = calculateCurrentInterval()
+
         print("\(Self.TAG): Updated GPS settings - accuracy: \(accuracy), distanceFilter: \(distanceFilter)")
 
         // Emit status after GPS configuration changes
@@ -1334,6 +1374,113 @@ extension LocationTracker: CLLocationManagerDelegate {
      * movementSettings is nil. This ensures isStationary is always accurate,
      * which is critical for INTELLIGENT strategy and P11 callback throttling.
      */
+    // MARK: - ML Telemetry Methods
+
+    /**
+     * Accumulate time spent at the previous GPS interval before switching.
+     */
+    private func accumulateIntervalTime(newIntervalMs: Int) {
+        let now = Date().timeIntervalSince1970
+        let elapsed = now - lastIntervalChangeTime
+        if elapsed > 0 {
+            let key = String(lastTrackedIntervalMs)
+            intervalTime[key] = (intervalTime[key] ?? 0) + elapsed
+        }
+        lastIntervalChangeTime = now
+        lastTrackedIntervalMs = newIntervalMs
+        totalIntervalMs += newIntervalMs
+        intervalSampleCount += 1
+    }
+
+    /**
+     * Track stationary state transitions for telemetry.
+     */
+    private func updateStationaryTracking(nowStationary: Bool) {
+        if nowStationary && stationaryStartTime == nil {
+            stationaryStartTime = Date().timeIntervalSince1970
+        } else if !nowStationary, let start = stationaryStartTime {
+            cumulativeStationaryTime += Date().timeIntervalSince1970 - start
+            stationaryStartTime = nil
+        }
+    }
+
+    /**
+     * Returns GPS interval distribution as proportions (0.0-1.0).
+     */
+    func getGpsIntervalDistribution() -> [String: Double] {
+        let now = Date().timeIntervalSince1970
+        let elapsed = now - lastIntervalChangeTime
+        var snapshot = intervalTime
+        let key = String(lastTrackedIntervalMs)
+        snapshot[key] = (snapshot[key] ?? 0) + elapsed
+
+        let total = snapshot.values.reduce(0, +)
+        guard total > 0 else { return [:] }
+        return snapshot.mapValues { $0 / total }
+    }
+
+    /**
+     * Returns ratio of time spent stationary (0.0-1.0).
+     */
+    func getStationaryRatio() -> Double {
+        let sessionDuration = Date().timeIntervalSince1970 - trackingStartTime
+        guard sessionDuration > 0 else { return 0 }
+        var total = cumulativeStationaryTime
+        if let start = stationaryStartTime {
+            total += Date().timeIntervalSince1970 - start
+        }
+        return total / sessionDuration
+    }
+
+    /**
+     * Returns average GPS interval in milliseconds.
+     */
+    func getAvgGpsIntervalMs() -> Int {
+        guard intervalSampleCount > 0 else { return 0 }
+        return totalIntervalMs / intervalSampleCount
+    }
+
+    /**
+     * Collect session telemetry from all native components.
+     */
+    func getSessionTelemetryData() -> [String: Any] {
+        var data: [String: Any] = [:]
+
+        // Activity distribution
+        activityRecognitionManager?.finalizeSession()
+        if let actDist = activityRecognitionManager?.getActivityDistribution(), !actDist.isEmpty {
+            data["activityDistribution"] = actDist
+        }
+
+        // GPS interval distribution
+        data["gpsIntervalDistribution"] = getGpsIntervalDistribution()
+        data["stationaryRatio"] = getStationaryRatio()
+        data["avgGpsIntervalMs"] = getAvgGpsIntervalMs()
+
+        // Zone metrics
+        data["zoneCount"] = geofenceEngine.getZoneCount()
+        data["zoneSizeDistribution"] = geofenceEngine.getZoneSizeDistribution()
+        data["zoneTransitionCount"] = geofenceEngine.getZoneTransitionCount()
+        data["dwellDurationsMinutes"] = geofenceEngine.getDwellDurations()
+        data["falseEventCount"] = geofenceEngine.getFalseEventCount()
+
+        return data
+    }
+
+    /**
+     * Reset telemetry counters for a new session.
+     */
+    func resetTelemetry() {
+        intervalTime.removeAll()
+        lastIntervalChangeTime = Date().timeIntervalSince1970
+        lastTrackedIntervalMs = Int(currentGpsInterval * 1000)
+        totalIntervalMs = 0
+        intervalSampleCount = 0
+        cumulativeStationaryTime = 0
+        stationaryStartTime = nil
+        trackingStartTime = Date().timeIntervalSince1970
+    }
+
     private func updateMovementState(_ location: CLLocation) {
         lastKnownLocation = location
         let currentTime = Date().timeIntervalSince1970
@@ -1353,6 +1500,7 @@ extension LocationTracker: CLLocationManagerDelegate {
             lastMovementTime = currentTime
             if isStationary {
                 isStationary = false
+                updateStationaryTracking(nowStationary: false)
                 print("\(Self.TAG): Device started moving (moved \(String(format: "%.1f", distance))m)")
                 updateLocationManagerSettings()
             }
@@ -1360,6 +1508,7 @@ extension LocationTracker: CLLocationManagerDelegate {
             // No significant movement for threshold duration
             if !isStationary {
                 isStationary = true
+                updateStationaryTracking(nowStationary: true)
                 print("\(Self.TAG): Device is now stationary (no movement > \(moveThreshold)m in \(timeThreshold)s)")
                 updateLocationManagerSettings()
             }

@@ -7,6 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-03-07
+
+### Added
+- **Enhanced telemetry for ML training (21 new fields)** — Adds input context fields to the
+  anonymous telemetry payload so ML models can correlate detection quality with conditions.
+  - Config context: `accuracy_profile`, `update_strategy`
+  - Per-event aggregates: `avg_speed_at_event_mps`, `boundary_events_count`
+  - False event detection: `false_event_count` (enter/exit reversal within 30s)
+  - Native session context: `activity_distribution`, `gps_interval_distribution`,
+    `stationary_ratio`, `avg_gps_interval_ms`, `zone_count`, `zone_size_distribution`,
+    `zone_transition_count`, `dwell_durations_minutes`
+  - Dwell aggregates: `avg_dwell_duration_minutes`, `max_dwell_duration_minutes`
+  - Device context: `device_category`, `os_version_major`, `charging_during_session`
+  - Battery levels: `battery_level_start`, `battery_level_end`
+- **`getSessionTelemetry` platform method** — New MethodChannel call aggregates telemetry
+  from native ActivityRecognitionManager, LocationTracker, and GeofenceEngine.
+- **Polygon boundary distance (iOS)** — Implements point-to-segment distance for polygon zones
+  (Android already had this; iOS was missing it).
+- **Enhanced telemetry tests** — Validates all 21 new fields, graceful degradation with legacy
+  events, native telemetry merge, and dwell aggregate computation.
+
+### Changed
+- **iOS geofence callback** — Migrated from 7 positional parameters to a dictionary-based
+  callback for extensibility (`[String: Any]`).
+
+### Privacy
+- No new fields contain GPS coordinates, zone definitions, or user identifiers.
+- `disableTelemetry: true` still disables everything including new fields.
+- See `doc/TELEMETRY.md` for complete field-by-field documentation.
+
 ## [0.11.3] - 2026-02-28
 
 ### Fixed

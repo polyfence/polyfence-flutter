@@ -39,6 +39,7 @@ class PolyfencePlugin: FlutterPlugin, MethodCallHandler, ActivityAware {
         private const val METHOD_CHANNEL = "polyfence"
         private const val LOCATION_CHANNEL = "polyfence/location"
         private const val GEOFENCE_CHANNEL = "polyfence/geofence"
+        private const val ERROR_CHANNEL = "polyfence/error"
         private const val PERFORMANCE_CHANNEL = "polyfence/performance"
         private const val PREFS_NAME = "polyfence_state"
         private const val KEY_TRACKING_ENABLED = "tracking_enabled"
@@ -46,6 +47,7 @@ class PolyfencePlugin: FlutterPlugin, MethodCallHandler, ActivityAware {
         // Separate event sinks
         private var locationSink: EventChannel.EventSink? = null
         private var geofenceSink: EventChannel.EventSink? = null
+        private var errorSink: EventChannel.EventSink? = null
         private var performanceSink: EventChannel.EventSink? = null
         private var methodChannelRef: MethodChannel? = null
 
@@ -96,7 +98,10 @@ class PolyfencePlugin: FlutterPlugin, MethodCallHandler, ActivityAware {
             latitude: Double,
             longitude: Double,
             detectionTimeMs: Double = 0.0,
-            gpsAccuracy: Double = 0.0
+            gpsAccuracy: Double = 0.0,
+            speedMps: Double = 0.0,
+            activityAtEvent: String = "unknown",
+            distanceToBoundaryM: Double = -1.0
         ) {
             val event = mapOf(
                 "zoneId" to zoneId,
@@ -106,7 +111,10 @@ class PolyfencePlugin: FlutterPlugin, MethodCallHandler, ActivityAware {
                 "latitude" to latitude,
                 "longitude" to longitude,
                 "detectionTimeMs" to detectionTimeMs,
-                "gpsAccuracy" to gpsAccuracy
+                "gpsAccuracy" to gpsAccuracy,
+                "speedMps" to speedMps,
+                "activityAtEvent" to activityAtEvent,
+                "distanceToBoundaryM" to distanceToBoundaryM
             )
             geofenceSink?.success(event)
         }
@@ -129,15 +137,30 @@ class PolyfencePlugin: FlutterPlugin, MethodCallHandler, ActivityAware {
     private lateinit var methodChannel: MethodChannel
     private lateinit var locationChannel: EventChannel
     private lateinit var geofenceChannel: EventChannel
+    private lateinit var errorChannel: EventChannel
     private lateinit var performanceChannel: EventChannel
     private lateinit var context: Context
-    
-    
+
+
     override fun onAttachedToEngine(@NonNull flutterPluginBinding: FlutterPlugin.FlutterPluginBinding) {
         context = flutterPluginBinding.applicationContext
-        
-        // Initialize error manager
-        PolyfenceErrorManager.initialize(flutterPluginBinding.binaryMessenger)
+
+        // Setup error event channel — bridges core PolyfenceErrorManager to Flutter
+        errorChannel = EventChannel(flutterPluginBinding.binaryMessenger, ERROR_CHANNEL)
+        errorChannel.setStreamHandler(object : EventChannel.StreamHandler {
+            override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
+                errorSink = events
+                PolyfenceErrorManager.initialize { errorMap ->
+                    events?.success(errorMap)
+                }
+                Log.d("PolyfencePlugin", "Error stream listener connected")
+            }
+            override fun onCancel(arguments: Any?) {
+                errorSink = null
+                PolyfenceErrorManager.dispose()
+                Log.d("PolyfencePlugin", "Error stream listener disconnected")
+            }
+        })
         
         // Setup method channel
         methodChannel = MethodChannel(flutterPluginBinding.binaryMessenger, METHOD_CHANNEL)
@@ -337,12 +360,47 @@ class PolyfencePlugin: FlutterPlugin, MethodCallHandler, ActivityAware {
                 }
             }
 
+            "getSessionTelemetry" -> {
+                try {
+                    val telemetry = LocationTracker.getSessionTelemetry()
+                    val sessionData = HashMap<String, Any?>(telemetry)
+                    sessionData["deviceCategory"] = getDeviceCategory()
+                    sessionData["osVersionMajor"] = Build.VERSION.SDK_INT
+                    result.success(sessionData)
+                } catch (e: Exception) {
+                    Log.e("PolyfencePlugin", "Failed to get session telemetry: ${e.message}")
+                    result.error("TELEMETRY_FAILED", e.message, null)
+                }
+            }
+
             else -> {
                 result.notImplemented()
             }
         }
     }
     
+    /**
+     * Returns a bucketed device category (not exact model) for ML telemetry.
+     */
+    private fun getDeviceCategory(): String {
+        val manufacturer = Build.MANUFACTURER.lowercase(Locale.ROOT)
+        val model = Build.MODEL.lowercase(Locale.ROOT)
+        return when {
+            manufacturer.contains("samsung") -> when {
+                model.contains("sm-s9") || model.contains("sm-s24") || model.contains("sm-s23") || model.contains("sm-f") -> "samsung_flagship"
+                model.contains("sm-a5") || model.contains("sm-a7") || model.contains("sm-a3") -> "samsung_mid"
+                else -> "samsung_other"
+            }
+            manufacturer.contains("google") || manufacturer.contains("pixel") -> "google_pixel"
+            manufacturer.contains("xiaomi") || manufacturer.contains("redmi") -> "xiaomi"
+            manufacturer.contains("huawei") -> "huawei"
+            manufacturer.contains("oneplus") -> "oneplus"
+            manufacturer.contains("oppo") -> "oppo"
+            manufacturer.contains("vivo") -> "vivo"
+            else -> "android_other"
+        }
+    }
+
     private fun hasAllRequiredPerms(context: Context): Boolean {
         val fine = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
         val coarse = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED

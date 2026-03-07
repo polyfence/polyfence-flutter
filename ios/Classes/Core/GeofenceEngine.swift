@@ -58,6 +58,16 @@ class GeofenceEngine {
     // Event callbacks - includes detection time in milliseconds
     private var eventCallback: ((String, String, CLLocation, Double) -> Void)?
 
+    // ML Telemetry: false event tracking (enter→exit reversal within 30s)
+    private var lastEventPerZone: [String: (eventType: String, timestamp: TimeInterval)] = [:]
+    private var falseEventCount: Int = 0
+
+    // ML Telemetry: dwell durations (minutes)
+    private var dwellDurationsMinutes: [Double] = []
+
+    // ML Telemetry: zone transition counter
+    private var zoneTransitionCount: Int = 0
+
     // Performance tracking
     private var performanceMetrics: [String: Double] = [:]
 
@@ -541,6 +551,7 @@ class GeofenceEngine {
             let detectionTimeMs = (CFAbsoluteTimeGetCurrent() - checkStartTime) * 1000.0
 
             let eventType = isInside ? "ENTER" : "EXIT"
+            trackEventTelemetry(zoneId: zoneId, eventType: eventType)
             eventCallback?(zoneId, eventType, location, detectionTimeMs)
 
             // Handle dwell tracking on state change
@@ -589,6 +600,7 @@ class GeofenceEngine {
                 let detectionTimeMs = (CFAbsoluteTimeGetCurrent() - checkStartTime) * 1000.0
 
                 let eventType = isInside ? "ENTER" : "EXIT"
+                trackEventTelemetry(zoneId: zoneId, eventType: eventType)
                 eventCallback?(zoneId, eventType, location, detectionTimeMs)
 
                 // Handle dwell tracking on state change
@@ -619,6 +631,11 @@ class GeofenceEngine {
                 self.dwellEventsFired.removeValue(forKey: zoneId) // Reset dwell flag for new entry
                 NSLog("[\(GeofenceEngine.TAG)] Dwell tracking started for zone \(zoneId)")
             } else {
+                // ML Telemetry: capture dwell duration before removing entry time
+                if let entryTime = self.zoneEntryTimes[zoneId] {
+                    let dwellMinutes = (Date().timeIntervalSince1970 - entryTime) / 60.0
+                    self.dwellDurationsMinutes.append(dwellMinutes)
+                }
                 // Exited zone - stop tracking dwell time
                 self.zoneEntryTimes.removeValue(forKey: zoneId)
                 self.dwellEventsFired.removeValue(forKey: zoneId)
@@ -662,6 +679,158 @@ class GeofenceEngine {
         // Geofence events are dispatched on the main thread in processImmediate/processWithConfidence.
     }
     
+    // MARK: - ML Telemetry
+
+    /**
+     * Track zone transitions and detect false events (reversals within 30s).
+     */
+    private func trackEventTelemetry(zoneId: String, eventType: String) {
+        syncQueue.sync {
+            self.zoneTransitionCount += 1
+            let now = Date().timeIntervalSince1970
+
+            if let lastEvent = self.lastEventPerZone[zoneId] {
+                let timeSince = now - lastEvent.timestamp
+                if timeSince <= 30.0 && lastEvent.eventType != eventType {
+                    self.falseEventCount += 1
+                }
+            }
+            self.lastEventPerZone[zoneId] = (eventType: eventType, timestamp: now)
+        }
+    }
+
+    /**
+     * Check if an event is a recent reversal (opposite event within 30s on same zone).
+     */
+    func isRecentReversal(zoneId: String, eventType: String) -> Bool {
+        return syncQueue.sync {
+            guard let lastEvent = self.lastEventPerZone[zoneId] else { return false }
+            let timeSince = Date().timeIntervalSince1970 - lastEvent.timestamp
+            return timeSince <= 30.0 && lastEvent.eventType != eventType
+        }
+    }
+
+    /**
+     * Calculate distance from point to zone boundary in meters.
+     */
+    func calculateDistanceToBoundary(zone: ZoneData, location: CLLocation) -> Double {
+        let point = location.coordinate
+        switch zone.type {
+        case .circle:
+            guard let center = zone.center, let radius = zone.radius else { return Double.greatestFiniteMagnitude }
+            let distance = calculateDistance(point1: point, point2: center)
+            return abs(distance - radius)
+        case .polygon:
+            guard let vertices = zone.polygon, vertices.count >= 2 else { return Double.greatestFiniteMagnitude }
+            var minDist = Double.greatestFiniteMagnitude
+            for i in 0..<vertices.count {
+                let j = (i + 1) % vertices.count
+                let segDist = pointToSegmentDistance(p: point, a: vertices[i], b: vertices[j])
+                if segDist < minDist { minDist = segDist }
+            }
+            return minDist
+        }
+    }
+
+    /**
+     * Distance from a point to a line segment in meters.
+     */
+    private func pointToSegmentDistance(p: CLLocationCoordinate2D, a: CLLocationCoordinate2D, b: CLLocationCoordinate2D) -> Double {
+        let ab = calculateDistance(point1: a, point2: b)
+        if ab < 0.001 { return calculateDistance(point1: p, point2: a) }
+
+        let cosLat = cos((a.latitude + b.latitude) / 2.0 * .pi / 180.0)
+        let dx = (b.longitude - a.longitude) * .pi / 180.0 * cosLat * GeofenceEngine.EARTH_RADIUS_METERS
+        let dy = (b.latitude - a.latitude) * .pi / 180.0 * GeofenceEngine.EARTH_RADIUS_METERS
+        let px = (p.longitude - a.longitude) * .pi / 180.0 * cos((a.latitude + p.latitude) / 2.0 * .pi / 180.0) * GeofenceEngine.EARTH_RADIUS_METERS
+        let py = (p.latitude - a.latitude) * .pi / 180.0 * GeofenceEngine.EARTH_RADIUS_METERS
+
+        let abLenSq = dx * dx + dy * dy
+        if abLenSq < 0.001 { return calculateDistance(point1: p, point2: a) }
+
+        let t = max(0.0, min(1.0, (px * dx + py * dy) / abLenSq))
+        let projLat = a.latitude + t * (b.latitude - a.latitude)
+        let projLng = a.longitude + t * (b.longitude - a.longitude)
+
+        return calculateDistance(point1: p, point2: CLLocationCoordinate2D(latitude: projLat, longitude: projLng))
+    }
+
+    /**
+     * Public accessor for boundary distance, used by LocationTracker for event enrichment.
+     */
+    func getDistanceToBoundary(zoneId: String, location: CLLocation) -> Double {
+        return syncQueue.sync {
+            guard let zone = self.zones[zoneId] else { return -1.0 }
+            return self.calculateDistanceToBoundary(zone: zone, location: location)
+        }
+    }
+
+    /**
+     * Returns the number of active zones.
+     */
+    func getZoneCount() -> Int {
+        return syncQueue.sync { self.zones.count }
+    }
+
+    /**
+     * Returns zone size distribution bucketed as small (<200m), medium (<1000m), large (>=1000m).
+     */
+    func getZoneSizeDistribution() -> [String: Int] {
+        return syncQueue.sync {
+            var dist = ["small": 0, "medium": 0, "large": 0]
+            for zone in self.zones.values {
+                let effectiveRadius: Double
+                switch zone.type {
+                case .circle:
+                    effectiveRadius = zone.radius ?? 0
+                case .polygon:
+                    let center = zone.calculateCenter()
+                    effectiveRadius = zone.polygon?.map { self.calculateDistance(point1: $0, point2: center) }.max() ?? 0
+                }
+                switch effectiveRadius {
+                case ..<200: dist["small"]! += 1
+                case ..<1000: dist["medium"]! += 1
+                default: dist["large"]! += 1
+                }
+            }
+            return dist
+        }
+    }
+
+    func getZoneTransitionCount() -> Int {
+        return syncQueue.sync { self.zoneTransitionCount }
+    }
+
+    func getFalseEventCount() -> Int {
+        return syncQueue.sync { self.falseEventCount }
+    }
+
+    func getDwellDurations() -> [Double] {
+        return syncQueue.sync { self.dwellDurationsMinutes }
+    }
+
+    /**
+     * Compute dwell duration in minutes for a zone (if it has an entry time).
+     */
+    func getDwellDurationMinutes(zoneId: String) -> Double? {
+        return syncQueue.sync {
+            guard let entryTime = self.zoneEntryTimes[zoneId] else { return nil }
+            return (Date().timeIntervalSince1970 - entryTime) / 60.0
+        }
+    }
+
+    /**
+     * Reset all telemetry counters for a new session.
+     */
+    func resetTelemetry() {
+        syncQueue.sync {
+            self.lastEventPerZone.removeAll()
+            self.falseEventCount = 0
+            self.dwellDurationsMinutes.removeAll()
+            self.zoneTransitionCount = 0
+        }
+    }
+
     /**
      * Validate location quality
      * Uses configurable GPS accuracy threshold (default: 100m)

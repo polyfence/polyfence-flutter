@@ -3,36 +3,27 @@ package com.polyfence.polyfence.core
 import android.content.Context
 import android.os.PowerManager
 import android.util.Log
-import io.flutter.plugin.common.BinaryMessenger
-import io.flutter.plugin.common.EventChannel
 import java.util.UUID
 
 /**
- * Manages error reporting to Flutter developers
- * Integrates with existing PolyfenceErrorRecovery system
+ * Manages error reporting to developers.
+ * Framework-agnostic — receives a plain callback from the bridge layer.
  */
 class PolyfenceErrorManager {
     companion object {
         private const val TAG = "PolyfenceErrorManager"
-        private const val ERROR_CHANNEL = "polyfence/error"
-        private var errorSink: EventChannel.EventSink? = null
-        
-        fun initialize(binaryMessenger: BinaryMessenger) {
-            EventChannel(binaryMessenger, ERROR_CHANNEL).setStreamHandler(
-                object : EventChannel.StreamHandler {
-                    override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
-                        errorSink = events
-                        Log.d(TAG, "Error stream listener connected")
-                    }
-                    
-                    override fun onCancel(arguments: Any?) {
-                        errorSink = null
-                        Log.d(TAG, "Error stream listener disconnected")
-                    }
-                }
-            )
+        private var errorSink: ((Map<String, Any>) -> Unit)? = null
+
+        fun initialize(errorCallback: (Map<String, Any>) -> Unit) {
+            errorSink = errorCallback
+            Log.d(TAG, "Error callback registered")
         }
-        
+
+        fun dispose() {
+            errorSink = null
+            Log.d(TAG, "Error callback cleared")
+        }
+
         fun reportError(
             type: String,
             message: String,
@@ -46,10 +37,10 @@ class PolyfenceErrorManager {
                 "timestamp" to System.currentTimeMillis(),
                 "correlationId" to (correlationId ?: UUID.randomUUID().toString())
             )
-            
+
             // Send to developer error stream
-            errorSink?.success(errorMap)
-            Log.d(TAG, "Error reported to Flutter: $type - $message")
+            errorSink?.invoke(errorMap)
+            Log.d(TAG, "Error reported: $type - $message")
         }
         
         fun reportGpsError(context: Context, errorType: String, details: String = "") {

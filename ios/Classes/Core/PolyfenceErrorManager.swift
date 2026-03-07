@@ -1,21 +1,25 @@
 import Foundation
-import Flutter
 
 /**
- * Manages error reporting to Flutter developers
- * Integrates with existing error handling systems
+ * Manages error reporting to developers.
+ * Framework-agnostic — receives a plain closure from the bridge layer.
  */
 class PolyfenceErrorManager {
     static let shared = PolyfenceErrorManager()
-    private var eventSink: FlutterEventSink?
-    
+    private var errorCallback: (([String: Any]) -> Void)?
+
     private init() {}
-    
-    func initialize(eventSink: @escaping FlutterEventSink) {
-        self.eventSink = eventSink
-        print("PolyfenceErrorManager: Error stream listener connected")
+
+    func initialize(errorCallback: @escaping ([String: Any]) -> Void) {
+        self.errorCallback = errorCallback
+        print("PolyfenceErrorManager: Error callback registered")
     }
-    
+
+    func dispose() {
+        errorCallback = nil
+        print("PolyfenceErrorManager: Error callback cleared")
+    }
+
     func reportError(
         type: String,
         message: String,
@@ -29,9 +33,9 @@ class PolyfenceErrorManager {
             "timestamp": Int64(Date().timeIntervalSince1970 * 1000),
             "correlationId": correlationId ?? UUID().uuidString
         ]
-        
-        eventSink?(errorData)
-        print("PolyfenceErrorManager: Error reported to Flutter: \(type) - \(message)")
+
+        errorCallback?(errorData)
+        print("PolyfenceErrorManager: Error reported: \(type) - \(message)")
     }
     
     func reportGpsError(type: String, details: String = "") {

@@ -124,6 +124,33 @@ class LocationTracker : Service() {
         }
 
         /**
+         * Collect session telemetry from all native components.
+         * Called by PolyfencePlugin for the 'getSessionTelemetry' MethodChannel.
+         */
+        fun getSessionTelemetry(): Map<String, Any?> {
+            val instance = currentInstance ?: return emptyMap()
+            val data = mutableMapOf<String, Any?>()
+
+            // Activity distribution
+            instance.activityRecognitionManager?.finalizeSession()
+            data["activityDistribution"] = instance.activityRecognitionManager?.getActivityDistribution()
+
+            // GPS interval distribution
+            data["gpsIntervalDistribution"] = instance.getGpsIntervalDistribution()
+            data["stationaryRatio"] = instance.getStationaryRatio()
+            data["avgGpsIntervalMs"] = instance.getAvgGpsIntervalMs()
+
+            // Zone metrics
+            data["zoneCount"] = instance.geofenceEngine.getZoneCount()
+            data["zoneSizeDistribution"] = instance.geofenceEngine.getZoneSizeDistribution()
+            data["zoneTransitionCount"] = instance.geofenceEngine.getZoneTransitionCount()
+            data["dwellDurationsMinutes"] = instance.geofenceEngine.getDwellDurations()
+            data["falseEventCount"] = instance.geofenceEngine.getFalseEventCount()
+
+            return data
+        }
+
+        /**
          * Check if scheduling is enabled
          */
         fun isScheduleEnabled(): Boolean {
@@ -171,6 +198,18 @@ class LocationTracker : Service() {
     private var smartConfig: SmartGpsConfig = SmartGpsConfig()
     private var currentGpsInterval: Long = 5000L
     private var isStationary: Boolean = false
+
+    // ML Telemetry: GPS interval distribution
+    private val intervalTimeMs = java.util.concurrent.ConcurrentHashMap<Long, Long>()
+    private var lastIntervalChangeTime: Long = System.currentTimeMillis()
+    private var lastTrackedInterval: Long = 5000L
+    private var totalIntervalMs: Long = 0L
+    private var intervalSampleCount: Int = 0
+
+    // ML Telemetry: stationary tracking
+    private var cumulativeStationaryMs: Long = 0L
+    private var stationaryStartTime: Long? = null
+    private var trackingStartTime: Long = System.currentTimeMillis()
 
     // Movement tracking for stationary detection (independent of movementSettings)
     private var lastMovementLocation: android.location.Location? = null
@@ -559,14 +598,19 @@ class LocationTracker : Service() {
 private fun handleGeofenceEvent(zoneId: String, eventType: String, location: android.location.Location, detectionTimeMs: Double) {
     // Get zone name from GeofenceEngine
     val zoneName = geofenceEngine.getZoneName(zoneId) ?: zoneId
-    
+
     // Use the detection duration passed from GeofenceEngine (already in milliseconds)
     // This is the actual time it took to detect the geofence event, not GPS age
-    
+
     // Get GPS accuracy
     val gpsAccuracy = if (location.hasAccuracy()) location.accuracy.toDouble() else 0.0
 
-    // Send event to Flutter with detection metrics and GPS coordinates
+    // ML Telemetry: per-event enrichment
+    val speedMps = if (location.hasSpeed()) location.speed.toDouble() else 0.0
+    val activityType = activityRecognitionManager?.getCurrentActivity()?.name?.lowercase() ?: "unknown"
+    val distanceToBoundary = geofenceEngine.getDistanceToBoundary(zoneId, location)
+
+    // Send event to Flutter with detection metrics, GPS coordinates, and ML context
     PolyfencePlugin.sendGeofenceEvent(
         zoneId = zoneId,
         zoneName = zoneName,
@@ -574,16 +618,19 @@ private fun handleGeofenceEvent(zoneId: String, eventType: String, location: and
         latitude = location.latitude,
         longitude = location.longitude,
         detectionTimeMs = detectionTimeMs,
-        gpsAccuracy = gpsAccuracy
+        gpsAccuracy = gpsAccuracy,
+        speedMps = speedMps,
+        activityAtEvent = activityType,
+        distanceToBoundaryM = distanceToBoundary
     )
-    
+
     // Terse geofence event log
     val displayName = if (zoneName.isNotEmpty()) zoneName else zoneId
-    Log.i(TAG, "PF: EVENT $eventType zone=$displayName detection=${detectionTimeMs}ms ts=${System.currentTimeMillis()}")
-    
+    Log.i(TAG, "PF: EVENT $eventType zone=$displayName detection=${detectionTimeMs}ms speed=${speedMps}m/s activity=$activityType")
+
     // Show notification with proper zone name
     showGeofenceNotification(eventType, zoneId, zoneName)
-    
+
 }
     
     private fun sendLocationToFlutter(location: android.location.Location) {
@@ -1219,6 +1266,9 @@ private fun handleGeofenceEvent(zoneId: String, eventType: String, location: and
                 Looper.getMainLooper()
             )
             
+            if (interval != currentGpsInterval) {
+                accumulateIntervalTime(interval)
+            }
             currentGpsInterval = interval
             Log.d(TAG, "Updated GPS: priority=$priority, interval=${interval}ms")
             
@@ -1555,6 +1605,84 @@ private fun handleGeofenceEvent(zoneId: String, eventType: String, location: and
         }
     }
     
+    // --- ML Telemetry Methods ---
+
+    /**
+     * Accumulate time spent at the previous GPS interval before switching.
+     */
+    private fun accumulateIntervalTime(newInterval: Long) {
+        val now = System.currentTimeMillis()
+        val elapsed = now - lastIntervalChangeTime
+        if (elapsed > 0) {
+            intervalTimeMs[lastTrackedInterval] = (intervalTimeMs[lastTrackedInterval] ?: 0L) + elapsed
+        }
+        lastIntervalChangeTime = now
+        lastTrackedInterval = newInterval
+        totalIntervalMs += newInterval
+        intervalSampleCount++
+    }
+
+    /**
+     * Track stationary state transitions for telemetry.
+     */
+    private fun updateStationaryTracking(nowStationary: Boolean) {
+        if (nowStationary && stationaryStartTime == null) {
+            stationaryStartTime = System.currentTimeMillis()
+        } else if (!nowStationary && stationaryStartTime != null) {
+            cumulativeStationaryMs += System.currentTimeMillis() - stationaryStartTime!!
+            stationaryStartTime = null
+        }
+    }
+
+    /**
+     * Returns GPS interval distribution as proportions (0.0-1.0).
+     */
+    fun getGpsIntervalDistribution(): Map<String, Double> {
+        // Finalize current interval segment
+        val now = System.currentTimeMillis()
+        val elapsed = now - lastIntervalChangeTime
+        val snapshot = HashMap(intervalTimeMs)
+        snapshot[lastTrackedInterval] = (snapshot[lastTrackedInterval] ?: 0L) + elapsed
+
+        val total = snapshot.values.sum().toDouble()
+        if (total <= 0) return emptyMap()
+        return snapshot.mapKeys { (k, _) -> k.toString() }.mapValues { (_, ms) -> ms / total }
+    }
+
+    /**
+     * Returns ratio of time spent stationary (0.0-1.0).
+     */
+    fun getStationaryRatio(): Double {
+        val sessionDurationMs = System.currentTimeMillis() - trackingStartTime
+        if (sessionDurationMs <= 0) return 0.0
+        var total = cumulativeStationaryMs
+        if (stationaryStartTime != null) {
+            total += System.currentTimeMillis() - stationaryStartTime!!
+        }
+        return total.toDouble() / sessionDurationMs
+    }
+
+    /**
+     * Returns average GPS interval in milliseconds.
+     */
+    fun getAvgGpsIntervalMs(): Int {
+        return if (intervalSampleCount > 0) (totalIntervalMs / intervalSampleCount).toInt() else 0
+    }
+
+    /**
+     * Reset telemetry counters for a new session.
+     */
+    fun resetTelemetry() {
+        intervalTimeMs.clear()
+        lastIntervalChangeTime = System.currentTimeMillis()
+        lastTrackedInterval = currentGpsInterval
+        totalIntervalMs = 0L
+        intervalSampleCount = 0
+        cumulativeStationaryMs = 0L
+        stationaryStartTime = null
+        trackingStartTime = System.currentTimeMillis()
+    }
+
     /**
      * Update movement state based on location changes.
      *
@@ -1581,6 +1709,7 @@ private fun handleGeofenceEvent(zoneId: String, eventType: String, location: and
             lastMovementTime = currentTime
             if (isStationary) {
                 isStationary = false
+                updateStationaryTracking(false)
                 Log.d(TAG, "Device started moving (moved ${String.format("%.1f", distance)}m)")
                 updateLocationRequest()
                 emitRuntimeStatus()
@@ -1589,6 +1718,7 @@ private fun handleGeofenceEvent(zoneId: String, eventType: String, location: and
             // No significant movement for threshold duration
             if (!isStationary) {
                 isStationary = true
+                updateStationaryTracking(true)
                 Log.d(TAG, "Device is now stationary (no movement > ${moveThreshold}m in ${timeThreshold / 1000}s)")
                 updateLocationRequest()
                 emitRuntimeStatus()

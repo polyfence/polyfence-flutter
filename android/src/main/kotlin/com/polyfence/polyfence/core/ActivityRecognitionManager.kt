@@ -51,6 +51,11 @@ class ActivityRecognitionManager(private val context: Context) {
     // Callback for activity changes
     private var onActivityChanged: ((ActivityType, Int) -> Unit)? = null
 
+    // ML Telemetry: time spent per activity type (milliseconds)
+    private val activityTimeMs = java.util.concurrent.ConcurrentHashMap<String, Long>()
+    private var lastActivityChangeTime: Long = System.currentTimeMillis()
+    private var lastTrackedActivity: String = "unknown"
+
     /**
      * Start activity recognition
      */
@@ -147,6 +152,7 @@ class ActivityRecognitionManager(private val context: Context) {
             activityReceiver = null
             pendingIntent = null
             isEnabled = false
+            accumulateActivityTime()
             currentActivity = ActivityType.UNKNOWN
             currentConfidence = 0
 
@@ -255,6 +261,7 @@ class ActivityRecognitionManager(private val context: Context) {
         debounceRunnable = Runnable {
             if (pendingActivityChange == newActivity) {
                 Log.i(TAG, "Activity confirmed after debounce: $newActivity")
+                accumulateActivityTime()
                 currentActivity = newActivity
                 currentConfidence = confidence
                 onActivityChanged?.invoke(newActivity, confidence)
@@ -265,6 +272,49 @@ class ActivityRecognitionManager(private val context: Context) {
 
         handler.postDelayed(debounceRunnable!!, settings.debounceSeconds * 1000L)
         Log.d(TAG, "Debounce started: ${settings.debounceSeconds}s for $newActivity")
+    }
+
+    // --- ML Telemetry Methods ---
+
+    /**
+     * Accumulate time spent in the current activity before switching.
+     * Must be called BEFORE updating currentActivity.
+     */
+    private fun accumulateActivityTime() {
+        val now = System.currentTimeMillis()
+        val elapsed = now - lastActivityChangeTime
+        if (elapsed > 0) {
+            activityTimeMs[lastTrackedActivity] = (activityTimeMs[lastTrackedActivity] ?: 0L) + elapsed
+        }
+        lastActivityChangeTime = now
+        lastTrackedActivity = currentActivity.name.lowercase()
+    }
+
+    /**
+     * Finalize the last activity segment before reading the distribution.
+     * Call this before getActivityDistribution() at session end.
+     */
+    fun finalizeSession() {
+        accumulateActivityTime()
+    }
+
+    /**
+     * Returns activity distribution as proportions (0.0-1.0).
+     * Call finalizeSession() first to capture the last activity segment.
+     */
+    fun getActivityDistribution(): Map<String, Double> {
+        val total = activityTimeMs.values.sum().toDouble()
+        if (total <= 0) return emptyMap()
+        return activityTimeMs.mapValues { (_, ms) -> ms / total }
+    }
+
+    /**
+     * Reset telemetry counters for a new session.
+     */
+    fun resetTelemetry() {
+        activityTimeMs.clear()
+        lastActivityChangeTime = System.currentTimeMillis()
+        lastTrackedActivity = currentActivity.name.lowercase()
     }
 
     /**

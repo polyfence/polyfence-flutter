@@ -27,6 +27,11 @@ class ActivityRecognitionManager {
     // Callback for activity changes
     private var onActivityChanged: ((ActivityType, Int) -> Void)?
 
+    // ML Telemetry: time spent per activity type (seconds)
+    private var activityTime: [String: TimeInterval] = [:]
+    private var lastActivityChangeTime: TimeInterval = Date().timeIntervalSince1970
+    private var lastTrackedActivity: String = "unknown"
+
     init() {
         operationQueue.name = "com.polyfence.activityRecognition"
         operationQueue.maxConcurrentOperationCount = 1
@@ -85,6 +90,7 @@ class ActivityRecognitionManager {
         motionActivityManager.stopActivityUpdates()
 
         isEnabled = false
+        accumulateActivityTime()
         currentActivity = .unknown
         currentConfidence = 0
 
@@ -185,6 +191,7 @@ class ActivityRecognitionManager {
 
                 if self.pendingActivityChange == newActivity {
                     NSLog("[\(Self.TAG)] Activity confirmed after debounce: \(newActivity)")
+                    self.accumulateActivityTime()
                     self.currentActivity = newActivity
                     self.currentConfidence = confidence
                     self.onActivityChanged?(newActivity, confidence)
@@ -196,6 +203,48 @@ class ActivityRecognitionManager {
 
             NSLog("[\(Self.TAG)] Debounce started: \(self.settings.debounceSeconds)s for \(newActivity)")
         }
+    }
+
+    // MARK: - ML Telemetry
+
+    /**
+     * Accumulate time spent in the current activity before switching.
+     * Must be called BEFORE updating currentActivity.
+     */
+    private func accumulateActivityTime() {
+        let now = Date().timeIntervalSince1970
+        let elapsed = now - lastActivityChangeTime
+        if elapsed > 0 {
+            let key = lastTrackedActivity
+            activityTime[key] = (activityTime[key] ?? 0) + elapsed
+        }
+        lastActivityChangeTime = now
+        lastTrackedActivity = currentActivity.rawValue.lowercased()
+    }
+
+    /**
+     * Finalize the last activity segment before reading the distribution.
+     */
+    func finalizeSession() {
+        accumulateActivityTime()
+    }
+
+    /**
+     * Returns activity distribution as proportions (0.0-1.0).
+     */
+    func getActivityDistribution() -> [String: Double] {
+        let total = activityTime.values.reduce(0, +)
+        guard total > 0 else { return [:] }
+        return activityTime.mapValues { $0 / total }
+    }
+
+    /**
+     * Reset telemetry counters for a new session.
+     */
+    func resetTelemetry() {
+        activityTime.removeAll()
+        lastActivityChangeTime = Date().timeIntervalSince1970
+        lastTrackedActivity = currentActivity.rawValue.lowercased()
     }
 
     /**

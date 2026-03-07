@@ -1,7 +1,7 @@
 # Polyfence Telemetry Reference
 
-**Last updated:** 2026-02-25
-**Plugin version:** 0.10.0+
+**Last updated:** 2026-03-07
+**Plugin version:** 0.12.0+
 
 ---
 
@@ -33,7 +33,7 @@ Here's **exactly** what gets sent to our analytics endpoint when a session ends:
   // App/Platform Identifiers (NOT user identifiers)
   "app_identifier": "com.example.logistics",
   "platform": "android",
-  "plugin_version": "0.2.5",
+  "plugin_version": "0.12.0",
 
   // Optional Developer Metadata
   "industry_category": null,
@@ -68,7 +68,52 @@ Here's **exactly** what gets sent to our analytics endpoint when a session ends:
 
   // Battery Optimization Tracking
   "battery_optimization_disabled": true,
-  "battery_optimization_check_count": 1
+  "battery_optimization_check_count": 1,
+
+  // --- Enhanced Telemetry (v0.12.0) ---
+
+  // Config Context
+  "accuracy_profile": "balanced",
+  "update_strategy": "continuous",
+
+  // Per-Event Aggregates
+  "avg_speed_at_event_mps": 3.2,
+  "boundary_events_count": 2,
+
+  // False Event Detection
+  "false_event_count": 0,
+
+  // Battery Levels
+  "battery_level_start": 85.0,
+  "battery_level_end": 72.0,
+
+  // Native Session Context (from platform engines)
+  "activity_distribution": {
+    "still": 0.6,
+    "walking": 0.3,
+    "driving": 0.1
+  },
+  "gps_interval_distribution": {
+    "5000": 0.8,
+    "10000": 0.2
+  },
+  "stationary_ratio": 0.45,
+  "avg_gps_interval_ms": 6200.0,
+  "zone_count": 3,
+  "zone_size_distribution": {
+    "small": 1,
+    "medium": 1,
+    "large": 1
+  },
+  "zone_transition_count": 7,
+  "dwell_durations_minutes": [5.0, 12.5, 3.2],
+  "avg_dwell_duration_minutes": 6.9,
+  "max_dwell_duration_minutes": 12.5,
+
+  // Device Context
+  "device_category": "google_pixel",
+  "os_version_major": 14,
+  "charging_during_session": false
 }
 ```
 
@@ -133,6 +178,62 @@ Here's **exactly** what gets sent to our analytics endpoint when a session ends:
 |-------|------|---------|-------------|----------------|
 | `battery_optimization_disabled` | boolean | `true` | Is optimization disabled? | Track user configuration |
 | `battery_optimization_check_count` | integer | `1` | Check count | Monitor API usage |
+
+### Enhanced Telemetry (v0.12.0)
+
+These fields provide ML training context for improving geofence detection algorithms.
+
+#### Config Context
+
+| Field | Type | Example | Description | Why We Need It |
+|-------|------|---------|-------------|----------------|
+| `accuracy_profile` | string | `"balanced"` | GPS accuracy profile name | Correlate performance with config |
+| `update_strategy` | string | `"continuous"` | Update strategy name | Correlate performance with config |
+
+#### Per-Event Aggregates
+
+| Field | Type | Example | Description | Why We Need It |
+|-------|------|---------|-------------|----------------|
+| `avg_speed_at_event_mps` | float | `3.2` | Average speed at detection (m/s) | Correlate speed with detection accuracy |
+| `boundary_events_count` | integer | `2` | Events within 50m of zone boundary | Measure boundary precision |
+
+#### False Event Detection
+
+| Field | Type | Example | Description | Why We Need It |
+|-------|------|---------|-------------|----------------|
+| `false_event_count` | integer | `0` | Enter/exit reversals within 30s | Measure detection reliability |
+
+#### Battery Levels
+
+| Field | Type | Example | Description | Why We Need It |
+|-------|------|---------|-------------|----------------|
+| `battery_level_start` | float | `85.0` | Battery % at session start | Precise battery impact tracking |
+| `battery_level_end` | float | `72.0` | Battery % at session end | Precise battery impact tracking |
+
+#### Native Session Context
+
+| Field | Type | Example | Description | Why We Need It |
+|-------|------|---------|-------------|----------------|
+| `activity_distribution` | object | `{"still": 0.6, "walking": 0.3}` | Time proportion per activity | Correlate activity with GPS strategy |
+| `gps_interval_distribution` | object | `{"5000": 0.8}` | Time proportion per GPS interval | Understand adaptive GPS behavior |
+| `stationary_ratio` | float | `0.45` | Proportion of time stationary | Optimize stationary detection |
+| `avg_gps_interval_ms` | float | `6200.0` | Average GPS poll interval (ms) | Monitor GPS polling behavior |
+| `zone_count` | integer | `3` | Number of active zones | Context for performance metrics |
+| `zone_size_distribution` | object | `{"small": 1, "medium": 1}` | Zone count by size bucket | Optimize for common zone sizes |
+| `zone_transition_count` | integer | `7` | Total zone state changes | Measure detection activity |
+| `dwell_durations_minutes` | array | `[5.0, 12.5]` | Individual dwell durations | Analyze dwell patterns |
+| `avg_dwell_duration_minutes` | float | `6.9` | Average dwell time (minutes) | Summarize dwell behavior |
+| `max_dwell_duration_minutes` | float | `12.5` | Maximum dwell time (minutes) | Identify long-dwell sessions |
+
+#### Device Context
+
+| Field | Type | Example | Description | Why We Need It |
+|-------|------|---------|-------------|----------------|
+| `device_category` | string | `"google_pixel"` | Device manufacturer/tier bucket | Correlate performance with hardware |
+| `os_version_major` | integer | `14` | OS major version | Track platform-specific behavior |
+| `charging_during_session` | boolean | `false` | Was device charging? | Correlate battery with charging state |
+
+**Privacy note:** `device_category` is a broad bucket (e.g., "samsung_mid", "google_pixel", "iphone_flagship"), not a specific model identifier. `zone_size_distribution` uses abstract buckets (small/medium/large), not actual dimensions.
 
 ---
 
@@ -401,6 +502,16 @@ For the full privacy policy, see: [https://polyfence.io/privacy](https://polyfen
 ---
 
 ## Changelog
+
+### 2026-03-07 (Version 0.12.0)
+- **Added:** 21 enhanced telemetry fields for ML training context
+- **Added:** Config context (accuracy_profile, update_strategy)
+- **Added:** Per-event aggregates (avg_speed_at_event_mps, boundary_events_count)
+- **Added:** False event detection (false_event_count)
+- **Added:** Native session context (activity_distribution, gps_interval_distribution, stationary_ratio, zone metrics, dwell durations)
+- **Added:** Device context (device_category, os_version_major, charging_during_session)
+- **Added:** Battery level snapshots (battery_level_start, battery_level_end)
+- **Privacy:** No new fields contain GPS coordinates, zone definitions, or user identifiers
 
 ### 2025-12-29 (Version 0.3.0)
 - **Changed:** Telemetry enabled by default (previously opt-in)

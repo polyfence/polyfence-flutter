@@ -245,9 +245,16 @@ class PolyfenceService {
         await PolyfenceAnalytics.instance.initialize(
           config: analyticsConfigToUse,
           pluginVersion: pluginVersion,
+          sessionTelemetryFetcher: () => _platform.getSessionTelemetry(),
         );
 
         _analyticsAvailable = true;
+
+        // Set config context for telemetry (accuracy profile, update strategy)
+        PolyfenceAnalytics.instance.setConfigContext(
+          accuracyProfile: _currentConfiguration.accuracyProfile.name,
+          updateStrategy: _currentConfiguration.updateStrategy.name,
+        );
 
         // Telemetry disclosure: show once per install or when state changes
         // Only in debug builds to avoid production log spam
@@ -665,10 +672,17 @@ class PolyfenceService {
       // Record analytics for detection (fire-and-forget)
       if (zone != null && _analyticsAvailable) {
         try {
+          final speedMps =
+              (eventData['speedMps'] as num?)?.toDouble();
+          final distanceToBoundaryM =
+              (eventData['distanceToBoundaryM'] as num?)?.toDouble();
+
           PolyfenceAnalytics.instance.recordDetection(
             detectionTimeMs: detectionTimeMs,
             gpsAccuracy: gpsAccuracy,
             zoneType: zone.type.name.toLowerCase(), // 'circle' or 'polygon'
+            speedMps: speedMps,
+            boundaryDistanceM: distanceToBoundaryM,
           );
         } catch (_) {
           // Analytics must never crash geofence event handling

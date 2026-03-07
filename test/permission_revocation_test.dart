@@ -82,6 +82,8 @@ class MockPolyfencePlatform extends PolyfencePlatform
   @override
   Future<Map<String, bool>> getZoneStates() async => {};
   @override
+  Future<Map<String, dynamic>> getSessionTelemetry() async => {};
+  @override
   Future<void> dispose() async {
     calls.add('dispose');
     await locationController.close();

@@ -107,11 +107,31 @@ class _SessionMetrics {
   /// Number of battery optimization status checks.
   int batteryOptimizationCheckCount = 0;
 
+  // --- Enhanced telemetry fields (v0.12.0) ---
+
+  /// Config context — set once at session start.
+  String? accuracyProfile;
+  String? updateStrategy;
+
+  /// Per-event speed accumulator (m/s).
+  List<double> speedsAtEvent = [];
+
+  /// Number of events within 50m of zone boundary.
+  int boundaryEventsCount = 0;
+
+  /// Number of false events (enter→exit reversal within 30s).
+  int falseEventCount = 0;
+
+  /// Native session telemetry fetched via getSessionTelemetry.
+  Map<String, dynamic>? nativeSessionTelemetry;
+
   /// Records a zone detection event.
   void recordDetection({
     required double detectionTimeMs,
     required double gpsAccuracy,
     required String zoneType,
+    double? speedMps,
+    double? boundaryDistanceM,
   }) {
     detectionsTotal++;
     detectionTimes.add(detectionTimeMs);
@@ -131,6 +151,14 @@ class _SessionMetrics {
     gpsTotalCount++;
     if (gpsAccuracy <= 30.0) {
       gpsOkCount++;
+    }
+
+    // Enhanced telemetry accumulators
+    if (speedMps != null && speedMps >= 0) {
+      speedsAtEvent.add(speedMps);
+    }
+    if (boundaryDistanceM != null && boundaryDistanceM >= 0 && boundaryDistanceM <= 50.0) {
+      boundaryEventsCount++;
     }
   }
 
@@ -208,7 +236,23 @@ class _SessionMetrics {
       gpsOkRatio = gpsOkCount / gpsTotalCount;
     }
 
-    return {
+    // Enhanced telemetry: per-event aggregates
+    final avgSpeedAtEvent = speedsAtEvent.isEmpty
+        ? null
+        : speedsAtEvent.reduce((a, b) => a + b) / speedsAtEvent.length;
+
+    // Enhanced telemetry: dwell aggregates from native data
+    double? avgDwellMinutes;
+    double? maxDwellMinutes;
+    final nativeDwells = nativeSessionTelemetry?['dwell_durations_minutes'];
+    if (nativeDwells is List && nativeDwells.isNotEmpty) {
+      final dwells = nativeDwells.map((e) => (e as num).toDouble()).toList();
+      avgDwellMinutes = dwells.reduce((a, b) => a + b) / dwells.length;
+      maxDwellMinutes = dwells.reduce((a, b) => a > b ? a : b);
+    }
+
+    final summary = <String, dynamic>{
+      // --- Existing v1 fields ---
       'detections_total': detectionsTotal,
       'detection_time_avg_ms': avgDetectionTime,
       'detection_time_p95_ms': p95DetectionTime,
@@ -225,7 +269,57 @@ class _SessionMetrics {
       'sample_events': sampleEvents,
       'battery_optimization_disabled': batteryOptimizationDisabled,
       'battery_optimization_check_count': batteryOptimizationCheckCount,
+
+      // --- Enhanced telemetry v2 fields ---
+      // Config context
+      'accuracy_profile': accuracyProfile,
+      'update_strategy': updateStrategy,
+
+      // Per-event aggregates
+      'avg_speed_at_event_mps': avgSpeedAtEvent,
+      'boundary_events_count': boundaryEventsCount,
+
+      // False events
+      'false_event_count': falseEventCount,
+
+      // Battery levels
+      'battery_level_start': batteryStart,
+      'battery_level_end': batteryEnd,
+
+      // Dwell aggregates (derived from native data)
+      'avg_dwell_duration_minutes': avgDwellMinutes,
+      'max_dwell_duration_minutes': maxDwellMinutes,
     };
+
+    // Merge native session telemetry (activity_distribution, gps_interval_distribution,
+    // stationary_ratio, avg_gps_interval_ms, zone_count, zone_size_distribution,
+    // zone_transition_count, dwell_durations_minutes, device_category,
+    // os_version_major, charging_during_session, false_event_count)
+    if (nativeSessionTelemetry != null) {
+      for (final key in [
+        'activity_distribution',
+        'gps_interval_distribution',
+        'stationary_ratio',
+        'avg_gps_interval_ms',
+        'zone_count',
+        'zone_size_distribution',
+        'zone_transition_count',
+        'dwell_durations_minutes',
+        'device_category',
+        'os_version_major',
+        'charging_during_session',
+      ]) {
+        if (nativeSessionTelemetry!.containsKey(key)) {
+          summary[key] = nativeSessionTelemetry![key];
+        }
+      }
+      // Native false_event_count overrides Dart-side if present
+      if (nativeSessionTelemetry!.containsKey('false_event_count')) {
+        summary['false_event_count'] = nativeSessionTelemetry!['false_event_count'];
+      }
+    }
+
+    return summary;
   }
 }
 
@@ -247,13 +341,20 @@ class PolyfenceAnalytics {
   String? _pluginVersion;
   final Battery _battery = Battery();
 
+  /// Injected function to fetch native session telemetry at session end.
+  Future<Map<String, dynamic>> Function()? _sessionTelemetryFetcher;
+
   static const String _defaultEndpoint =
       'https://polyfence.io/api/v1/analytics/session';
 
   /// Initializes the analytics service with the given configuration.
+  ///
+  /// The optional [sessionTelemetryFetcher] provides native session telemetry
+  /// data (activity distribution, GPS intervals, device info) at session end.
   Future<void> initialize({
     required AnalyticsConfig config,
     required String pluginVersion,
+    Future<Map<String, dynamic>> Function()? sessionTelemetryFetcher,
   }) async {
     if (config.apiEndpoint != null) {
       final uri = Uri.tryParse(config.apiEndpoint!);
@@ -270,6 +371,7 @@ class PolyfenceAnalytics {
 
     _config = config;
     _pluginVersion = pluginVersion;
+    _sessionTelemetryFetcher = sessionTelemetryFetcher;
     _appIdentifier = await _getAppIdentifier();
     startSession();
   }
@@ -284,6 +386,12 @@ class PolyfenceAnalytics {
     });
   }
 
+  /// Sets configuration context on the current session for telemetry.
+  void setConfigContext({String? accuracyProfile, String? updateStrategy}) {
+    _currentSession?.accuracyProfile = accuracyProfile;
+    _currentSession?.updateStrategy = updateStrategy;
+  }
+
   /// Ends the current session and sends data if enabled.
   Future<void> endSession() async {
     if (_currentSession == null) return;
@@ -292,6 +400,16 @@ class PolyfenceAnalytics {
 
     final finalBattery = await _getBatteryLevel();
     _currentSession?.setBatteryLevel(finalBattery);
+
+    // Fetch native session telemetry (activity distribution, GPS intervals, etc.)
+    if (_sessionTelemetryFetcher != null) {
+      try {
+        _currentSession?.nativeSessionTelemetry =
+            await _sessionTelemetryFetcher!();
+      } catch (_) {
+        // Best-effort: native telemetry failure must not block session upload
+      }
+    }
 
     await _sendSessionSummary();
     _currentSession = null;
@@ -302,6 +420,8 @@ class PolyfenceAnalytics {
     required double detectionTimeMs,
     required double gpsAccuracy,
     required String zoneType,
+    double? speedMps,
+    double? boundaryDistanceM,
   }) {
     if (_currentSession == null) {
       startSession();
@@ -311,6 +431,8 @@ class PolyfenceAnalytics {
       detectionTimeMs: detectionTimeMs,
       gpsAccuracy: gpsAccuracy,
       zoneType: zoneType,
+      speedMps: speedMps,
+      boundaryDistanceM: boundaryDistanceM,
     );
   }
 

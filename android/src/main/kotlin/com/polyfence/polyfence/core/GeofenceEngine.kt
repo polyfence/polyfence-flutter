@@ -98,6 +98,16 @@ class GeofenceEngine {
     // Event callback - includes detection time in milliseconds
     private var eventCallback: ((String, String, Location, Double) -> Unit)? = null
 
+    // ML Telemetry: false event tracking (enter→exit reversal within 30s)
+    private val lastEventPerZone = ConcurrentHashMap<String, Pair<String, Long>>() // zoneId -> (eventType, timestamp)
+    private var falseEventCount: Int = 0
+
+    // ML Telemetry: dwell durations (minutes)
+    private val dwellDurations = mutableListOf<Double>()
+
+    // ML Telemetry: zone transition counter
+    private var zoneTransitionCount: Int = 0
+
     // Zone state persistence (injected by LocationTracker)
     private var zonePersistence: ZonePersistence? = null
 
@@ -528,6 +538,7 @@ fun getZoneName(zoneId: String): String? {
             val detectionTimeMs = (System.nanoTime() - checkStartTime) / 1_000_000.0
 
             val eventType = if (isInside) "ENTER" else "EXIT"
+            trackEventTelemetry(zoneId, eventType)
             eventCallback?.invoke(zoneId, eventType, location, detectionTimeMs)
 
             // Handle dwell tracking on state change
@@ -575,6 +586,7 @@ fun getZoneName(zoneId: String): String? {
             val detectionTimeMs = (System.nanoTime() - checkStartTime) / 1_000_000.0
 
             val eventType = if (isInside) "ENTER" else "EXIT"
+            trackEventTelemetry(zoneId, eventType)
             eventCallback?.invoke(zoneId, eventType, location, detectionTimeMs)
 
             // Handle dwell tracking on state change
@@ -586,6 +598,36 @@ fun getZoneName(zoneId: String): String? {
             checkAndFireDwell(zoneId, location, checkStartTime)
         }
         return false // No state change
+    }
+
+    // --- ML Telemetry: false event + transition tracking ---
+
+    /**
+     * Track zone transitions and detect false events (reversals within 30s).
+     * Must be called BEFORE firing eventCallback.
+     */
+    private fun trackEventTelemetry(zoneId: String, eventType: String) {
+        zoneTransitionCount++
+
+        val lastEvent = lastEventPerZone[zoneId]
+        if (lastEvent != null) {
+            val (lastType, lastTime) = lastEvent
+            val timeSince = System.currentTimeMillis() - lastTime
+            if (timeSince <= 30_000L && lastType != eventType) {
+                falseEventCount++
+            }
+        }
+        lastEventPerZone[zoneId] = Pair(eventType, System.currentTimeMillis())
+    }
+
+    /**
+     * Check if an event is a recent reversal (opposite event within 30s on same zone).
+     */
+    fun isRecentReversal(zoneId: String, eventType: String): Boolean {
+        val lastEvent = lastEventPerZone[zoneId] ?: return false
+        val (lastType, lastTime) = lastEvent
+        val timeSince = System.currentTimeMillis() - lastTime
+        return timeSince <= 30_000L && lastType != eventType
     }
 
     /**
@@ -600,6 +642,12 @@ fun getZoneName(zoneId: String): String? {
             dwellEventsFired.remove(zoneId) // Reset dwell flag for new entry
             Log.d(TAG, "Dwell tracking started for zone $zoneId")
         } else {
+            // ML Telemetry: capture dwell duration before removing entry time
+            val entryTime = zoneEntryTimes[zoneId]
+            if (entryTime != null) {
+                val dwellMinutes = (System.currentTimeMillis() - entryTime) / 60_000.0
+                synchronized(dwellDurations) { dwellDurations.add(dwellMinutes) }
+            }
             // Exited zone - stop tracking dwell time
             zoneEntryTimes.remove(zoneId)
             dwellEventsFired.remove(zoneId)
@@ -741,24 +789,118 @@ fun getZoneName(zoneId: String): String? {
 
 
     /**
-     * Calculate distance from zone boundary
+     * Calculate distance from point to zone boundary in meters.
+     * For circles: |distance_to_center - radius|
+     * For polygons: minimum distance from point to any polygon edge segment
      */
     private fun calculateDistanceFromBoundary(zone: ZoneData, location: Location): Double {
+        val point = LatLng(location.latitude, location.longitude)
         return when (zone.type) {
             ZoneType.CIRCLE -> {
                 val center = zone.center ?: return Double.MAX_VALUE
                 val radius = zone.radius ?: return Double.MAX_VALUE
-                val distance = calculateDistance(
-                    LatLng(location.latitude, location.longitude),
-                    center
-                )
+                val distance = calculateDistance(point, center)
                 abs(distance - radius)
             }
             ZoneType.POLYGON -> {
-                // For polygon, return 0.0 as boundary distance calculation is complex
-                0.0
+                val vertices = zone.polygon ?: return Double.MAX_VALUE
+                if (vertices.size < 2) return Double.MAX_VALUE
+                var minDist = Double.MAX_VALUE
+                for (i in vertices.indices) {
+                    val j = (i + 1) % vertices.size
+                    val segDist = pointToSegmentDistance(point, vertices[i], vertices[j])
+                    if (segDist < minDist) minDist = segDist
+                }
+                minDist
             }
         }
+    }
+
+    /**
+     * Distance from a point to a line segment in meters.
+     * Projects the point onto the segment and computes haversine distance to the projection.
+     */
+    private fun pointToSegmentDistance(p: LatLng, a: LatLng, b: LatLng): Double {
+        val ab = calculateDistance(a, b)
+        if (ab < 0.001) return calculateDistance(p, a) // Degenerate segment
+
+        // Flat-earth projection for segment math (valid for short segments)
+        val cosLat = cos(Math.toRadians((a.latitude + b.latitude) / 2))
+        val dx = Math.toRadians(b.longitude - a.longitude) * cosLat * EARTH_RADIUS_METERS
+        val dy = Math.toRadians(b.latitude - a.latitude) * EARTH_RADIUS_METERS
+        val px = Math.toRadians(p.longitude - a.longitude) * cos(Math.toRadians((a.latitude + p.latitude) / 2)) * EARTH_RADIUS_METERS
+        val py = Math.toRadians(p.latitude - a.latitude) * EARTH_RADIUS_METERS
+
+        val abLenSq = dx * dx + dy * dy
+        if (abLenSq < 0.001) return calculateDistance(p, a)
+
+        val t = ((px * dx + py * dy) / abLenSq).coerceIn(0.0, 1.0)
+
+        val projLat = a.latitude + t * (b.latitude - a.latitude)
+        val projLng = a.longitude + t * (b.longitude - a.longitude)
+
+        return calculateDistance(p, LatLng(projLat, projLng))
+    }
+
+    /**
+     * Public accessor for boundary distance, used by LocationTracker for event enrichment.
+     */
+    fun getDistanceToBoundary(zoneId: String, location: Location): Double {
+        val zone = zones[zoneId] ?: return -1.0
+        return calculateDistanceFromBoundary(zone, location)
+    }
+
+    // --- ML Telemetry: zone metrics ---
+
+    /**
+     * Returns the number of active zones.
+     */
+    fun getZoneCount(): Int = zones.size
+
+    /**
+     * Returns zone size distribution bucketed as small (<200m), medium (<1000m), large (>=1000m).
+     * For polygons, estimates radius as max distance from centroid to any vertex.
+     */
+    fun getZoneSizeDistribution(): Map<String, Int> {
+        val dist = mutableMapOf("small" to 0, "medium" to 0, "large" to 0)
+        zones.values.forEach { zone ->
+            val effectiveRadius = when (zone.type) {
+                ZoneType.CIRCLE -> zone.radius ?: 0.0
+                ZoneType.POLYGON -> {
+                    val center = zone.calculateCenter()
+                    zone.polygon?.maxOfOrNull { calculateDistance(it, center) } ?: 0.0
+                }
+            }
+            when {
+                effectiveRadius < 200 -> dist["small"] = dist["small"]!! + 1
+                effectiveRadius < 1000 -> dist["medium"] = dist["medium"]!! + 1
+                else -> dist["large"] = dist["large"]!! + 1
+            }
+        }
+        return dist
+    }
+
+    fun getZoneTransitionCount(): Int = zoneTransitionCount
+    fun getFalseEventCount(): Int = falseEventCount
+    fun getDwellDurations(): List<Double> = synchronized(dwellDurations) { dwellDurations.toList() }
+
+    /**
+     * Compute dwell duration in minutes for a zone (if it has an entry time).
+     * Used by LocationTracker on EXIT events for per-event enrichment.
+     */
+    fun getDwellDurationMinutes(zoneId: String): Double? {
+        val entryTime = zoneEntryTimes[zoneId] ?: return null
+        return (System.currentTimeMillis() - entryTime) / 60_000.0
+    }
+
+    /**
+     * Reset all telemetry counters for a new session.
+     */
+    fun resetTelemetry() {
+        lastEventPerZone.clear()
+        falseEventCount = 0
+        synchronized(dwellDurations) { dwellDurations.clear() }
+        zoneTransitionCount = 0
     }
 
     /**

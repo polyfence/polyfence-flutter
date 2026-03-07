@@ -113,6 +113,8 @@ public class PolyfencePlugin: NSObject, FlutterPlugin {
             setAccuracyProfile(arguments: call.arguments, result: result)
         case "getCurrentZoneStates":
             getCurrentZoneStates(result: result)
+        case "getSessionTelemetry":
+            getSessionTelemetry(result: result)
         default:
             result(FlutterMethodNotImplemented)
         }
@@ -151,26 +153,16 @@ public class PolyfencePlugin: NSObject, FlutterPlugin {
                 self?.locationSink?(locationData)
             }
             
-            locationTracker?.setGeofenceCallback { [weak self] zoneId, zoneName, eventType, detectionTimeMs, gpsAccuracy, latitude, longitude in
-                let event: [String: Any] = [
-                    "zoneId": zoneId,
-                    "zoneName": zoneName,
-                    "eventType": eventType,
-                    "timestamp": Int64(Date().timeIntervalSince1970 * 1000),
-                    "detectionTimeMs": detectionTimeMs,
-                    "gpsAccuracy": gpsAccuracy,
-                    "latitude": latitude,
-                    "longitude": longitude,
-                    "accuracy": gpsAccuracy
-                ]
-                
+            locationTracker?.setGeofenceCallback { [weak self] eventData in
                 // Terse geofence event log
+                let eventType = eventData["eventType"] as? String ?? "?"
+                let zoneName = eventData["zoneName"] as? String ?? ""
+                let zoneId = eventData["zoneId"] as? String ?? ""
                 let displayName = zoneName.isEmpty ? zoneId : zoneName
-                let timestamp = Int64(Date().timeIntervalSince1970 * 1000)
-                print("PF: EVENT \(eventType) zone=\(displayName) ts=\(timestamp)")
-                
+                print("PF: EVENT \(eventType) zone=\(displayName) ts=\(Int64(Date().timeIntervalSince1970 * 1000))")
+
                 if let sink = self?.geofenceSink {
-                    sink(event)
+                    sink(eventData)
                 }
             }
             
@@ -374,6 +366,42 @@ public class PolyfencePlugin: NSObject, FlutterPlugin {
 
         let states = locationTracker.getCurrentZoneStates()
         result(states)
+    }
+
+    private func getSessionTelemetry(result: @escaping FlutterResult) {
+        guard let locationTracker = locationTracker else {
+            result(FlutterError(code: "NO_LOCATION_TRACKER", message: "Not initialized", details: nil))
+            return
+        }
+        var telemetry = locationTracker.getSessionTelemetryData()
+        telemetry["deviceCategory"] = Self.getDeviceCategory()
+        telemetry["osVersionMajor"] = ProcessInfo.processInfo.operatingSystemVersion.majorVersion
+        telemetry["chargingDuringSession"] = UIDevice.current.batteryState == .charging || UIDevice.current.batteryState == .full
+        result(telemetry)
+    }
+
+    /**
+     * Returns a bucketed device category (not exact model) for ML telemetry.
+     */
+    private static func getDeviceCategory() -> String {
+        var systemInfo = utsname()
+        uname(&systemInfo)
+        let machine = withUnsafePointer(to: &systemInfo.machine) {
+            $0.withMemoryRebound(to: CChar.self, capacity: 1) {
+                String(validatingUTF8: $0) ?? "unknown"
+            }
+        }
+
+        if machine.hasPrefix("iPhone") {
+            let parts = machine.replacingOccurrences(of: "iPhone", with: "").split(separator: ",")
+            if let major = Int(parts.first ?? "") {
+                if major >= 15 { return "iphone_flagship" }
+                if major >= 12 { return "iphone_standard" }
+                return "iphone_older"
+            }
+        }
+        if machine.hasPrefix("iPad") { return "ipad" }
+        return "ios_other"
     }
 }
 

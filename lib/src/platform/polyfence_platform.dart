@@ -56,6 +56,12 @@ abstract class PolyfencePlatform extends PlatformInterface {
   Future<List<Map<String, dynamic>>> getErrorHistory(
       Map<String, dynamic> params);
 
+  /// Returns accumulated session telemetry from native engines.
+  ///
+  /// Includes activity distribution, GPS interval distribution, zone metrics,
+  /// device category, and other ML training context collected during the session.
+  Future<Map<String, dynamic>> getSessionTelemetry();
+
   /// Returns the current persisted zone states from the native engine.
   ///
   /// The returned map uses:
@@ -239,6 +245,30 @@ class MethodChannelPolyfence extends PolyfencePlatform {
         (value as bool?) ?? false,
       ),
     );
+  }
+
+  @override
+  Future<Map<String, dynamic>> getSessionTelemetry() async {
+    final result = await _channel
+        .invokeMethod<Map<Object?, Object?>>('getSessionTelemetry');
+    if (result == null) return {};
+    return _deepCastMap(result);
+  }
+
+  /// Recursively cast a Map<Object?, Object?> to Map<String, dynamic>.
+  static Map<String, dynamic> _deepCastMap(Map<Object?, Object?> raw) {
+    return raw.map((key, value) {
+      final castKey = key as String;
+      if (value is Map) {
+        return MapEntry(castKey, _deepCastMap(Map<Object?, Object?>.from(value)));
+      } else if (value is List) {
+        return MapEntry(castKey, value.map((e) {
+          if (e is Map) return _deepCastMap(Map<Object?, Object?>.from(e));
+          return e;
+        }).toList());
+      }
+      return MapEntry(castKey, value);
+    });
   }
 
   @override

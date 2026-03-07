@@ -96,7 +96,10 @@ class PolyfencePlugin: FlutterPlugin, MethodCallHandler, ActivityAware {
             latitude: Double,
             longitude: Double,
             detectionTimeMs: Double = 0.0,
-            gpsAccuracy: Double = 0.0
+            gpsAccuracy: Double = 0.0,
+            speedMps: Double = 0.0,
+            activityAtEvent: String = "unknown",
+            distanceToBoundaryM: Double = -1.0
         ) {
             val event = mapOf(
                 "zoneId" to zoneId,
@@ -106,7 +109,10 @@ class PolyfencePlugin: FlutterPlugin, MethodCallHandler, ActivityAware {
                 "latitude" to latitude,
                 "longitude" to longitude,
                 "detectionTimeMs" to detectionTimeMs,
-                "gpsAccuracy" to gpsAccuracy
+                "gpsAccuracy" to gpsAccuracy,
+                "speedMps" to speedMps,
+                "activityAtEvent" to activityAtEvent,
+                "distanceToBoundaryM" to distanceToBoundaryM
             )
             geofenceSink?.success(event)
         }
@@ -337,12 +343,47 @@ class PolyfencePlugin: FlutterPlugin, MethodCallHandler, ActivityAware {
                 }
             }
 
+            "getSessionTelemetry" -> {
+                try {
+                    val telemetry = LocationTracker.getSessionTelemetry()
+                    val sessionData = HashMap<String, Any?>(telemetry)
+                    sessionData["deviceCategory"] = getDeviceCategory()
+                    sessionData["osVersionMajor"] = Build.VERSION.SDK_INT
+                    result.success(sessionData)
+                } catch (e: Exception) {
+                    Log.e("PolyfencePlugin", "Failed to get session telemetry: ${e.message}")
+                    result.error("TELEMETRY_FAILED", e.message, null)
+                }
+            }
+
             else -> {
                 result.notImplemented()
             }
         }
     }
     
+    /**
+     * Returns a bucketed device category (not exact model) for ML telemetry.
+     */
+    private fun getDeviceCategory(): String {
+        val manufacturer = Build.MANUFACTURER.lowercase(Locale.ROOT)
+        val model = Build.MODEL.lowercase(Locale.ROOT)
+        return when {
+            manufacturer.contains("samsung") -> when {
+                model.contains("sm-s9") || model.contains("sm-s24") || model.contains("sm-s23") || model.contains("sm-f") -> "samsung_flagship"
+                model.contains("sm-a5") || model.contains("sm-a7") || model.contains("sm-a3") -> "samsung_mid"
+                else -> "samsung_other"
+            }
+            manufacturer.contains("google") || manufacturer.contains("pixel") -> "google_pixel"
+            manufacturer.contains("xiaomi") || manufacturer.contains("redmi") -> "xiaomi"
+            manufacturer.contains("huawei") -> "huawei"
+            manufacturer.contains("oneplus") -> "oneplus"
+            manufacturer.contains("oppo") -> "oppo"
+            manufacturer.contains("vivo") -> "vivo"
+            else -> "android_other"
+        }
+    }
+
     private fun hasAllRequiredPerms(context: Context): Boolean {
         val fine = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
         val coarse = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED

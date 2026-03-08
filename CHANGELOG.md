@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.12.3] - 2026-03-08
+
+### Fixed
+- **Native telemetry fields all null** — The Dart merge logic was looking for
+  snake_case keys (`device_category`, `activity_distribution`, etc.) but native
+  code returns camelCase (`deviceCategory`, `activityDistribution`). All 12
+  native telemetry fields were silently dropped. Added proper camelCase →
+  snake_case key mapping.
+
 ## [0.12.2] - 2026-03-08
 
 ### Fixed

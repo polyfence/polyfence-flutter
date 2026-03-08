@@ -1,7 +1,7 @@
 name: polyfence_example
 description: Example app for Polyfence plugin
 publish_to: 'none'
-version: 0.12.2
+version: 0.12.3
 
 environment:
   sdk: '>=3.0.0 <4.0.0'

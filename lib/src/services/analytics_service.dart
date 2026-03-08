@@ -293,32 +293,31 @@ class _SessionMetrics {
       'max_dwell_duration_minutes': maxDwellMinutes,
     };
 
-    // Merge native session telemetry (activity_distribution, gps_interval_distribution,
-    // stationary_ratio, avg_gps_interval_ms, zone_count, zone_size_distribution,
-    // zone_transition_count, dwell_durations_minutes, device_category,
-    // os_version_major, charging_during_session, false_event_count)
+    // Merge native session telemetry — native returns camelCase keys,
+    // map them to snake_case for the API payload.
     if (nativeSessionTelemetry != null) {
-      for (final key in [
-        'activity_distribution',
-        'gps_interval_distribution',
-        'stationary_ratio',
-        'avg_gps_interval_ms',
-        'zone_count',
-        'zone_size_distribution',
-        'zone_transition_count',
-        'dwell_durations_minutes',
-        'device_category',
-        'os_version_major',
-        'charging_during_session',
-      ]) {
-        if (nativeSessionTelemetry!.containsKey(key)) {
-          summary[key] = nativeSessionTelemetry![key];
+      const nativeKeyMap = {
+        'activityDistribution': 'activity_distribution',
+        'gpsIntervalDistribution': 'gps_interval_distribution',
+        'stationaryRatio': 'stationary_ratio',
+        'avgGpsIntervalMs': 'avg_gps_interval_ms',
+        'zoneCount': 'zone_count',
+        'zoneSizeDistribution': 'zone_size_distribution',
+        'zoneTransitionCount': 'zone_transition_count',
+        'dwellDurationsMinutes': 'dwell_durations_minutes',
+        'deviceCategory': 'device_category',
+        'osVersionMajor': 'os_version_major',
+        'chargingDuringSession': 'charging_during_session',
+      };
+      for (final entry in nativeKeyMap.entries) {
+        if (nativeSessionTelemetry!.containsKey(entry.key)) {
+          summary[entry.value] = nativeSessionTelemetry![entry.key];
         }
       }
-      // Native false_event_count overrides Dart-side if present
-      if (nativeSessionTelemetry!.containsKey('false_event_count')) {
+      // Native falseEventCount overrides Dart-side if present
+      if (nativeSessionTelemetry!.containsKey('falseEventCount')) {
         summary['false_event_count'] =
-            nativeSessionTelemetry!['false_event_count'];
+            nativeSessionTelemetry!['falseEventCount'];
       }
     }
 

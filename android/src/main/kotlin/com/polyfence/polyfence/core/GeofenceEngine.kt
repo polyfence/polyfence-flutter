@@ -852,11 +852,6 @@ fun getZoneName(zoneId: String): String? {
     // --- ML Telemetry: zone metrics ---
 
     /**
-     * Returns the number of active zones.
-     */
-    fun getZoneCount(): Int = zones.size
-
-    /**
      * Returns zone size distribution bucketed as small (<200m), medium (<1000m), large (>=1000m).
      * For polygons, estimates radius as max distance from centroid to any vertex.
      */

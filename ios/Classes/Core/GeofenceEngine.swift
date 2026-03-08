@@ -766,13 +766,6 @@ class GeofenceEngine {
     }
 
     /**
-     * Returns the number of active zones.
-     */
-    func getZoneCount() -> Int {
-        return syncQueue.sync { self.zones.count }
-    }
-
-    /**
      * Returns zone size distribution bucketed as small (<200m), medium (<1000m), large (>=1000m).
      */
     func getZoneSizeDistribution() -> [String: Int] {

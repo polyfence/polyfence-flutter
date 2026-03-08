@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.12.2] - 2026-03-08
+
+### Fixed
+- **iOS build failure** — Removed duplicate `getZoneCount()` declaration in
+  `GeofenceEngine.swift` that caused Swift compile error. Same fix as v0.12.1
+  for Android.
+
 ## [0.12.1] - 2026-03-08
 
 ### Fixed

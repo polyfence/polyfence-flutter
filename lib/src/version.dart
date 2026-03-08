@@ -6,4 +6,4 @@
 /// To update the version:
 /// 1. Update `version:` in `pubspec.yaml`
 /// 2. The pre-commit hook will automatically sync this file
-const String polyfencePluginVersion = '0.12.1';
+const String polyfencePluginVersion = '0.12.2';

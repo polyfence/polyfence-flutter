@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.12.4] - 2026-03-09
+
+### Fixed
+- **Samsung background survival** — Removed self-destructing `onTaskRemoved()`
+  that killed the foreground service when Samsung swiped the app from recents.
+  Service now continues tracking after task removal.
+- **Notification importance** — Upgraded tracking notification from
+  `IMPORTANCE_LOW` to `IMPORTANCE_DEFAULT` so Samsung treats the service as
+  essential. Notification remains silent (no sound).
+- **Boot/update tracking restart** — `ScheduleReceiver` now restarts continuous
+  tracking after device reboot and app updates by checking persisted tracking
+  state in SharedPreferences.
+
+### Added
+- `MY_PACKAGE_REPLACED` intent filter on `ScheduleReceiver` to restart tracking
+  after app updates.
+- `android:stopWithTask="false"` on `LocationTracker` service declaration for
+  explicit OEM signaling.
+
 ## [0.12.3] - 2026-03-08
 
 ### Fixed

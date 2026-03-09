@@ -7,6 +7,7 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.util.Log
+import com.polyfence.polyfence.flutter.PolyfencePlugin
 import java.util.Calendar
 
 /**
@@ -388,6 +389,13 @@ class TrackingScheduler(private val context: Context) {
 
         if (config.enabled) {
             Log.d(TAG, "Loaded schedule config with ${config.timeWindows.size} windows")
+
+            // Start tracking if currently in a scheduled window (e.g. after reboot)
+            if (config.startImmediatelyIfInWindow && isCurrentlyInScheduledWindow()) {
+                Log.d(TAG, "Currently in scheduled window after boot - starting tracking")
+                startTracking()
+            }
+
             scheduleNextAlarm()
         }
     }
@@ -412,9 +420,23 @@ class ScheduleReceiver : BroadcastReceiver() {
             TrackingScheduler.ACTION_SCHEDULE_STOP -> {
                 scheduler.handleAlarm(isStart = false)
             }
-            Intent.ACTION_BOOT_COMPLETED -> {
-                // Restore schedule after device reboot
+            Intent.ACTION_BOOT_COMPLETED,
+            Intent.ACTION_MY_PACKAGE_REPLACED -> {
+                // Restore scheduled tracking if configured
                 scheduler.loadConfig()
+
+                // Restart continuous tracking if it was active before boot/update
+                if (!scheduler.isEnabled() && PolyfencePlugin.isTrackingEnabled(context)) {
+                    Log.i("ScheduleReceiver", "Restarting continuous tracking after ${intent.action}")
+                    val serviceIntent = Intent(context, LocationTracker::class.java).apply {
+                        action = LocationTracker.ACTION_START_TRACKING
+                    }
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        context.startForegroundService(serviceIntent)
+                    } else {
+                        context.startService(serviceIntent)
+                    }
+                }
             }
         }
     }

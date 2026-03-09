@@ -687,8 +687,7 @@ private fun handleGeofenceEvent(zoneId: String, eventType: String, location: and
             .setContentText("Monitoring geofence zones")
             .setSmallIcon(android.R.drawable.ic_menu_mylocation)
             .setOngoing(true)
-            .setSilent(true)
-            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .build()
     }
     
@@ -696,11 +695,11 @@ private fun handleGeofenceEvent(zoneId: String, eventType: String, location: and
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             
-            // Tracking channel (low priority)
+            // Tracking channel
             val trackingChannel = NotificationChannel(
                 CHANNEL_ID,
                 "Location Tracking",
-                NotificationManager.IMPORTANCE_LOW
+                NotificationManager.IMPORTANCE_DEFAULT
             ).apply {
                 description = "Background location tracking"
                 setSound(null, null)
@@ -742,16 +741,7 @@ private fun handleGeofenceEvent(zoneId: String, eventType: String, location: and
     
     override fun onTaskRemoved(rootIntent: Intent?) {
         super.onTaskRemoved(rootIntent)
-        
-        Log.i(TAG, "App task removed - cleaning up wake lock and stopping tracking")
-        
-        // Release wake lock when user swipes app away or force-stops
-        releaseWakeLock()
-        
-        // Stop tracking gracefully
-        if (isRunning) {
-            stopTracking()
-        }
+        Log.i(TAG, "App task removed - foreground service continues tracking")
     }
     
     // Wake Lock Management Methods

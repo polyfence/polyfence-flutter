@@ -10,7 +10,7 @@ import java.util.Locale
  * Provides flexible GPS accuracy/battery profiles for different use cases
  */
 data class SmartGpsConfig(
-    val accuracyProfile: AccuracyProfile = AccuracyProfile.BALANCED,  // P2: Changed from MAX_ACCURACY for better battery
+    val accuracyProfile: AccuracyProfile = AccuracyProfile.BALANCED,  // Changed from MAX_ACCURACY for better battery
     val updateStrategy: UpdateStrategy = UpdateStrategy.CONTINUOUS,
     val proximitySettings: ProximitySettings? = null,
     val movementSettings: MovementSettings? = null,
@@ -54,7 +54,7 @@ data class SmartGpsConfig(
     
     /**
      * Get distance filter for GPS updates in meters
-     * P1: Android now has per-profile distance filter (parity with iOS)
+     * Android now has per-profile distance filter (parity with iOS)
      * Only receive updates when device moves more than this distance
      */
     fun getDistanceFilter(): Float = when (accuracyProfile) {
@@ -259,7 +259,7 @@ data class ActivitySettings(
 }
 
 /**
- * P5: Device detection utilities for manufacturer-specific optimizations
+ * Device detection utilities for manufacturer-specific optimizations
  */
 object DeviceOptimization {
     /**
@@ -308,7 +308,7 @@ object SmartGpsConfigFactory {
         val accuracyProfile = parseEnum(
             map["accuracyProfile"] as? String,
             SmartGpsConfig.AccuracyProfile.values(),
-            SmartGpsConfig.AccuracyProfile.BALANCED  // P2: Changed default fallback to BALANCED
+            SmartGpsConfig.AccuracyProfile.BALANCED  // Changed default fallback to BALANCED
         )
         
         val updateStrategy = parseEnum(

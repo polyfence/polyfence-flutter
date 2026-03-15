@@ -48,10 +48,10 @@ All three approaches use the **same plugin API** — switch anytime without code
 ```yaml
 # pubspec.yaml
 dependencies:
-  polyfence: ^0.11.0
+  polyfence: ^0.12.4
 ```
 
-**Current version:** 0.11.0
+**Current version:** 0.12.4
 
 ```bash
 flutter pub get
@@ -229,10 +229,6 @@ Polyfence.instance.onError.listen((error) {
 });
 ```
 
-<img alt="App screenshot 1" src="https://github.com/user-attachments/assets/e786391a-d178-4daf-8829-f97bbc29202d" width="320" />
-
-<img alt="App screenshot 2" src="https://github.com/user-attachments/assets/bd1d07c2-d9bc-499b-bded-3e9dff9eeeb7" width="320" />
-
 ## Configuration
 
 Polyfence provides flexible configuration to balance accuracy, battery life, and notification behavior.
@@ -307,7 +303,15 @@ await Polyfence.instance.updateConfiguration(
 
 // Intelligent optimization (proximity + movement + battery)
 await Polyfence.instance.enableIntelligentOptimization();
+
+// Or use the convenience method for proximity only
+await Polyfence.instance.enableProximityOptimization(
+  nearThreshold: 500.0,  // High accuracy within 500m of zones
+  farThreshold: 2000.0,  // Low frequency when >2km from zones
+);
 ```
+
+**Proximity behavior:** Inside zones: continuous monitoring for exit detection. Near zones (<500m): high frequency for accurate entry detection. Medium distance (500m-2km): graduated frequency. Far from zones (>2km): low frequency to preserve battery. Can reduce GPS usage by 60-80% for users who spend time away from monitored zones.
 
 ### GPS Accuracy Threshold
 
@@ -322,24 +326,6 @@ await Polyfence.instance.updateConfiguration(
   ),
 );
 ```
-
-### Proximity-Based Optimization
-
-```dart
-await Polyfence.instance.enableProximityOptimization(
-  nearThreshold: 500.0,  // High accuracy within 500m of zones
-  farThreshold: 2000.0,  // Low frequency when >2km from zones
-);
-```
-
-**Proximity Behavior:**
-
-- **Inside zones**: Continuous monitoring for exit detection
-- **Near zones (<500m)**: High frequency for accurate entry detection
-- **Medium distance (500m-2km)**: Graduated frequency based on distance
-- **Far from zones (>2km)**: Low frequency monitoring to preserve battery
-
-This can reduce GPS usage by 60-80% for users who spend time away from monitored zones.
 
 ### Dwell Detection
 
@@ -490,45 +476,25 @@ await Polyfence.instance.updateConfiguration(
 
 ## Background Reliability & Battery Optimization
 
-### Battery-Saving Features (v0.8.0+, enhanced in v0.11.0)
-
-Polyfence includes comprehensive battery optimizations that reduce drain by an estimated 40-50%:
+Polyfence includes battery optimizations that reduce drain by an estimated 40-50%. The default profile is BALANCED.
 
 | Feature | Description | Platforms |
 |---------|-------------|-----------|
 | **Deferred GPS Start** | GPS doesn't start until zones are registered | Android & iOS |
-| **Distance Filter** | Only receive updates when device moves (10m for BALANCED profile) | Android & iOS |
+| **Distance Filter** | Only receive updates when device moves (10m for BALANCED) | Android & iOS |
 | **Zone Check Throttling** | Skip geofence checks if moved <5 meters | Android & iOS |
 | **Callback Throttling** | Reduce Flutter callbacks to 30s when stationary | Android & iOS |
-| **Profile-based Wake Lock** | Wake lock duration tied to accuracy profile (4-12 hours) | Android |
-| **Consolidated Timers** | Reduced health check timers from 4 to 2 | Android |
-| **OEM Device Detection** | Detects Samsung/Xiaomi/Huawei and logs device info for debugging | Android |
+| **Stationary Detection** | 2-minute intervals when stationary near zones | Android & iOS |
+| **Profile-based Wake Lock** | Wake lock timeout tied to accuracy profile (4-12 hours) | Android |
+| **Auto-restart** | Service restarts if killed (up to 3 attempts with cooldown) | Android |
+| **GPS Recovery** | Automatic recovery from GPS failures (up to 5 attempts) | Android |
+| **Foreground Service** | Uses `FOREGROUND_SERVICE_LOCATION` for background updates | Android |
+| **Pauses When Stationary** | Automatically pauses location updates for BALANCED/BATTERY_OPTIMAL | iOS |
+| **Significant Location Fallback** | Falls back to significant location changes when appropriate | iOS |
 
-**Default Profile**: BALANCED (provides good accuracy with reasonable battery impact)
+### Battery Optimization Bypass (Android)
 
-**v0.11.0 SmartGPS Improvements:**
-- INTELLIGENT strategy now correctly detects stationary state even without explicit `movementSettings`
-- Stationary devices near zones use 2-minute intervals instead of aggressive 5-second polling
-- Default accuracy profile aligned across Dart and native platforms (BALANCED)
-
-### Android Background Operation
-
-- **Wake Lock Management**: Automatically acquires `PARTIAL_WAKE_LOCK` with profile-based timeout (4-12 hours) and auto-renewal
-- **Battery Optimization Bypass**: Built-in API to request exemption
-- **Foreground Service**: Uses `FOREGROUND_SERVICE_LOCATION` for background updates
-- **Auto-restart**: Service restarts if killed (limited to 3 attempts with cooldown)
-- **GPS Recovery**: Automatically recovers from GPS failures (up to 5 consecutive attempts before giving up)
-- **Samsung/OEM Support**: Detects devices with aggressive battery management and logs device info for debugging
-
-### iOS Background Operation
-
-- **Background Task Management**: Properly manages background tasks
-- **Background Location Updates**: Uses `allowsBackgroundLocationUpdates`
-- **Significant Location Changes**: Falls back when appropriate
-- **App Lifecycle Integration**: Handles state transitions
-- **Pauses Location Updates**: Automatically pauses when stationary (for BALANCED/BATTERY_OPTIMAL profiles)
-
-### Battery Optimization (Android)
+Android may kill background services if battery optimization is enabled. Use the built-in API to request exemption:
 
 ```dart
 final status = await Polyfence.instance.batteryOptimizationStatus();
@@ -636,18 +602,6 @@ Useful for session management and state reconciliation after app restarts.
 
 ## Common Gotchas
 
-### iOS "Always" Permission
-iOS requires **manual** "Always" permission enablement in Settings after the first "While in use" grant. The plugin will work with "While in use" but background geofencing requires "Always". Guide users to Settings → Privacy & Security → Location Services → Your App → "Always".
-
-### Android Battery Optimization
-Android may kill background services if battery optimization is enabled. Check status with `batteryOptimizationStatus()` and request exemption with `requestBatteryOptimizationExemption()`. This is especially important for reliable background tracking.
-
-### GPS Accuracy Threshold
-Default threshold is **100 meters** — locations with worse accuracy are rejected. This ensures consistent behavior across iOS and Android. Configure via `updateConfiguration()` if needed.
-
-### Background Tracking Requirements
-Android requires a foreground service notification (automatically created by the plugin). iOS requires "Always" location permission (manual setup in Settings). Both platforms require proper permissions before `startTracking()`.
-
 ### Stream Subscription Management
 Always cancel stream subscriptions in `dispose()` to prevent memory leaks. The plugin automatically handles all resource cleanup including stream controllers, analytics sessions, and platform resources. Example: `_geofenceSubscription?.cancel();`
 
@@ -708,6 +662,8 @@ The app starts with 3 hardcoded zones. This is a valid production pattern — ma
   <summary>Example App Screenshots</summary>
 
   <p>
+    <img alt="App screenshot 1" src="https://github.com/user-attachments/assets/e786391a-d178-4daf-8829-f97bbc29202d" width="240" />
+    <img alt="App screenshot 2" src="https://github.com/user-attachments/assets/bd1d07c2-d9bc-499b-bded-3e9dff9eeeb7" width="240" />
     <img alt="Zone map view" src="https://github.com/user-attachments/assets/cc15ec76-819f-4d83-a1c1-dc83d8715da9" width="240" />
     <img alt="Event stream" src="https://github.com/user-attachments/assets/b9e372ed-8269-4afc-8c1a-71e87ba41ea8" width="240" />
     <img alt="GPS configuration" src="https://github.com/user-attachments/assets/ec6a214e-0d98-4008-8291-70c74b16ea07" width="240" />

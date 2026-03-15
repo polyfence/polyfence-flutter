@@ -113,7 +113,8 @@ void main() {
       expect(mockPlatform.calls, contains('initialize'));
     });
 
-    test('permission_revoked error from Android is deserialized with correct type',
+    test(
+        'permission_revoked error from Android is deserialized with correct type',
         () async {
       final errors = <PolyfenceError>[];
       final sub = PolyfenceService.instance.onError.listen(errors.add);
@@ -282,8 +283,7 @@ void main() {
         'context': {},
         'timestamp': DateTime.now().millisecondsSinceEpoch,
       });
-      expect(
-          batteryError.type, PolyfenceErrorType.batteryOptimizationRequired);
+      expect(batteryError.type, PolyfenceErrorType.batteryOptimizationRequired);
 
       final serviceError = PolyfenceError.fromMap({
         'type': 'service_start_failed',

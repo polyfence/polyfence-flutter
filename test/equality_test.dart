@@ -126,10 +126,8 @@ void main() {
         PolyfenceLocation(latitude: 37.424, longitude: -122.086),
       ];
 
-      final a =
-          Zone.polygon(id: 'campus', name: 'Campus', polygon: points);
-      final b =
-          Zone.polygon(id: 'campus', name: 'Campus', polygon: pointsCopy);
+      final a = Zone.polygon(id: 'campus', name: 'Campus', polygon: points);
+      final b = Zone.polygon(id: 'campus', name: 'Campus', polygon: pointsCopy);
 
       expect(a, equals(b));
       expect(a.hashCode, equals(b.hashCode));
@@ -405,7 +403,8 @@ void main() {
           nearZoneThresholdMeters: 500,
           farZoneThresholdMeters: 2000,
         ),
-        dwellSettings: DwellSettings(dwellThreshold: const Duration(minutes: 3)),
+        dwellSettings:
+            DwellSettings(dwellThreshold: const Duration(minutes: 3)),
       );
       final b = PolyfenceConfiguration(
         accuracyProfile: PolyfenceAccuracyProfile.balanced,
@@ -414,7 +413,8 @@ void main() {
           nearZoneThresholdMeters: 500,
           farZoneThresholdMeters: 2000,
         ),
-        dwellSettings: DwellSettings(dwellThreshold: const Duration(minutes: 3)),
+        dwellSettings:
+            DwellSettings(dwellThreshold: const Duration(minutes: 3)),
       );
 
       expect(a, equals(b));
@@ -432,10 +432,12 @@ void main() {
 
     test('not equal when sub-settings differ', () {
       final a = PolyfenceConfiguration(
-        dwellSettings: DwellSettings(dwellThreshold: const Duration(minutes: 3)),
+        dwellSettings:
+            DwellSettings(dwellThreshold: const Duration(minutes: 3)),
       );
       final b = PolyfenceConfiguration(
-        dwellSettings: DwellSettings(dwellThreshold: const Duration(minutes: 5)),
+        dwellSettings:
+            DwellSettings(dwellThreshold: const Duration(minutes: 5)),
       );
 
       expect(a, isNot(equals(b)));
@@ -479,20 +481,20 @@ void main() {
 
   group('BatterySettings equality', () {
     test('equal with same values', () {
-      final a =
-          BatterySettings(lowBatteryThreshold: 20, criticalBatteryThreshold: 10);
-      final b =
-          BatterySettings(lowBatteryThreshold: 20, criticalBatteryThreshold: 10);
+      final a = BatterySettings(
+          lowBatteryThreshold: 20, criticalBatteryThreshold: 10);
+      final b = BatterySettings(
+          lowBatteryThreshold: 20, criticalBatteryThreshold: 10);
 
       expect(a, equals(b));
       expect(a.hashCode, equals(b.hashCode));
     });
 
     test('not equal when threshold differs', () {
-      final a =
-          BatterySettings(lowBatteryThreshold: 20, criticalBatteryThreshold: 10);
-      final b =
-          BatterySettings(lowBatteryThreshold: 30, criticalBatteryThreshold: 10);
+      final a = BatterySettings(
+          lowBatteryThreshold: 20, criticalBatteryThreshold: 10);
+      final b = BatterySettings(
+          lowBatteryThreshold: 30, criticalBatteryThreshold: 10);
 
       expect(a, isNot(equals(b)));
     });

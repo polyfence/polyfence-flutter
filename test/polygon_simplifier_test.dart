@@ -47,7 +47,9 @@ void main() {
       expect(result.length, lessThan(collinear.length));
     });
 
-    test('large polygon with small radius is simplified with adaptive tolerance', () {
+    test(
+        'large polygon with small radius is simplified with adaptive tolerance',
+        () {
       final large = List.generate(
         1000,
         (i) {

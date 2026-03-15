@@ -176,13 +176,15 @@ void main() {
     });
 
     test('all GeofenceEventType values exist', () {
-      expect(GeofenceEventType.values, containsAll([
-        GeofenceEventType.enter,
-        GeofenceEventType.exit,
-        GeofenceEventType.dwell,
-        GeofenceEventType.recoveryEnter,
-        GeofenceEventType.recoveryExit,
-      ]));
+      expect(
+          GeofenceEventType.values,
+          containsAll([
+            GeofenceEventType.enter,
+            GeofenceEventType.exit,
+            GeofenceEventType.dwell,
+            GeofenceEventType.recoveryEnter,
+            GeofenceEventType.recoveryExit,
+          ]));
     });
   });
 }

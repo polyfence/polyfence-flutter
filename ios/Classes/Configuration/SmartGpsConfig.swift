@@ -28,7 +28,7 @@ struct SmartGpsConfig {
     }
     
     init(
-        accuracyProfile: AccuracyProfile = .balanced,  // P2: Changed from maxAccuracy for better battery
+        accuracyProfile: AccuracyProfile = .balanced,  // Changed from maxAccuracy for better battery
         updateStrategy: UpdateStrategy = .continuous,
         proximitySettings: ProximitySettings? = nil,
         movementSettings: MovementSettings? = nil,
@@ -359,7 +359,7 @@ struct SmartGpsConfigFactory {
         let accuracyProfile = parseEnum(
             map["accuracyProfile"] as? String,
             allCases: SmartGpsConfig.AccuracyProfile.allCases,
-            fallback: SmartGpsConfig.AccuracyProfile.balanced  // P2: Changed default fallback to balanced
+            fallback: SmartGpsConfig.AccuracyProfile.balanced  // Changed default fallback to balanced
         )
         let updateStrategy = parseEnum(
             map["updateStrategy"] as? String,

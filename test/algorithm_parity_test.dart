@@ -24,44 +24,68 @@ void main() {
   group('Haversine parity vectors', () {
     final haversineVectors = <String, Map<String, dynamic>>{
       'Same point': {
-        'lat1': 37.422, 'lon1': -122.084,
-        'lat2': 37.422, 'lon2': -122.084,
-        'expected': 0.0, 'tolerance': 1.0,
+        'lat1': 37.422,
+        'lon1': -122.084,
+        'lat2': 37.422,
+        'lon2': -122.084,
+        'expected': 0.0,
+        'tolerance': 1.0,
       },
       'SF to LA (~559 km)': {
-        'lat1': 37.7749, 'lon1': -122.4194,
-        'lat2': 34.0522, 'lon2': -118.2437,
-        'expected': 559120.6, 'tolerance': 1.0,
+        'lat1': 37.7749,
+        'lon1': -122.4194,
+        'lat2': 34.0522,
+        'lon2': -118.2437,
+        'expected': 559120.6,
+        'tolerance': 1.0,
       },
       'NYC to London (~5570 km)': {
-        'lat1': 40.7128, 'lon1': -74.0060,
-        'lat2': 51.5074, 'lon2': -0.1278,
-        'expected': 5570222.5, 'tolerance': 1.0,
+        'lat1': 40.7128,
+        'lon1': -74.0060,
+        'lat2': 51.5074,
+        'lon2': -0.1278,
+        'expected': 5570222.5,
+        'tolerance': 1.0,
       },
       'Tokyo to Sydney (~7826 km)': {
-        'lat1': 35.6762, 'lon1': 139.6503,
-        'lat2': -33.8688, 'lon2': 151.2093,
-        'expected': 7825818.6, 'tolerance': 1.0,
+        'lat1': 35.6762,
+        'lon1': 139.6503,
+        'lat2': -33.8688,
+        'lon2': 151.2093,
+        'expected': 7825818.6,
+        'tolerance': 1.0,
       },
       'North Pole to South Pole': {
-        'lat1': 90.0, 'lon1': 0.0,
-        'lat2': -90.0, 'lon2': 0.0,
-        'expected': 20015086.8, 'tolerance': 1.0,
+        'lat1': 90.0,
+        'lon1': 0.0,
+        'lat2': -90.0,
+        'lon2': 0.0,
+        'expected': 20015086.8,
+        'tolerance': 1.0,
       },
       'Equator 1 degree longitude': {
-        'lat1': 0.0, 'lon1': 0.0,
-        'lat2': 0.0, 'lon2': 1.0,
-        'expected': 111195.1, 'tolerance': 1.0,
+        'lat1': 0.0,
+        'lon1': 0.0,
+        'lat2': 0.0,
+        'lon2': 1.0,
+        'expected': 111195.1,
+        'tolerance': 1.0,
       },
       'Short distance (~141 m)': {
-        'lat1': 37.422, 'lon1': -122.084,
-        'lat2': 37.423, 'lon2': -122.085,
-        'expected': 141.8, 'tolerance': 1.0,
+        'lat1': 37.422,
+        'lon1': -122.084,
+        'lat2': 37.423,
+        'lon2': -122.085,
+        'expected': 141.8,
+        'tolerance': 1.0,
       },
       'Cross date line': {
-        'lat1': 0.0, 'lon1': 179.0,
-        'lat2': 0.0, 'lon2': -179.0,
-        'expected': 222389.9, 'tolerance': 1.0,
+        'lat1': 0.0,
+        'lon1': 179.0,
+        'lat2': 0.0,
+        'lon2': -179.0,
+        'expected': 222389.9,
+        'tolerance': 1.0,
       },
       'High latitude (60°N)': {
         'lat1': 60.0, 'lon1': 0.0,
@@ -70,9 +94,12 @@ void main() {
         'expected': 55597.5, 'tolerance': 1.0,
       },
       'Very short (~11 m)': {
-        'lat1': 37.422, 'lon1': -122.084,
-        'lat2': 37.4221, 'lon2': -122.084,
-        'expected': 11.1, 'tolerance': 1.0,
+        'lat1': 37.422,
+        'lon1': -122.084,
+        'lat2': 37.4221,
+        'lon2': -122.084,
+        'expected': 11.1,
+        'tolerance': 1.0,
       },
     };
 
@@ -97,12 +124,16 @@ void main() {
       for (final entry in haversineVectors.entries) {
         final v = entry.value;
         final forward = GeofenceAlgorithms.haversineDistance(
-          v['lat1'] as double, v['lon1'] as double,
-          v['lat2'] as double, v['lon2'] as double,
+          v['lat1'] as double,
+          v['lon1'] as double,
+          v['lat2'] as double,
+          v['lon2'] as double,
         );
         final reverse = GeofenceAlgorithms.haversineDistance(
-          v['lat2'] as double, v['lon2'] as double,
-          v['lat1'] as double, v['lon1'] as double,
+          v['lat2'] as double,
+          v['lon2'] as double,
+          v['lat1'] as double,
+          v['lon1'] as double,
         );
         expect(
           forward,
@@ -132,31 +163,49 @@ void main() {
 
     final squareVectors = <String, Map<String, dynamic>>{
       'Center of square → inside': {
-        'lat': 37.5, 'lon': -121.5, 'expected': true,
+        'lat': 37.5,
+        'lon': -121.5,
+        'expected': true,
       },
       'South of square → outside': {
-        'lat': 36.5, 'lon': -121.5, 'expected': false,
+        'lat': 36.5,
+        'lon': -121.5,
+        'expected': false,
       },
       'North of square → outside': {
-        'lat': 38.5, 'lon': -121.5, 'expected': false,
+        'lat': 38.5,
+        'lon': -121.5,
+        'expected': false,
       },
       'East of square → outside': {
-        'lat': 37.5, 'lon': -120.5, 'expected': false,
+        'lat': 37.5,
+        'lon': -120.5,
+        'expected': false,
       },
       'West of square → outside': {
-        'lat': 37.5, 'lon': -122.5, 'expected': false,
+        'lat': 37.5,
+        'lon': -122.5,
+        'expected': false,
       },
       'Bottom edge (y == min lat) → inside (half-open)': {
-        'lat': 37.0, 'lon': -121.5, 'expected': true,
+        'lat': 37.0,
+        'lon': -121.5,
+        'expected': true,
       },
       'Top edge (y == max lat) → outside (half-open)': {
-        'lat': 38.0, 'lon': -121.5, 'expected': false,
+        'lat': 38.0,
+        'lon': -121.5,
+        'expected': false,
       },
       'Near bottom-left corner → inside': {
-        'lat': 37.001, 'lon': -121.999, 'expected': true,
+        'lat': 37.001,
+        'lon': -121.999,
+        'expected': true,
       },
       'Near top-right corner → inside': {
-        'lat': 37.999, 'lon': -121.001, 'expected': true,
+        'lat': 37.999,
+        'lon': -121.001,
+        'expected': true,
       },
     };
 
@@ -185,13 +234,19 @@ void main() {
         'lat': 37.333, 'lon': -121.5, 'expected': true,
       },
       'Above apex → outside': {
-        'lat': 38.5, 'lon': -121.5, 'expected': false,
+        'lat': 38.5,
+        'lon': -121.5,
+        'expected': false,
       },
       'Below base → outside': {
-        'lat': 36.5, 'lon': -121.5, 'expected': false,
+        'lat': 36.5,
+        'lon': -121.5,
+        'expected': false,
       },
       'Left of triangle → outside': {
-        'lat': 37.5, 'lon': -122.5, 'expected': false,
+        'lat': 37.5,
+        'lon': -122.5,
+        'expected': false,
       },
     };
 
@@ -219,16 +274,24 @@ void main() {
 
     final lShapeVectors = <String, Map<String, dynamic>>{
       'In bottom-left arm → inside': {
-        'lat': 37.1, 'lon': -121.9, 'expected': true,
+        'lat': 37.1,
+        'lon': -121.9,
+        'expected': true,
       },
       'In top-right arm → inside': {
-        'lat': 37.4, 'lon': -121.6, 'expected': true,
+        'lat': 37.4,
+        'lon': -121.6,
+        'expected': true,
       },
       'In concavity (top-left) → outside': {
-        'lat': 37.4, 'lon': -121.9, 'expected': false,
+        'lat': 37.4,
+        'lon': -121.9,
+        'expected': false,
       },
       'Far outside → outside': {
-        'lat': 38.0, 'lon': -121.0, 'expected': false,
+        'lat': 38.0,
+        'lon': -121.0,
+        'expected': false,
       },
     };
 

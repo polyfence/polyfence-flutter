@@ -94,15 +94,12 @@ void main() {
     });
 
     test('both exception types implement Exception', () {
-      expect(
-          PolyfenceNotInitializedException(), isA<Exception>());
-      expect(
-          PlatformOperationException('test', 'error'), isA<Exception>());
+      expect(PolyfenceNotInitializedException(), isA<Exception>());
+      expect(PlatformOperationException('test', 'error'), isA<Exception>());
     });
 
     test('both exception types extend PolyfenceException', () {
-      expect(
-          PolyfenceNotInitializedException(), isA<PolyfenceException>());
+      expect(PolyfenceNotInitializedException(), isA<PolyfenceException>());
       expect(PlatformOperationException('test', 'error'),
           isA<PolyfenceException>());
     });

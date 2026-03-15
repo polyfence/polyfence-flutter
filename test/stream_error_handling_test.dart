@@ -120,7 +120,8 @@ void main() {
 
       // Simulate a PlatformException from the native location EventChannel
       mockPlatform.locationController.addError(
-        PlatformException(code: 'GPS_UNAVAILABLE', message: 'GPS hardware failed'),
+        PlatformException(
+            code: 'GPS_UNAVAILABLE', message: 'GPS hardware failed'),
         StackTrace.current,
       );
 
@@ -156,7 +157,8 @@ void main() {
       await sub.cancel();
     });
 
-    test('error stream error is routed to onError (no infinite loop)', () async {
+    test('error stream error is routed to onError (no infinite loop)',
+        () async {
       final errors = <PolyfenceError>[];
       final sub = PolyfenceService.instance.onError.listen(errors.add);
 

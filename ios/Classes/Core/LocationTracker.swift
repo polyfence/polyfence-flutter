@@ -39,14 +39,14 @@ class LocationTracker: NSObject {
     private var fallbackTimer: Timer?
     private let geofenceQueue = DispatchQueue(label: "polyfence.geofence", qos: .userInitiated)
 
-    // P9: Track last location where zone check was performed
+    // Track last location where zone check was performed
     private var lastZoneCheckLocation: CLLocation?
     private let minMovementForZoneCheckMeters: CLLocationDistance = 5.0  // Only recheck zones if moved >5m
 
-    // P4: Defer GPS start until zones exist
+    // Defer GPS start until zones exist
     private var gpsStartDeferred: Bool = false
 
-    // P11: Throttle Flutter callbacks when stationary
+    // Throttle Flutter callbacks when stationary
     private var lastFlutterCallbackTime: TimeInterval = 0
     private let stationaryFlutterCallbackInterval: TimeInterval = 30.0  // 30s when stationary
     // CPU usage tracking state
@@ -116,7 +116,7 @@ class LocationTracker: NSObject {
     private func setupLocationManager() {
         locationManager = CLLocationManager()
         locationManager?.delegate = self
-        // P2/P3: Use smartConfig defaults for initial setup (BALANCED profile by default)
+        // Use smartConfig defaults for initial setup (BALANCED profile by default)
         locationManager?.desiredAccuracy = smartConfig.getCLLocationAccuracy()
         locationManager?.distanceFilter = smartConfig.getDistanceFilter()
         locationManager?.pausesLocationUpdatesAutomatically = smartConfig.shouldPauseAutomatically()
@@ -279,9 +279,9 @@ class LocationTracker: NSObject {
                 DispatchQueue.main.async {
                     self.checkLocationManagerHealth()
 
-                    // P4: If GPS was deferred, start it now that we have zones
+                    // If GPS was deferred, start it now that we have zones
                     if self.gpsStartDeferred && self.isRunning {
-                        NSLog("[LocationTracker] P4: First zone added - starting deferred GPS")
+                        NSLog("[LocationTracker] First zone added - starting deferred GPS")
                         self.gpsStartDeferred = false
                         self.startGpsUpdates()
                     }
@@ -374,9 +374,9 @@ class LocationTracker: NSObject {
             // Restore zones from storage FIRST (before deciding whether to start GPS)
             self.restoreZonesFromStorage()
 
-            // P4: Only start GPS if zones exist, otherwise defer
+            // Only start GPS if zones exist, otherwise defer
             if !self.geofenceEngine.hasZones() {
-                NSLog("[LocationTracker] P4: No zones registered - deferring GPS start until zones are added")
+                NSLog("[LocationTracker] No zones registered - deferring GPS start until zones are added")
                 self.gpsStartDeferred = true
                 return
             }
@@ -386,7 +386,7 @@ class LocationTracker: NSObject {
     }
 
     /**
-     * P4: Start actual GPS updates (called when zones exist)
+     * Start actual GPS updates (called when zones exist)
      */
     private func startGpsUpdates() {
         guard let locationManager = locationManager else { return }
@@ -696,29 +696,31 @@ class LocationTracker: NSObject {
     }
 
     /**
-     * P7: Start a fallback timer to request single-shot locations if stale
+     * Start a fallback timer to request single-shot locations if stale
      * Changed from repeating (15s) to non-repeating (30s) - only fires when truly needed
      */
     private func startFallbackTimer() {
         fallbackTimer?.invalidate()
-        // P7: Non-repeating timer at 30s - reschedules itself only after location received
+        // Non-repeating timer at 30s - reschedules itself only after location received
         fallbackTimer = Timer.scheduledTimer(withTimeInterval: 30.0, repeats: false) { [weak self] _ in
             guard let self = self, self.isRunning else { return }
             let now = Date().timeIntervalSince1970
             let secondsSinceLast = now - self.lastLocationTime
             if secondsSinceLast > 30.0 {
-                // P7: Only request if truly stale (30s without update)
-                print("\(Self.TAG): Fallback timer triggered - requesting location")
+                // Only request if truly stale (30s without update)
+                if self.smartConfig.enableDebugLogging {
+                    print("\(Self.TAG): Fallback timer triggered - requesting location")
+                }
                 self.locationManager?.requestLocation()
             }
-            // P7: Reschedule for next check
+            // Reschedule for next check
             self.startFallbackTimer()
         }
         RunLoop.main.add(fallbackTimer!, forMode: .common)
     }
 
     /**
-     * P7: Reset fallback timer after receiving a location update
+     * Reset fallback timer after receiving a location update
      * Called from locationManager:didUpdateLocations to prevent unnecessary fallback triggers
      */
     private func resetFallbackTimer() {
@@ -785,10 +787,10 @@ extension LocationTracker: CLLocationManagerDelegate {
         // Check for unreliable GPS (large accuracy swings, poor accuracy)
         checkGpsReliability(location)
 
-        // P7: Reset fallback timer since we received a valid location
+        // Reset fallback timer since we received a valid location
         resetFallbackTimer()
 
-        // P11: Throttle Flutter callbacks when stationary to reduce overhead
+        // Throttle Flutter callbacks when stationary to reduce overhead
         let currentTime = Date().timeIntervalSince1970
         let timeSinceLastCallback = currentTime - lastFlutterCallbackTime
         let shouldSendToFlutter: Bool
@@ -808,7 +810,7 @@ extension LocationTracker: CLLocationManagerDelegate {
         // Emit runtime status periodically (parity with Android)
         emitRuntimeStatus()
 
-        // P9: Only check geofences if moved significantly since last check
+        // Only check geofences if moved significantly since last check
         let shouldCheckZones: Bool
         if let lastLoc = lastZoneCheckLocation {
             shouldCheckZones = location.distance(from: lastLoc) > minMovementForZoneCheckMeters
@@ -1049,7 +1051,9 @@ extension LocationTracker: CLLocationManagerDelegate {
         }
         currentGpsInterval = calculateCurrentInterval()
 
-        print("\(Self.TAG): Updated GPS settings - accuracy: \(accuracy), distanceFilter: \(distanceFilter)")
+        if smartConfig.enableDebugLogging {
+            print("\(Self.TAG): Updated GPS settings - accuracy: \(accuracy), distanceFilter: \(distanceFilter)")
+        }
 
         // Emit status after GPS configuration changes
         emitRuntimeStatus()
@@ -1085,20 +1089,26 @@ extension LocationTracker: CLLocationManagerDelegate {
         
         switch nearestZoneDistance {
         case 0...proximitySettings.nearZoneThresholdMeters:
-            print("\(Self.TAG): Near zone (\(nearestZoneDistance)m) - using high frequency")
+            if smartConfig.enableDebugLogging {
+                print("\(Self.TAG): Near zone (\(nearestZoneDistance)m) - using high frequency")
+            }
             return proximitySettings.nearZoneUpdateIntervalMs
         case proximitySettings.farZoneThresholdMeters...:
-            print("\(Self.TAG): Far from zones (\(nearestZoneDistance)m) - using low frequency")
+            if smartConfig.enableDebugLogging {
+                print("\(Self.TAG): Far from zones (\(nearestZoneDistance)m) - using low frequency")
+            }
             return proximitySettings.farZoneUpdateIntervalMs
         default:
             // Interpolate for medium distances
             let ratio = (nearestZoneDistance - proximitySettings.nearZoneThresholdMeters) /
                        (proximitySettings.farZoneThresholdMeters - proximitySettings.nearZoneThresholdMeters)
-            
+
             let intervalDiff = proximitySettings.farZoneUpdateIntervalMs - proximitySettings.nearZoneUpdateIntervalMs
             let interpolatedInterval = proximitySettings.nearZoneUpdateIntervalMs + (ratio * intervalDiff)
-            
-            print("\(Self.TAG): Medium distance (\(nearestZoneDistance)m) - using interpolated interval: \(interpolatedInterval)s")
+
+            if smartConfig.enableDebugLogging {
+                print("\(Self.TAG): Medium distance (\(nearestZoneDistance)m) - using interpolated interval: \(interpolatedInterval)s")
+            }
             return interpolatedInterval
         }
     }
@@ -1132,7 +1142,9 @@ extension LocationTracker: CLLocationManagerDelegate {
 
             if nearestZoneDistance <= settings.nearZoneThresholdMeters {
                 proximityInterval = calculateProximityBasedInterval()
-                print("\(Self.TAG): Near zone (\(nearestZoneDistance)m) - proximity interval: \(proximityInterval!)s, isStationary=\(isStationary)")
+                if smartConfig.enableDebugLogging {
+                    print("\(Self.TAG): Near zone (\(nearestZoneDistance)m) - proximity interval: \(proximityInterval!)s, isStationary=\(isStationary)")
+                }
             }
         }
 
@@ -1145,7 +1157,9 @@ extension LocationTracker: CLLocationManagerDelegate {
         if let proxInterval = proximityInterval, isStationary {
             let stationaryInterval = smartConfig.movementSettings?.stationaryUpdateIntervalMs ?? 120.0 // seconds
             let result = max(proxInterval, stationaryInterval)
-            print("\(Self.TAG): Near zone but stationary - using: \(result)s (proximity=\(proxInterval), stationary=\(stationaryInterval))")
+            if smartConfig.enableDebugLogging {
+                print("\(Self.TAG): Near zone but stationary - using: \(result)s (proximity=\(proxInterval), stationary=\(stationaryInterval))")
+            }
             return result
         }
 
@@ -1156,7 +1170,9 @@ extension LocationTracker: CLLocationManagerDelegate {
 
         // Far from zones → use the most battery-friendly (longest) interval
         let result = max(movementInterval, batteryInterval, activityInterval)
-        print("\(Self.TAG): Far from zones - using longest interval: \(result)s (movement=\(movementInterval), battery=\(batteryInterval), activity=\(activityInterval))")
+        if smartConfig.enableDebugLogging {
+            print("\(Self.TAG): Far from zones - using longest interval: \(result)s (movement=\(movementInterval), battery=\(batteryInterval), activity=\(activityInterval))")
+        }
         return result
     }
 
@@ -1221,11 +1237,13 @@ extension LocationTracker: CLLocationManagerDelegate {
                 }
             }
             
-            print("\(Self.TAG): Nearest zone distance: \(nearestDistance)m")
+            if smartConfig.enableDebugLogging {
+                print("\(Self.TAG): Nearest zone distance: \(nearestDistance)m")
+            }
             return nearestDistance
-            
+
         } catch {
-            print("\(Self.TAG): Error calculating zone distance: \(error.localizedDescription)")
+            NSLog("\(Self.TAG): Error calculating zone distance: \(error.localizedDescription)")
             return Double.greatestFiniteMagnitude // Fallback to no optimization
         }
     }
@@ -1501,7 +1519,9 @@ extension LocationTracker: CLLocationManagerDelegate {
             if isStationary {
                 isStationary = false
                 updateStationaryTracking(nowStationary: false)
-                print("\(Self.TAG): Device started moving (moved \(String(format: "%.1f", distance))m)")
+                if smartConfig.enableDebugLogging {
+                    print("\(Self.TAG): Device started moving (moved \(String(format: "%.1f", distance))m)")
+                }
                 updateLocationManagerSettings()
             }
         } else if lastMovementTime > 0 && currentTime - lastMovementTime >= timeThreshold {
@@ -1509,7 +1529,9 @@ extension LocationTracker: CLLocationManagerDelegate {
             if !isStationary {
                 isStationary = true
                 updateStationaryTracking(nowStationary: true)
-                print("\(Self.TAG): Device is now stationary (no movement > \(moveThreshold)m in \(timeThreshold)s)")
+                if smartConfig.enableDebugLogging {
+                    print("\(Self.TAG): Device is now stationary (no movement > \(moveThreshold)m in \(timeThreshold)s)")
+                }
                 updateLocationManagerSettings()
             }
         }

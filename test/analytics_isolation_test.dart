@@ -104,8 +104,10 @@ void main() {
     SharedPreferences.setMockInitialValues({});
   });
 
-  group('Analytics isolation — analytics failure does not block geofencing', () {
-    test('initialize succeeds when analytics throws (non-HTTPS endpoint)', () async {
+  group('Analytics isolation — analytics failure does not block geofencing',
+      () {
+    test('initialize succeeds when analytics throws (non-HTTPS endpoint)',
+        () async {
       // Provide a non-HTTPS analytics endpoint — this triggers ArgumentError
       // inside PolyfenceAnalytics.initialize(). Before the fix, this would
       // crash initialize() and prevent geofencing from starting.
@@ -141,7 +143,8 @@ void main() {
       expect(mockPlatform.calls, contains('startTracking'));
     });
 
-    test('startTracking with permission denied does not crash on analytics', () async {
+    test('startTracking with permission denied does not crash on analytics',
+        () async {
       mockPlatform.permissionsGranted = false;
 
       // Should throw PlatformOperationException, NOT crash from analytics
@@ -157,7 +160,8 @@ void main() {
       mockPlatform.permissionsGranted = true;
     });
 
-    test('geofence events are still emitted when analytics is unavailable', () async {
+    test('geofence events are still emitted when analytics is unavailable',
+        () async {
       // Add a zone so the event handler has something to look up
       await PolyfenceService.instance.addZone(Zone.circle(
         id: 'event-zone',

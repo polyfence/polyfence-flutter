@@ -55,8 +55,10 @@ void main() {
     test('Antipodal points yield half-circumference (~20015 km)', () {
       // North pole to south pole = half Earth circumference
       final distance = GeofenceAlgorithms.haversineDistance(
-        90.0, 0.0,
-        -90.0, 0.0,
+        90.0,
+        0.0,
+        -90.0,
+        0.0,
       );
       // Half circumference ≈ 20015 km
       expect(distance, closeTo(20015086.8, 100.0));
@@ -65,8 +67,10 @@ void main() {
     test('Points on equator crossing date line', () {
       // (0, 179) to (0, -179) = 2 degrees at equator ≈ 222.4 km
       final distance = GeofenceAlgorithms.haversineDistance(
-        0.0, 179.0,
-        0.0, -179.0,
+        0.0,
+        179.0,
+        0.0,
+        -179.0,
       );
       // 2 degrees longitude at equator ≈ 222,389 meters
       expect(distance, closeTo(222389.9, 50.0));
@@ -74,8 +78,10 @@ void main() {
 
     test('Equator distance matches 1 degree ≈ 111.19 km', () {
       final distance = GeofenceAlgorithms.haversineDistance(
-        0.0, 0.0,
-        0.0, 1.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
       );
       // 1 degree at equator ≈ 111,195 meters
       expect(distance, closeTo(111195.0, 10.0));

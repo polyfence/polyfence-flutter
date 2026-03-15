@@ -12,12 +12,12 @@ class PolyfenceErrorManager {
 
     func initialize(errorCallback: @escaping ([String: Any]) -> Void) {
         self.errorCallback = errorCallback
-        print("PolyfenceErrorManager: Error callback registered")
+        NSLog("PolyfenceErrorManager: Error callback registered")
     }
 
     func dispose() {
         errorCallback = nil
-        print("PolyfenceErrorManager: Error callback cleared")
+        NSLog("PolyfenceErrorManager: Error callback cleared")
     }
 
     func reportError(
@@ -35,7 +35,7 @@ class PolyfenceErrorManager {
         ]
 
         errorCallback?(errorData)
-        print("PolyfenceErrorManager: Error reported: \(type) - \(message)")
+        NSLog("PolyfenceErrorManager: Error reported: %@ - %@", type, message)
     }
     
     func reportGpsError(type: String, details: String = "") {

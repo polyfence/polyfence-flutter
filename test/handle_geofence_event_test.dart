@@ -283,8 +283,7 @@ void main() {
       final events = <GeofenceEvent>[];
       final sub = PolyfenceService.instance.onGeofenceEvent.listen(events.add);
 
-      mockPlatform.geofenceController
-          .add(validEvent(zoneId: 'cached-zone'));
+      mockPlatform.geofenceController.add(validEvent(zoneId: 'cached-zone'));
       await Future.delayed(Duration.zero);
 
       expect(events, hasLength(1));
@@ -300,8 +299,7 @@ void main() {
       final events = <GeofenceEvent>[];
       final sub = PolyfenceService.instance.onGeofenceEvent.listen(events.add);
 
-      mockPlatform.geofenceController
-          .add(validEvent(zoneId: 'unknown-zone'));
+      mockPlatform.geofenceController.add(validEvent(zoneId: 'unknown-zone'));
       await Future.delayed(Duration.zero);
 
       expect(events, hasLength(1));
@@ -472,7 +470,8 @@ void main() {
   });
 
   group('_handleGeofenceEvent — missing coordinates', () {
-    test('missing latitude and longitude uses 0.0 fallback and warns', () async {
+    test('missing latitude and longitude uses 0.0 fallback and warns',
+        () async {
       final events = <GeofenceEvent>[];
       final errors = <PolyfenceError>[];
       final eventSub =
@@ -542,9 +541,8 @@ void main() {
       expect(events, hasLength(1));
       expect(events.first.location.accuracy, isNull);
       // No error for missing accuracy — it's optional
-      final coordErrors = errors
-          .where((e) => e.message.contains('coordinates'))
-          .toList();
+      final coordErrors =
+          errors.where((e) => e.message.contains('coordinates')).toList();
       expect(coordErrors, isEmpty);
 
       await eventSub.cancel();

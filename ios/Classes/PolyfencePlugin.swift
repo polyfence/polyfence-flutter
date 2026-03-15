@@ -159,7 +159,7 @@ public class PolyfencePlugin: NSObject, FlutterPlugin {
                 let zoneName = eventData["zoneName"] as? String ?? ""
                 let zoneId = eventData["zoneId"] as? String ?? ""
                 let displayName = zoneName.isEmpty ? zoneId : zoneName
-                print("PF: EVENT \(eventType) zone=\(displayName) ts=\(Int64(Date().timeIntervalSince1970 * 1000))")
+                NSLog("PF: EVENT %@ zone=%@ ts=%lld", eventType, displayName, Int64(Date().timeIntervalSince1970 * 1000))
 
                 if let sink = self?.geofenceSink {
                     sink(eventData)

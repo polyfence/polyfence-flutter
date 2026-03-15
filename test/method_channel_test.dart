@@ -247,7 +247,6 @@ void main() {
       expect(log[0].arguments['timeRangeMs'], 3600000);
       expect(result, isA<List<Map<String, dynamic>>>());
     });
-
   });
 
   group('MethodChannelPolyfence — platform error handling', () {

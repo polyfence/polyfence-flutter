@@ -221,8 +221,7 @@ void main() {
       final settings = BatterySettings();
       expect(settings.lowBatteryThreshold, 20);
       expect(settings.criticalBatteryThreshold, 10);
-      expect(
-          settings.lowBatteryUpdateInterval, const Duration(seconds: 30));
+      expect(settings.lowBatteryUpdateInterval, const Duration(seconds: 30));
       expect(settings.pauseOnCriticalBattery, true);
     });
 

@@ -218,7 +218,8 @@ void main() {
       );
     });
 
-    test('startTracking throws PolyfenceNotInitializedException before initialize',
+    test(
+        'startTracking throws PolyfenceNotInitializedException before initialize',
         () {
       expect(
         () => PolyfenceService.instance.startTracking(),
@@ -226,7 +227,8 @@ void main() {
       );
     });
 
-    test('stopTracking throws PolyfenceNotInitializedException before initialize',
+    test(
+        'stopTracking throws PolyfenceNotInitializedException before initialize',
         () {
       expect(
         () => PolyfenceService.instance.stopTracking(),
@@ -234,7 +236,8 @@ void main() {
       );
     });
 
-    test('getConfiguration throws PolyfenceNotInitializedException before initialize',
+    test(
+        'getConfiguration throws PolyfenceNotInitializedException before initialize',
         () {
       expect(
         () => PolyfenceService.instance.getConfiguration(),
@@ -250,7 +253,8 @@ void main() {
       );
     });
 
-    test('requestPermissions throws PolyfenceNotInitializedException before initialize',
+    test(
+        'requestPermissions throws PolyfenceNotInitializedException before initialize',
         () {
       expect(
         () => PolyfenceService.instance.requestPermissions(),
@@ -258,7 +262,8 @@ void main() {
       );
     });
 
-    test('clearAllZones throws PolyfenceNotInitializedException before initialize',
+    test(
+        'clearAllZones throws PolyfenceNotInitializedException before initialize',
         () {
       expect(
         () => PolyfenceService.instance.clearAllZones(),
@@ -266,7 +271,8 @@ void main() {
       );
     });
 
-    test('getZoneStates throws PolyfenceNotInitializedException before initialize',
+    test(
+        'getZoneStates throws PolyfenceNotInitializedException before initialize',
         () {
       expect(
         () => PolyfenceService.instance.getZoneStates(),

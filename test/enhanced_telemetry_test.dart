@@ -137,8 +137,7 @@ void main() {
 
       // Native fields merged
       expect(summary['activity_distribution'], isA<Map>());
-      expect(
-          (summary['activity_distribution'] as Map)['still'], equals(0.6));
+      expect((summary['activity_distribution'] as Map)['still'], equals(0.6));
       expect(summary['gps_interval_distribution'], isA<Map>());
       expect(summary['stationary_ratio'], equals(0.45));
       expect(summary['avg_gps_interval_ms'], equals(6200.0));

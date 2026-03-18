@@ -2,6 +2,7 @@ import Flutter
 import UIKit
 import CoreLocation
 import UserNotifications
+import PolyfenceCore
 
 public class PolyfencePlugin: NSObject, FlutterPlugin {
     

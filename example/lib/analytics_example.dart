@@ -82,22 +82,15 @@ class _AnalyticsExampleState extends State<AnalyticsExample> {
   }
 
   void _simulateDetection() {
-    // Simulate a detection event for testing
-    PolyfenceAnalytics.instance.recordDetection(
-      detectionTimeMs: 25.5,
-      gpsAccuracy: 3.2,
-      zoneType: 'circle',
-    );
-
-    logDebug('Simulated detection recorded');
+    // Detection telemetry is now aggregated by native polyfence-core (D016).
+    // No Dart-side recording needed — native TelemetryAggregator handles it.
+    logDebug('Detection telemetry handled by native polyfence-core');
     _updateSessionData();
   }
 
   void _simulateError() {
-    // Simulate an error for testing
-    PolyfenceAnalytics.instance.recordError('gps_timeout');
-
-    logDebug('Simulated error recorded');
+    // Error telemetry is now aggregated by native polyfence-core (D016).
+    logDebug('Error telemetry handled by native polyfence-core');
     _updateSessionData();
   }
 

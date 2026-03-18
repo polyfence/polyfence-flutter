@@ -207,9 +207,9 @@ class PolyfenceService {
       // Anonymous plugin telemetry enabled by default. No location data or PII
       // ever sent — only plugin performance metrics.
       try {
-        // Check if developer opted out
-        final bool telemetryDisabled =
-            analyticsConfig?.disableTelemetry ?? false;
+        // Telemetry is opt-in: developer must explicitly enable it.
+        // Check if developer opted in via config or environment variable.
+        final bool configEnabled = analyticsConfig?.enabled ?? false;
 
         // Environment variables can still override for production builds
         const String analyticsEnabledEnv = String.fromEnvironment(
@@ -226,14 +226,12 @@ class PolyfenceService {
 
         // Determine final telemetry state:
         // 1. If env var set → use it (production override)
-        // 2. If developer set disableTelemetry: true → respect it
-        // 3. Otherwise → enabled by default
-        final bool telemetryEnabled =
-            envOverride ? envEnabled : !telemetryDisabled;
+        // 2. Otherwise → only enabled if developer explicitly opted in
+        final bool telemetryEnabled = envOverride ? envEnabled : configEnabled;
 
         final analyticsConfigToUse = AnalyticsConfig(
           enabled: telemetryEnabled,
-          disableTelemetry: telemetryDisabled,
+          disableTelemetry: !telemetryEnabled,
           apiKey:
               analyticsConfig?.apiKey ?? (apiKeyEnv.isEmpty ? null : apiKeyEnv),
           apiEndpoint: analyticsConfig?.apiEndpoint ??
@@ -249,12 +247,6 @@ class PolyfenceService {
         );
 
         _analyticsAvailable = true;
-
-        // Set config context for telemetry (accuracy profile, update strategy)
-        PolyfenceAnalytics.instance.setConfigContext(
-          accuracyProfile: _currentConfiguration.accuracyProfile.name,
-          updateStrategy: _currentConfiguration.updateStrategy.name,
-        );
 
         // Telemetry disclosure: show once per install or when state changes
         // Only in debug builds to avoid production log spam
@@ -550,7 +542,6 @@ class PolyfenceService {
     // Request permissions if needed
     final hasPermissions = await _platform.requestPermissions();
     if (!hasPermissions) {
-      _tryRecordAnalyticsError('permission_denied');
       throw PlatformOperationException(
           'startTracking', 'Location permissions not granted');
     }
@@ -559,7 +550,6 @@ class PolyfenceService {
     try {
       await _platform.startTracking();
     } on PlatformException catch (e, stackTrace) {
-      _tryRecordAnalyticsError('tracking_start_failed');
       throw PlatformOperationException(
         'startTracking',
         e.message ?? 'Unknown error',
@@ -607,9 +597,6 @@ class PolyfenceService {
     try {
       final zoneId = eventData['zoneId'] as String?;
       final eventTypeRaw = (eventData['eventType'] as String?)?.toUpperCase();
-      final detectionTimeMs =
-          (eventData['detectionTimeMs'] as num?)?.toDouble() ?? 0.0;
-      final gpsAccuracy = (eventData['gpsAccuracy'] as num?)?.toDouble() ?? 0.0;
 
       // Validate required fields
       if (zoneId == null || eventTypeRaw == null) {
@@ -668,25 +655,6 @@ class PolyfenceService {
 
       // Get zone from cache
       final zone = _zones[zoneId];
-
-      // Record analytics for detection (fire-and-forget)
-      if (zone != null && _analyticsAvailable) {
-        try {
-          final speedMps = (eventData['speedMps'] as num?)?.toDouble();
-          final distanceToBoundaryM =
-              (eventData['distanceToBoundaryM'] as num?)?.toDouble();
-
-          PolyfenceAnalytics.instance.recordDetection(
-            detectionTimeMs: detectionTimeMs,
-            gpsAccuracy: gpsAccuracy,
-            zoneType: zone.type.name.toLowerCase(), // 'circle' or 'polygon'
-            speedMps: speedMps,
-            boundaryDistanceM: distanceToBoundaryM,
-          );
-        } catch (_) {
-          // Analytics must never crash geofence event handling
-        }
-      }
 
       // Extract optional coordinates if provided by platform
       final lat = (eventData['latitude'] as num?)?.toDouble();
@@ -753,9 +721,6 @@ class PolyfenceService {
 
       // Emit error to developer stream
       _errorController.add(error);
-
-      // Still record in analytics for plugin owner metrics (fire-and-forget)
-      _tryRecordAnalyticsError(error.type.toString().split('.').last);
     } catch (e) {
       // If error parsing fails, create a generic error
       final genericError = PolyfenceError(
@@ -1339,17 +1304,6 @@ class PolyfenceService {
       if (kDebugMode) {
         debugPrint('Polyfence: Error during disposal: $e');
       }
-    }
-  }
-
-  /// Record an analytics error if analytics is available.
-  /// Fire-and-forget — analytics must never interfere with core operations.
-  void _tryRecordAnalyticsError(String errorType) {
-    if (!_analyticsAvailable) return;
-    try {
-      PolyfenceAnalytics.instance.recordError(errorType);
-    } catch (_) {
-      // Silently ignore — analytics must never crash core operations
     }
   }
 

@@ -17,12 +17,13 @@ import io.flutter.embedding.engine.plugins.activity.ActivityAware
 import io.flutter.embedding.engine.plugins.activity.ActivityPluginBinding
 import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodCall
-import com.polyfence.polyfence.core.LocationTracker
-import com.polyfence.polyfence.core.PolyfenceErrorManager
-import com.polyfence.polyfence.configuration.ActivitySettings
-import com.polyfence.polyfence.core.PolyfenceDebugCollector
-import com.polyfence.polyfence.configuration.SmartGpsConfig
-import com.polyfence.polyfence.configuration.SmartGpsConfigFactory
+import com.polyfence.core.LocationTracker
+import com.polyfence.core.PolyfenceErrorManager
+import com.polyfence.core.PolyfenceDebugCollector
+import com.polyfence.core.ZonePersistence
+import com.polyfence.core.configuration.ActivitySettings
+import com.polyfence.core.configuration.SmartGpsConfig
+import com.polyfence.core.configuration.SmartGpsConfigFactory
 import io.flutter.plugin.common.MethodChannel
 import io.flutter.plugin.common.MethodChannel.MethodCallHandler
 import io.flutter.plugin.common.MethodChannel.Result
@@ -67,7 +68,7 @@ class PolyfencePlugin: FlutterPlugin, MethodCallHandler, ActivityAware {
         private fun buildStatusPayload(context: Context): Map<String, Any?> {
             val tracking = isTrackingEnabled(context)
             val zonesCount = try {
-                val persistence = com.polyfence.polyfence.core.ZonePersistence(context)
+                val persistence = ZonePersistence(context)
                 persistence.getZoneCount()
             } catch (e: Exception) { 0 }
             return mapOf(
@@ -436,7 +437,7 @@ class PolyfencePlugin: FlutterPlugin, MethodCallHandler, ActivityAware {
         // Persist zone even when tracking is currently OFF so it can be restored on start
         if (!isTrackingEnabled(context)) {
             try {
-                val persistence = com.polyfence.polyfence.core.ZonePersistence(context)
+                val persistence = ZonePersistence(context)
                 persistence.saveZone(zoneId, zoneName, zoneData)
             } catch (e: Exception) {
                 Log.w("PolyfencePlugin", "Failed to persist zone $zoneId: ${e.message}")

@@ -4,9 +4,9 @@ import 'analytics_service.dart';
 
 /// Manages app lifecycle events for analytics session tracking.
 ///
-/// Automatically starts and ends analytics sessions when the app transitions
-/// between foreground and background states. Initialized internally by
-/// [PolyfenceService] during plugin initialization.
+/// Triggers telemetry upload when the app transitions to background/detached.
+/// Session aggregation is handled entirely by native polyfence-core (D016).
+/// Initialized internally by [PolyfenceService] during plugin initialization.
 class AppLifecycleManager {
   static AppLifecycleManager? _instance;
 
@@ -58,26 +58,17 @@ class AppLifecycleManager {
   void _handleLifecycleChange(AppLifecycleState newState) {
     switch (newState) {
       case AppLifecycleState.resumed:
-        PolyfenceAnalytics.instance.startSession();
+        // Session lifecycle managed by native polyfence-core
         break;
       case AppLifecycleState.paused:
       case AppLifecycleState.detached:
+        // Trigger telemetry upload on background transition
         PolyfenceAnalytics.instance.endSession();
         break;
       case AppLifecycleState.inactive:
       case AppLifecycleState.hidden:
         break;
     }
-  }
-
-  /// Manually starts an analytics session.
-  void startSession() {
-    PolyfenceAnalytics.instance.startSession();
-  }
-
-  /// Manually ends the current analytics session.
-  void endSession() {
-    PolyfenceAnalytics.instance.endSession();
   }
 
   /// Disposes the lifecycle manager and removes the message handler.

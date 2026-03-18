@@ -176,4 +176,4 @@ The app includes visual feedback for:
 
 - [Main README](../README.md) - Full documentation
 - [API Reference](https://pub.dev/documentation/polyfence/latest/)
-- [GitHub Issues](https://github.com/blackabass/polyfence-plugin/issues)
+- [GitHub Issues](https://github.com/blackabass/polyfence-flutter/issues)

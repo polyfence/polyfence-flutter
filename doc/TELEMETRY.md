@@ -493,7 +493,7 @@ await Polyfence.instance.startTracking();
 ### Questions About Telemetry?
 
 - **Email:** [hello@polyfence.io](mailto:hello@polyfence.io)
-- **GitHub Issues:** [Report a concern](https://github.com/blackabass/polyfence-plugin/issues)
+- **GitHub Issues:** [Report a concern](https://github.com/blackabass/polyfence-flutter/issues)
 
 ### Privacy Policy
 

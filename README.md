@@ -2,7 +2,8 @@
 
 **Privacy-first, on-device geofencing for Flutter.** Accurate circle & polygon zone detection with true background operation on both platforms. No location data or PII ever transmitted. Minimal dependencies. Anonymous plugin telemetry enabled by default ([opt-out](#telemetry-opt-out)).
 
-![GitHub](https://img.shields.io/badge/github-polyfence--plugin-blue)
+[![CI](https://github.com/blackabass/polyfence-flutter/actions/workflows/ci.yml/badge.svg)](https://github.com/blackabass/polyfence-flutter/actions/workflows/ci.yml)
+![GitHub](https://img.shields.io/badge/github-polyfence--flutter-blue)
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-purple.svg)](https://opensource.org/licenses/MIT)
 
@@ -713,7 +714,7 @@ await Polyfence.instance.initialize(
 
 ## Support
 
-- **Plugin Issues**: [GitHub Issues](https://github.com/blackabass/polyfence-plugin/issues)
+- **Plugin Issues**: [GitHub Issues](https://github.com/blackabass/polyfence-flutter/issues)
 - **Questions & Discussions**: Open an issue with the `question` label
 - **Commercial Support**: [polyfence.io](https://polyfence.io)
 

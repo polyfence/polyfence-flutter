@@ -49,8 +49,8 @@ For commercial support, see [polyfence.io](https://polyfence.io).
 
 ```bash
 # Clone the repository
-git clone https://github.com/blackabass/polyfence-plugin.git
-cd polyfence-plugin
+git clone https://github.com/blackabass/polyfence-flutter.git
+cd polyfence-flutter
 
 # Install dependencies
 flutter pub get

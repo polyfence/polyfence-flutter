@@ -26,6 +26,8 @@ CONTRIBUTING.md
 SECURITY.md
 CODE_OF_CONDUCT.md
 ios/ios_setup_instructions.md
+docs/
+tasks/
 
 # Scripts (dev tooling, not needed by consumers)
 scripts/

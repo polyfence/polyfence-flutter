@@ -1,13 +1,21 @@
 # <img src="logo-icon-512.png" alt="PolyFence Logo" width="48" style="vertical-align: middle; margin-right: 10px;"> <span style="vertical-align: middle">Polyfence</span>
 
-**Privacy-first, on-device geofencing for Flutter.** Accurate circle & polygon zone detection with true background operation on both platforms. No location data or PII ever transmitted. Minimal dependencies. Anonymous plugin telemetry enabled by default ([opt-out](#telemetry-opt-out)).
+**Privacy-first, on-device geofencing for Flutter.** Accurate circle & polygon zone detection with true background operation on both platforms. No location data or PII ever transmitted. Minimal dependencies.
 
+[![pub package](https://img.shields.io/pub/v/polyfence.svg)](https://pub.dev/packages/polyfence)
 [![CI](https://github.com/blackabass/polyfence-flutter/actions/workflows/ci.yml/badge.svg)](https://github.com/blackabass/polyfence-flutter/actions/workflows/ci.yml)
-![GitHub](https://img.shields.io/badge/github-polyfence--flutter-blue)
-
 [![License: MIT](https://img.shields.io/badge/license-MIT-purple.svg)](https://opensource.org/licenses/MIT)
-
 ![Platform: Android & iOS](https://img.shields.io/badge/platform-Android%20%7C%20iOS-blue)
+[![pub points](https://img.shields.io/pub/points/polyfence)](https://pub.dev/packages/polyfence/score)
+
+## Why Polyfence?
+
+- **Polygon geofencing** — Not just circles. Define zones with arbitrary polygon boundaries (complex city zones, campus outlines, delivery areas).
+- **Unlimited zones** — No artificial limits. Monitor hundreds of zones simultaneously with zone clustering for performance.
+- **Privacy-first** — All geofencing runs on-device. Zero location data ever leaves the device by default. No cloud dependency.
+- **SmartGPS** — Intelligent GPS scheduling based on proximity, movement, activity, and battery state. 40-50% less battery drain than naive polling.
+
+## How to Use Polyfence
 
 **Three ways to use Polyfence** — choose what fits your workflow:
 
@@ -687,21 +695,21 @@ Polyfence is built with privacy as the foundation.
 
 **Your users' location data stays on their device. Always.**
 
-### Anonymous Plugin Telemetry (Enabled by Default)
+### Anonymous Plugin Telemetry (Opt-In)
 
-To monitor plugin performance and improve reliability, Polyfence sends **anonymous performance metrics**: plugin version and platform (Android/iOS), app package name, performance metrics (detection times, GPS accuracy averages), battery impact statistics, error counts and types, and zone type usage (circle/polygon counts — not locations).
-
-**See exactly what's sent:** [Full Telemetry Reference](doc/TELEMETRY.md)
-
-### Telemetry Opt-Out
+Polyfence supports anonymous performance telemetry to help improve plugin reliability. Telemetry is **disabled by default** — you must explicitly enable it:
 
 ```dart
 await Polyfence.instance.initialize(
   analyticsConfig: AnalyticsConfig(
-    disableTelemetry: true,
+    enabled: true,
   ),
 );
 ```
+
+When enabled, only anonymous aggregate metrics are sent: plugin version, platform, performance metrics (detection times, GPS accuracy averages), battery impact statistics, error counts, and zone type counts. **No GPS coordinates, zone definitions, or PII are ever transmitted.**
+
+**See exactly what's sent:** [Full Telemetry Reference](doc/TELEMETRY.md)
 
 ### Architecture Guarantees
 
@@ -712,12 +720,57 @@ await Polyfence.instance.initialize(
 
 ---
 
+## Comparison
+
+| Capability | Polyfence | Google Geofencing API | Apple CLRegion | Radar.io |
+|---|---|---|---|---|
+| **Polygon zones** | Yes | No (circles only) | No (circles only) | Yes |
+| **Zone limit** | Unlimited | 100 | 20 | Unlimited (paid) |
+| **On-device processing** | Yes | No (cloud) | Yes | No (cloud) |
+| **Cross-platform** | iOS + Android | Android only | iOS only | iOS + Android |
+| **Privacy-first** | Yes | No | Partial | No |
+| **Open source** | Yes (MIT) | No | N/A | No |
+| **Activity recognition** | Yes | No | No | Yes |
+| **Dwell detection** | Yes | Yes | No | Yes |
+| **Zone clustering** | Yes | No | No | No |
+| **Scheduled tracking** | Yes | No | No | No |
+| **Battery optimization** | SmartGPS | Platform-managed | Platform-managed | Cloud-managed |
+| **Cost** | Free | Free | Free | Free tier, then $500/mo+ |
+
+## Architecture
+
+Polyfence uses a layered architecture:
+
+```
+polyfence-core (native engines)          ← Kotlin + Swift
+  ├── GeofenceEngine                     ← Ray-casting, haversine, dwell detection
+  ├── LocationTracker                    ← SmartGPS, activity-based intervals
+  ├── TrackingScheduler                  ← Time windows, day-of-week
+  └── TelemetryAggregator               ← Session metrics (native-side)
+
+polyfence (Flutter plugin)               ← You are here
+  ├── PolyfenceService                   ← Dart API (singleton)
+  ├── MethodChannel bridge               ← Dart ↔ Native communication
+  └── PolyfenceAnalytics                 ← Telemetry POST (Dart-side)
+```
+
+**Data flow:** Zone definitions → native GeofenceEngine → GPS location updates trigger zone checks → geofence events stream back to Dart.
+
+For the full architecture guide, see [doc/ARCHITECTURE.md](doc/ARCHITECTURE.md).
+
+## Contributing
+
+Contributions are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, code style, and PR guidelines.
+
 ## Support
 
 - **Plugin Issues**: [GitHub Issues](https://github.com/blackabass/polyfence-flutter/issues)
 - **Questions & Discussions**: Open an issue with the `question` label
+- **Security Issues**: See [SECURITY.md](SECURITY.md)
 - **Commercial Support**: [polyfence.io](https://polyfence.io)
 
 ## License
 
 MIT — see [LICENSE](LICENSE)
+
+Copyright (c) 2025–2026 Sector7 / Polyfence

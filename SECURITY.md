@@ -6,10 +6,10 @@ We actively support the following versions with security updates:
 
 | Version | Supported          |
 | ------- | ------------------ |
-| 0.9.x   | :white_check_mark: |
-| 0.8.x   | :white_check_mark: |
-| 0.7.x   | :white_check_mark: |
-| < 0.7.0 | :x:                |
+| 0.12.x  | :white_check_mark: |
+| 0.11.x  | :white_check_mark: |
+| 0.10.x  | :white_check_mark: |
+| < 0.10  | :x:                |
 
 ## Reporting a Vulnerability
 
@@ -148,8 +148,8 @@ When reporting a vulnerability, please include:
    **Note:** For most use cases (public venues, offices, stores), zone encryption is unnecessary. The default unencrypted storage is acceptable.
 
 3. **Analytics**
-   - Anonymous telemetry is enabled by default (no location data or PII)
-   - Opt out with one line: `AnalyticsConfig(disableTelemetry: true)`
+   - Anonymous telemetry is opt-in (no location data or PII)
+   - Enable with: `AnalyticsConfig(enabled: true)`
    - Review `AnalyticsConfig` settings and see `doc/TELEMETRY.md` for full details
 
 4. **Permissions**

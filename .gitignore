@@ -47,6 +47,7 @@ doc/*
 !doc/TELEMETRY.md
 !doc/API_SURFACE.md
 !doc/PLATFORM_CHANNEL_SPEC.md
+!doc/ARCHITECTURE.md
 
 # Security - Never commit API keys or secrets
 ADMIN_API_KEYS

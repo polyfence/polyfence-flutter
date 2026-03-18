@@ -1,13 +1,13 @@
 # Polyfence Telemetry Reference
 
-**Last updated:** 2026-03-07
-**Plugin version:** 0.12.0+
+**Last updated:** 2026-03-18
+**Plugin version:** 0.12.4
 
 ---
 
 ## Overview
 
-Polyfence sends **anonymous plugin performance telemetry** by default to help us monitor reliability, detect issues early, and improve the plugin across different devices and platforms.
+Polyfence supports **anonymous plugin performance telemetry** to help monitor reliability, detect issues early, and improve the plugin across different devices and platforms. **Telemetry is opt-in** — it is disabled by default and must be explicitly enabled by the developer.
 
 **This document provides complete transparency about what data is collected and how it's used.**
 
@@ -15,9 +15,9 @@ Polyfence sends **anonymous plugin performance telemetry** by default to help us
 
 ## Quick Summary
 
-✅ **What's sent:** Anonymous plugin performance metrics
+✅ **What's sent (when enabled):** Anonymous plugin performance metrics
 ❌ **What's NEVER sent:** GPS coordinates, location data, zone definitions, user PII
-🔧 **Opt-out:** One line: `AnalyticsConfig(disableTelemetry: true)`
+🔧 **Default:** Off. Enable with `AnalyticsConfig(enabled: true)`
 📊 **Purpose:** Monitor plugin performance, detect issues, improve reliability
 
 ---
@@ -283,29 +283,33 @@ App Launch → Session Start → Data Collection → App Background → Session 
 
 ---
 
-## How to Opt-Out
+## How to Enable Telemetry
 
-### Disable Telemetry (One Line)
+Telemetry is disabled by default. To opt in:
 
 ```dart
 import 'package:polyfence/polyfence.dart';
 
 await Polyfence.instance.initialize(
   analyticsConfig: AnalyticsConfig(
-    disableTelemetry: true, // ← Disable all telemetry
+    enabled: true, // ← Enable anonymous telemetry
   ),
 );
 ```
 
-### Verify Telemetry is Disabled
+To explicitly disable (or re-disable after enabling):
 
-When telemetry is disabled, you'll see a different disclosure message:
-
+```dart
+await Polyfence.instance.initialize(
+  analyticsConfig: AnalyticsConfig(
+    disableTelemetry: true, // ← Ensure telemetry is off
+  ),
+);
 ```
-[Polyfence] Telemetry disabled.
 
-No analytics data will be sent.
-```
+### Disclosure Messages
+
+In debug builds, the plugin shows a one-time disclosure message about telemetry state:
 
 **Disclosure behavior:**
 - Shows **once per install** (not every time you run the app)
@@ -460,7 +464,7 @@ await Polyfence.instance.startTracking();
 
 ### Can I use Polyfence without sending telemetry?
 
-**Yes.** Set `disableTelemetry: true` in `AnalyticsConfig`.
+**Yes.** Telemetry is disabled by default. You don't need to do anything — just don't enable it.
 
 ### Will disabling telemetry affect plugin functionality?
 
@@ -513,17 +517,16 @@ For the full privacy policy, see: [https://polyfence.io/privacy](https://polyfen
 - **Added:** Battery level snapshots (battery_level_start, battery_level_end)
 - **Privacy:** No new fields contain GPS coordinates, zone definitions, or user identifiers
 
+### 2026-03-18 (Version 0.12.4)
+- **Changed:** Telemetry is now opt-in (disabled by default). Developers must explicitly enable it.
+- **Updated:** Documentation to reflect opt-in approach
+
 ### 2025-12-29 (Version 0.3.0)
-- **Changed:** Telemetry enabled by default (previously opt-in)
-- **Added:** `disableTelemetry` parameter for simple opt-out
+- **Added:** `disableTelemetry` parameter
 - **Added:** Smart disclosure message (once per install, debug-only, state-aware)
 - **Removed:** API key requirement for telemetry
 - **Updated:** Data retention to 24 months (2 years)
-- **Updated:** Documentation to reflect new telemetry approach
-
-### Previous Versions
-- Telemetry was opt-in and required API key configuration
 
 ---
 
-**Summary:** Polyfence telemetry is anonymous, transparent, and opt-out. We collect plugin performance metrics to improve reliability, but we never transmit location data, zone definitions, or personal information.
+**Summary:** Polyfence telemetry is anonymous, transparent, and opt-in. When enabled, we collect plugin performance metrics to improve reliability, but we never transmit location data, zone definitions, or personal information.

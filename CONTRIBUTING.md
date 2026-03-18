@@ -169,7 +169,7 @@ test: Add ray-casting algorithm tests
 
 1. **Privacy First**
    - No external API calls by default
-   - Anonymous telemetry enabled by default; easy one-line opt-out
+   - Anonymous telemetry is opt-in (disabled by default)
    - Location data stays on device
 
 2. **Platform Parity**
@@ -187,6 +187,23 @@ test: Add ray-casting algorithm tests
    - Efficient algorithms (O(n) for zone checks)
    - Minimal memory usage
 
+### Dependency: polyfence-core
+
+The native geofencing engines (Kotlin + Swift) live in a separate repo: [polyfence-core](https://github.com/blackabass/polyfence-core). This Flutter plugin depends on polyfence-core for all native geofencing logic.
+
+```
+polyfence-core           ← Shared native engine (Kotlin + Swift)
+  ├── GeofenceEngine     ← Ray-casting, haversine, dwell detection
+  ├── LocationTracker    ← SmartGPS, activity-based intervals
+  └── TelemetryAggregator
+
+polyfence (this repo)    ← Flutter bridge
+  ├── Dart API           ← PolyfenceService, models, config
+  └── MethodChannel      ← Dart ↔ Native communication
+```
+
+If your contribution involves native geofencing logic (zone detection algorithms, GPS scheduling, activity recognition), changes likely need to go into polyfence-core first.
+
 ### File Structure
 
 ```
@@ -199,8 +216,8 @@ lib/
 │   ├── configuration/          # GPS configuration classes
 │   ├── errors/                 # Custom exceptions
 │   └── debug/                  # Debug utilities
-android/src/main/kotlin/        # Android implementation
-ios/Classes/                    # iOS implementation
+android/src/main/kotlin/        # Android implementation (bridges to polyfence-core)
+ios/Classes/                    # iOS implementation (bridges to polyfence-core)
 ```
 
 ### Key Files

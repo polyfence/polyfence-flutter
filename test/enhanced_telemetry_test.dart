@@ -7,17 +7,16 @@ import 'package:polyfence/src/services/analytics_service.dart';
 /// The Dart PolyfenceAnalytics is now a thin client that fetches aggregated
 /// data via platform channel and POSTs it.
 void main() {
-  group('AnalyticsConfig defaults — opt-in telemetry', () {
-    test('default config has telemetry disabled (opt-in)', () {
+  group('AnalyticsConfig defaults — opt-out telemetry (D008)', () {
+    test('default config has telemetry enabled (opt-out)', () {
       const config = AnalyticsConfig();
-      expect(config.enabled, isFalse);
-      expect(config.disableTelemetry, isTrue);
-    });
-
-    test('explicitly enabling telemetry works', () {
-      const config = AnalyticsConfig(enabled: true, disableTelemetry: false);
       expect(config.enabled, isTrue);
       expect(config.disableTelemetry, isFalse);
+    });
+
+    test('explicitly disabling telemetry works', () {
+      const config = AnalyticsConfig(disableTelemetry: true);
+      expect(config.disableTelemetry, isTrue);
     });
 
     test('optional fields default to null', () {
@@ -75,9 +74,9 @@ void main() {
 
   group('PolyfenceAnalytics — endSession behavior', () {
     test('endSession does nothing when telemetry is disabled', () async {
-      // Initialize with telemetry disabled (default)
+      // Initialize with telemetry explicitly disabled
       await PolyfenceAnalytics.instance.initialize(
-        config: const AnalyticsConfig(),
+        config: const AnalyticsConfig(enabled: false),
         pluginVersion: '0.12.4',
         sessionTelemetryFetcher: () async =>
             throw Exception('should not be called'),

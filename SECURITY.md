@@ -148,8 +148,8 @@ When reporting a vulnerability, please include:
    **Note:** For most use cases (public venues, offices, stores), zone encryption is unnecessary. The default unencrypted storage is acceptable.
 
 3. **Analytics**
-   - Anonymous telemetry is opt-in (no location data or PII)
-   - Enable with: `AnalyticsConfig(enabled: true)`
+   - Anonymous telemetry is opt-out — enabled by default (no location data or PII)
+   - Disable with: `AnalyticsConfig(disableTelemetry: true)`
    - Review `AnalyticsConfig` settings and see `doc/TELEMETRY.md` for full details
 
 4. **Permissions**

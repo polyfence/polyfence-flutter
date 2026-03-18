@@ -7,12 +7,12 @@ import 'package:package_info_plus/package_info_plus.dart';
 
 /// Configuration for Polyfence anonymous telemetry and analytics.
 ///
-/// By default, telemetry is **disabled** (opt-in). Developers must explicitly
-/// enable it:
+/// By default, telemetry is **enabled** (opt-out). To disable, set
+/// `disableTelemetry: true`:
 ///
 /// ```dart
 /// await Polyfence.instance.initialize(
-///   analyticsConfig: AnalyticsConfig(enabled: true),
+///   analyticsConfig: AnalyticsConfig(disableTelemetry: true),
 /// );
 /// ```
 ///
@@ -21,12 +21,12 @@ import 'package:package_info_plus/package_info_plus.dart';
 class AnalyticsConfig {
   /// Whether analytics data collection is enabled.
   ///
-  /// Defaults to `false` — telemetry is opt-in for open-source builds.
+  /// Defaults to `true` — telemetry is opt-out (D008).
   final bool enabled;
 
   /// Set to `true` to explicitly disable all anonymous telemetry.
   ///
-  /// Defaults to `true` — telemetry is off unless [enabled] is set to `true`.
+  /// Defaults to `false` — telemetry is on by default.
   final bool disableTelemetry;
 
   /// Optional industry category for benchmarking.
@@ -43,8 +43,8 @@ class AnalyticsConfig {
 
   /// Creates an analytics configuration.
   const AnalyticsConfig({
-    this.enabled = false,
-    this.disableTelemetry = true,
+    this.enabled = true,
+    this.disableTelemetry = false,
     this.industryCategory,
     this.useCase,
     this.apiEndpoint,

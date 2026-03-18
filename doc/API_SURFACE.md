@@ -11,7 +11,7 @@
 | `Polyfence` | Static entry point; exposes `instance` getter for `PolyfenceService` | RN equivalent: `NativeModules.Polyfence` — works as-is |
 | `PolyfenceService` | Singleton service — all geofencing operations | RN: methods become async native module methods. Stream properties become event subscriptions |
 | `PolyfenceAnalytics` | Singleton analytics/telemetry service. Session aggregation handled by native polyfence-core; Dart fetches and POSTs. | Internal to plugin; not directly exposed in RN public API |
-| `AnalyticsConfig` | Configuration for telemetry opt-in/out. **Telemetry is opt-in** (`enabled` defaults to `false`). | RN: plain object `{ enabled, disableTelemetry, apiKey, ... }` |
+| `AnalyticsConfig` | Configuration for telemetry opt-out. **Telemetry is opt-out** (`enabled` defaults to `true`). | RN: plain object `{ enabled, disableTelemetry, apiKey, ... }` |
 | `AppLifecycleManager` | Manages app lifecycle for telemetry upload on background transition. Session lifecycle managed by native polyfence-core. | Internal; no RN equivalent needed (RN has its own lifecycle handling) |
 | `PolyfencePlatform` | Abstract platform interface | Internal; not exported to RN |
 | `MethodChannelPolyfence` | Platform channel implementation | Internal; not exported to RN |
@@ -197,8 +197,8 @@
 
 | Property | Type | Default | Notes |
 |----------|------|---------|-------|
-| `enabled` | `bool` | `false` | Whether analytics is enabled (opt-in) |
-| `disableTelemetry` | `bool` | `true` | Explicit opt-out flag (redundant with `enabled`, see R7) |
+| `enabled` | `bool` | `true` | Whether analytics is enabled (opt-out, D008) |
+| `disableTelemetry` | `bool` | `false` | Explicit opt-out flag (redundant with `enabled`, see R7) |
 | `industryCategory` | `String?` | `null` | From IndustryCategory enum values |
 | `useCase` | `String?` | `null` | Custom use-case string |
 | `apiEndpoint` | `String?` | `null` | Must be HTTPS |

@@ -695,19 +695,19 @@ Polyfence is built with privacy as the foundation.
 
 **Your users' location data stays on their device. Always.**
 
-### Anonymous Plugin Telemetry (Opt-In)
+### Anonymous Plugin Telemetry (Opt-Out)
 
-Polyfence supports anonymous performance telemetry to help improve plugin reliability. Telemetry is **disabled by default** — you must explicitly enable it:
+Polyfence collects anonymous performance telemetry to help improve plugin reliability. Telemetry is **enabled by default** — disable it with one line:
 
 ```dart
 await Polyfence.instance.initialize(
   analyticsConfig: AnalyticsConfig(
-    enabled: true,
+    disableTelemetry: true,
   ),
 );
 ```
 
-When enabled, only anonymous aggregate metrics are sent: plugin version, platform, performance metrics (detection times, GPS accuracy averages), battery impact statistics, error counts, and zone type counts. **No GPS coordinates, zone definitions, or PII are ever transmitted.**
+Only anonymous aggregate metrics are sent: plugin version, platform, performance metrics (detection times, GPS accuracy averages), battery impact statistics, error counts, and zone type counts. **No GPS coordinates, zone definitions, or PII are ever transmitted.**
 
 **See exactly what's sent:** [Full Telemetry Reference](doc/TELEMETRY.md)
 

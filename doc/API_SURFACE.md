@@ -10,9 +10,9 @@
 |-------|---------|---------------------|
 | `Polyfence` | Static entry point; exposes `instance` getter for `PolyfenceService` | RN equivalent: `NativeModules.Polyfence` — works as-is |
 | `PolyfenceService` | Singleton service — all geofencing operations | RN: methods become async native module methods. Stream properties become event subscriptions |
-| `PolyfenceAnalytics` | Singleton analytics/telemetry service | Internal to plugin; not directly exposed in RN public API |
-| `AnalyticsConfig` | Configuration for telemetry opt-in/out | RN: plain object `{ enabled, disableTelemetry, apiKey, ... }` |
-| `AppLifecycleManager` | Manages app lifecycle for analytics sessions | Internal; no RN equivalent needed (RN has its own lifecycle handling) |
+| `PolyfenceAnalytics` | Singleton analytics/telemetry service. Session aggregation handled by native polyfence-core; Dart fetches and POSTs. | Internal to plugin; not directly exposed in RN public API |
+| `AnalyticsConfig` | Configuration for telemetry opt-in/out. **Telemetry is opt-in** (`enabled` defaults to `false`). | RN: plain object `{ enabled, disableTelemetry, apiKey, ... }` |
+| `AppLifecycleManager` | Manages app lifecycle for telemetry upload on background transition. Session lifecycle managed by native polyfence-core. | Internal; no RN equivalent needed (RN has its own lifecycle handling) |
 | `PolyfencePlatform` | Abstract platform interface | Internal; not exported to RN |
 | `MethodChannelPolyfence` | Platform channel implementation | Internal; not exported to RN |
 | `Zone` | Zone model (circle or polygon) | RN: TypeScript interface. Name is clean and platform-neutral |
@@ -197,14 +197,18 @@
 
 | Property | Type | Default | Notes |
 |----------|------|---------|-------|
-| `enabled` | `bool` | `true` | Whether analytics is enabled |
-| `disableTelemetry` | `bool` | `false` | Opt-out flag |
+| `enabled` | `bool` | `false` | Whether analytics is enabled (opt-in) |
+| `disableTelemetry` | `bool` | `true` | Explicit opt-out flag (redundant with `enabled`, see R7) |
 | `industryCategory` | `String?` | `null` | From IndustryCategory enum values |
 | `useCase` | `String?` | `null` | Custom use-case string |
 | `apiEndpoint` | `String?` | `null` | Must be HTTPS |
 | `apiKey` | `String?` | `null` | For Polyfence.io dashboard |
 
 ## Telemetry Session Payload (snake_case JSON)
+
+> **Note:** Session telemetry aggregation is handled entirely by native polyfence-core
+> (TelemetryAggregator). The Dart layer fetches the aggregated payload via
+> `getSessionTelemetry` platform channel and POSTs it to the analytics endpoint.
 
 | Field | Type | Notes |
 |-------|------|-------|

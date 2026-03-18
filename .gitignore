@@ -45,6 +45,8 @@ INDEX.md
 # Ignore everything in doc/ except hand-written files
 doc/*
 !doc/TELEMETRY.md
+!doc/API_SURFACE.md
+!doc/PLATFORM_CHANNEL_SPEC.md
 
 # Security - Never commit API keys or secrets
 ADMIN_API_KEYS

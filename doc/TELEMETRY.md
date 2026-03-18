@@ -7,7 +7,7 @@
 
 ## Overview
 
-Polyfence supports **anonymous plugin performance telemetry** to help monitor reliability, detect issues early, and improve the plugin across different devices and platforms. **Telemetry is opt-in** — it is disabled by default and must be explicitly enabled by the developer.
+Polyfence supports **anonymous plugin performance telemetry** to help monitor reliability, detect issues early, and improve the plugin across different devices and platforms. **Telemetry is opt-out** — it is enabled by default and can be disabled with one line.
 
 **This document provides complete transparency about what data is collected and how it's used.**
 
@@ -15,9 +15,9 @@ Polyfence supports **anonymous plugin performance telemetry** to help monitor re
 
 ## Quick Summary
 
-✅ **What's sent (when enabled):** Anonymous plugin performance metrics
+✅ **What's sent:** Anonymous plugin performance metrics (enabled by default)
 ❌ **What's NEVER sent:** GPS coordinates, location data, zone definitions, user PII
-🔧 **Default:** Off. Enable with `AnalyticsConfig(enabled: true)`
+🔧 **Default:** On. Disable with `AnalyticsConfig(disableTelemetry: true)`
 📊 **Purpose:** Monitor plugin performance, detect issues, improve reliability
 
 ---
@@ -283,26 +283,16 @@ App Launch → Session Start → Data Collection → App Background → Session 
 
 ---
 
-## How to Enable Telemetry
+## How to Disable Telemetry
 
-Telemetry is disabled by default. To opt in:
+Telemetry is enabled by default. To opt out:
 
 ```dart
 import 'package:polyfence/polyfence.dart';
 
 await Polyfence.instance.initialize(
   analyticsConfig: AnalyticsConfig(
-    enabled: true, // ← Enable anonymous telemetry
-  ),
-);
-```
-
-To explicitly disable (or re-disable after enabling):
-
-```dart
-await Polyfence.instance.initialize(
-  analyticsConfig: AnalyticsConfig(
-    disableTelemetry: true, // ← Ensure telemetry is off
+    disableTelemetry: true, // ← Disable anonymous telemetry
   ),
 );
 ```
@@ -464,7 +454,7 @@ await Polyfence.instance.startTracking();
 
 ### Can I use Polyfence without sending telemetry?
 
-**Yes.** Telemetry is disabled by default. You don't need to do anything — just don't enable it.
+**Yes.** Set `disableTelemetry: true` in your `AnalyticsConfig` — one line to opt out.
 
 ### Will disabling telemetry affect plugin functionality?
 
@@ -518,8 +508,8 @@ For the full privacy policy, see: [https://polyfence.io/privacy](https://polyfen
 - **Privacy:** No new fields contain GPS coordinates, zone definitions, or user identifiers
 
 ### 2026-03-18 (Version 0.12.4)
-- **Changed:** Telemetry is now opt-in (disabled by default). Developers must explicitly enable it.
-- **Updated:** Documentation to reflect opt-in approach
+- **Reverted:** Telemetry restored to opt-out (enabled by default) per D008. Developers disable with `disableTelemetry: true`.
+- **Updated:** Documentation to reflect opt-out approach
 
 ### 2025-12-29 (Version 0.3.0)
 - **Added:** `disableTelemetry` parameter
@@ -529,4 +519,4 @@ For the full privacy policy, see: [https://polyfence.io/privacy](https://polyfen
 
 ---
 
-**Summary:** Polyfence telemetry is anonymous, transparent, and opt-in. When enabled, we collect plugin performance metrics to improve reliability, but we never transmit location data, zone definitions, or personal information.
+**Summary:** Polyfence telemetry is anonymous, transparent, and opt-out. We collect plugin performance metrics by default to improve reliability, but we never transmit location data, zone definitions, or personal information. Disable with one line: `AnalyticsConfig(disableTelemetry: true)`.

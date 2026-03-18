@@ -229,7 +229,7 @@ class _AnalyticsExampleState extends State<AnalyticsExample> {
                     Text('✅ No GPS coordinates collected'),
                     Text('✅ No device IDs or personal data'),
                     Text('✅ Session-based aggregation only'),
-                    Text('✅ Opt-in by default (disabled)'),
+                    Text('✅ Opt-out (enabled by default, one line to disable)'),
                     Text('✅ Data sent only on session end'),
                     Text('✅ Automatic deduplication'),
                   ],

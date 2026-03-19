@@ -35,7 +35,7 @@ flutter:
   plugin:
     platforms:
       android:
-        package: com.polyfence.polyfence.flutter
+        package: io.polyfence.polyfence.flutter
         pluginClass: PolyfencePlugin
       ios:
         pluginClass: PolyfencePlugin

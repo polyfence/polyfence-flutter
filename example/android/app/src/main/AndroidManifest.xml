@@ -33,7 +33,7 @@
         
         <!-- LocationTracker service for geofencing -->
         <service 
-            android:name="com.polyfence.polyfence.core.LocationTracker"
+            android:name="io.polyfence.polyfence.core.LocationTracker"
             android:foregroundServiceType="location"
             android:exported="false"
             android:enabled="true" />

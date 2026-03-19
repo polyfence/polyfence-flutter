@@ -86,6 +86,7 @@ android/.gradle/
 
 # Internal docs (keep locally, don't publish)
 docs/
+tasks/
 .claude/
 CLAUDE.md
 .cursorrules

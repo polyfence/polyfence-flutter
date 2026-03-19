@@ -773,4 +773,4 @@ Contributions are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for developmen
 
 MIT — see [LICENSE](LICENSE)
 
-Copyright (c) 2025–2026 Sector7 / Polyfence
+Copyright (c) 2025–2026 Polyfence

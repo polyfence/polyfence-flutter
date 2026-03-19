@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-03-19
+
+### Breaking Changes
+- **Android namespace changed** — Package namespace changed from `com.polyfence` to
+  `io.polyfence`. Apps must update their dependency coordinates and any explicit
+  references to the old namespace.
+
+### Changed
+- **Native core extracted to polyfence-core** — All native geofencing logic (25 files)
+  extracted to a separate `polyfence-core` library, consumed as a CocoaPod (iOS) and
+  Maven dependency (Android). The plugin is now a thin Flutter bridge over the core.
+- **Telemetry aggregation moved to native (D016)** — Session telemetry is now aggregated
+  on the native side. Dart `AnalyticsService` simplified from 592 to 231 lines and now
+  handles HTTP POST only.
+- **Telemetry remains opt-out** — Enabled by default; disable with
+  `AnalyticsConfig(disableTelemetry: true)`. No change in behavior.
+
+### Removed
+- **`battery_plus` dependency** — Battery level tracking moved to native core. One fewer
+  third-party dependency for consumers.
+- **25 native source files** — Moved to `polyfence-core` repository. No longer shipped
+  inside the plugin package.
+
+### Repository
+- Repo renamed from `polyfence-plugin` to `polyfence-flutter`.
+
 ## [0.12.4] - 2026-03-09
 
 ### Fixed

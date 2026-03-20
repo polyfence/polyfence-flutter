@@ -27,8 +27,7 @@ Thumbs.db
 # Local
 *.log
 .env
-.env.local
-.env.production
+.env.*
 test_industry_implementation.md
 
 # Documentation (keep only README.md and CHANGELOG.md)
@@ -72,6 +71,8 @@ example/ios/Runner/GeneratedPluginRegistrant.*
 # Android
 *.keystore
 *.jks
+*.p12
+*.pem
 example/android/.gradle/
 example/android/app/build/
 example/android/build/
@@ -87,6 +88,7 @@ android/.gradle/
 # Internal docs (keep locally, don't publish)
 docs/
 tasks/
+prompts/
 .claude/
 CLAUDE.md
 .cursorrules

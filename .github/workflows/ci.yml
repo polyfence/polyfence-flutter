@@ -29,6 +29,48 @@ jobs:
       - run: flutter pub get
       - run: flutter test
 
+  code-quality:
+    name: Code Quality
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check for emojis in production code
+        run: |
+          if grep -rPn '[\x{1F600}-\x{1F64F}\x{1F300}-\x{1F5FF}\x{1F680}-\x{1F6FF}\x{1F1E0}-\x{1F1FF}\x{2702}-\x{27B0}\x{FE00}-\x{FE0F}\x{1F900}-\x{1F9FF}]' lib/ android/src/ ios/Classes/ 2>/dev/null; then
+            echo "::error::Emojis found in production code"
+            exit 1
+          fi
+
+      - name: Check for internal files
+        run: |
+          for file in CLAUDE.md .cursorrules; do
+            if [ -f "$file" ] && git ls-files --error-unmatch "$file" 2>/dev/null; then
+              echo "::error::Internal file $file is tracked in git"
+              exit 1
+            fi
+          done
+          for dir in tasks/ prompts/ .claude/; do
+            if git ls-files | grep -q "^$dir"; then
+              echo "::error::Internal directory $dir is tracked in git"
+              exit 1
+            fi
+          done
+
+      - name: Check for secrets
+        run: |
+          if grep -rPn '(sk_live|sk_test|pk_live|pk_test|AKIA[A-Z0-9]{16}|ghp_[a-zA-Z0-9]{36}|xoxb-|xoxp-)' --include="*.dart" --include="*.kt" --include="*.swift" --include="*.yaml" --include="*.yml" --include="*.json" --include="*.properties" . 2>/dev/null | grep -v node_modules | grep -v ".gradle"; then
+            echo "::error::Potential secrets found in code"
+            exit 1
+          fi
+
+      - name: Check for internal references
+        run: |
+          if grep -rn "Teslon\|Sector7" --include="*.dart" --include="*.kt" --include="*.swift" lib/ android/src/ ios/Classes/ 2>/dev/null; then
+            echo "::error::Internal references found in production code"
+            exit 1
+          fi
+
   publish-dry-run:
     name: Publish Dry Run
     runs-on: ubuntu-latest

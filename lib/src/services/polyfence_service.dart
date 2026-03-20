@@ -1412,7 +1412,7 @@ What's NEVER sent:
   • Zone definitions or boundaries
   • User identifiers or personal information
 
-See full details: https://polyfence.io/privacy/telemetry
+See full details: https://polyfence.io/privacy
 
 Disable telemetry (one line):
   Polyfence.instance.initialize(

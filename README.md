@@ -57,10 +57,10 @@ All three approaches use the **same plugin API** — switch anytime without code
 ```yaml
 # pubspec.yaml
 dependencies:
-  polyfence: ^0.12.4
+  polyfence: ^0.13.0
 ```
 
-**Current version:** 0.12.4
+**Current version:** 0.13.0
 
 ```bash
 flutter pub get
@@ -82,15 +82,15 @@ flutter pub get
 <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
 ```
 
-- **minSdk**: 21+ (Android 5.0)
+- **minSdk**: 24+ (Android 7.0)
 - **tested**: up to API 35 (Android 15)
-- **dependency**: Google Play Services Location 21.0.1 (automatically included)
+- **dependency**: [polyfence-core](https://github.com/blackabass/polyfence-core) 1.0.0 (native engine, pulled transitively via Maven)
 
 Ensure your `android/app/build.gradle` has the correct minimum SDK version:
 ```groovy
 android {
     defaultConfig {
-        minSdkVersion 21 // Required for Polyfence
+        minSdkVersion 24 // Required for Polyfence
     }
 }
 ```

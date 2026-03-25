@@ -229,7 +229,6 @@ We regularly audit our dependencies for security vulnerabilities:
 - `http` - HTTP client (official Dart package)
 - `shared_preferences` - Local storage (official Flutter package)
 - `package_info_plus` - Package metadata (community package)
-- `battery_plus` - Battery info (community package)
 - `uuid` - UUID generation (community package)
 
 All dependencies are from trusted sources and actively maintained.

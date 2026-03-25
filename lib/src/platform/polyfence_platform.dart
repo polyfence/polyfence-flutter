@@ -126,13 +126,18 @@ class MethodChannelPolyfence extends PolyfencePlatform {
         .map((data) => Map<String, dynamic>.from(data));
   }
 
+  /// Timeout for critical platform operations that interact with native
+  /// services (GPS, permissions). Prevents Dart from hanging indefinitely
+  /// if the native side becomes unresponsive.
+  static const _platformTimeout = Duration(seconds: 30);
+
   @override
   Future<void> initialize(
       {String? licenseKey, Map<String, dynamic>? config}) async {
     await _channel.invokeMethod('initialize', {
       'licenseKey': licenseKey,
       'config': config,
-    });
+    }).timeout(_platformTimeout);
   }
 
   @override
@@ -152,7 +157,7 @@ class MethodChannelPolyfence extends PolyfencePlatform {
 
   @override
   Future<void> startTracking() async {
-    await _channel.invokeMethod('startTracking');
+    await _channel.invokeMethod('startTracking').timeout(_platformTimeout);
   }
 
   @override
@@ -164,7 +169,7 @@ class MethodChannelPolyfence extends PolyfencePlatform {
   Future<bool> requestPermissions({bool always = false}) async {
     final result = await _channel.invokeMethod<bool>('requestPermissions', {
       'always': always,
-    });
+    }).timeout(_platformTimeout);
     return result ?? false;
   }
 
@@ -179,7 +184,8 @@ class MethodChannelPolyfence extends PolyfencePlatform {
   Future<Map<String, dynamic>> checkBatteryOptimization() async {
     final result = await _channel
         .invokeMethod<Map<Object?, Object?>>('checkBatteryOptimization');
-    return Map<String, dynamic>.from(result ?? {});
+    if (result == null) return {};
+    return _deepCastMap(result);
   }
 
   @override
@@ -276,14 +282,18 @@ class MethodChannelPolyfence extends PolyfencePlatform {
 
   @override
   Future<void> dispose() async {
-    // Cleanup platform resources
-    // Reset stream references to allow garbage collection
+    // Cancel any active stream subscriptions before nulling references.
+    // This ensures native event channel handlers are properly torn down
+    // rather than just dropping the Dart-side stream references.
+    try {
+      await _channel.invokeMethod('dispose');
+    } catch (_) {
+      // Best-effort — native side may already be torn down
+    }
+
     _locationStream = null;
     _geofenceStream = null;
     _errorStream = null;
     _performanceStream = null;
-
-    // Note: MethodChannel and EventChannels are managed by Flutter framework
-    // They will be cleaned up automatically when plugin is detached
   }
 }

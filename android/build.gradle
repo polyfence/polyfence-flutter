@@ -26,7 +26,7 @@ apply plugin: 'kotlin-android'
 
 android {
     namespace 'io.polyfence.polyfence'
-    compileSdk 34
+    compileSdk 35
     ndkVersion "27.0.12077973"
 
     compileOptions {
@@ -44,7 +44,7 @@ android {
     }
 
     defaultConfig {
-        minSdkVersion 21
+        minSdkVersion 24
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
 }
@@ -54,7 +54,7 @@ dependencies {
     implementation 'androidx.core:core-ktx:1.10.1'
     implementation 'com.google.android.gms:play-services-location:21.0.1'
     implementation 'androidx.work:work-runtime-ktx:2.8.1'
-    implementation "io.polyfence:polyfence-core:1.0.+"
+    implementation "io.polyfence:polyfence-core:1.0.0"
     testImplementation 'junit:junit:4.13.2'
     androidTestImplementation 'androidx.test:runner:1.5.2'
     androidTestImplementation 'androidx.test.espresso:espresso-core:3.5.1'

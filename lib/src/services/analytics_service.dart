@@ -126,16 +126,16 @@ class PolyfenceAnalytics {
   Future<void> _sendTelemetry(Map<String, dynamic> sessionData) async {
     if (_appIdentifier == null || _pluginVersion == null) return;
 
-    try {
-      final payload = {
-        'app_identifier': _appIdentifier,
-        'platform': Platform.isAndroid ? 'android' : 'ios',
-        'plugin_version': _pluginVersion,
-        'industry_category': _config?.industryCategory,
-        'use_case': _config?.useCase,
-        ...sessionData,
-      };
+    final payload = {
+      'app_identifier': _appIdentifier,
+      'platform': Platform.isAndroid ? 'android' : 'ios',
+      'plugin_version': _pluginVersion,
+      'industry_category': _config?.industryCategory,
+      'use_case': _config?.useCase,
+      ...sessionData,
+    };
 
+    try {
       final endpoint = _config?.apiEndpoint ?? _defaultEndpoint;
       final idempotencyKey = const Uuid().v4();
 
@@ -154,7 +154,9 @@ class PolyfenceAnalytics {
         body: json.encode(payload),
       );
     } catch (e) {
-      await _storeForRetry(sessionData);
+      // Store the full payload so retries send it directly without
+      // re-wrapping app_identifier/platform fields.
+      await _storeForRetry(payload);
     }
   }
 
@@ -167,9 +169,26 @@ class PolyfenceAnalytics {
     }
   }
 
+  static const int _maxRetryEntries = 50;
+
   Future<void> _storeForRetry(Map<String, dynamic> sessionData) async {
     try {
       final prefs = await SharedPreferences.getInstance();
+      final existingKeys = prefs
+          .getKeys()
+          .where((key) => key.startsWith('polyfence_analytics_retry_'))
+          .toList()
+        ..sort();
+
+      // Cap retry queue — drop oldest entries beyond limit
+      if (existingKeys.length >= _maxRetryEntries) {
+        final toRemove =
+            existingKeys.sublist(0, existingKeys.length - _maxRetryEntries + 1);
+        for (final oldKey in toRemove) {
+          await prefs.remove(oldKey);
+        }
+      }
+
       final key =
           'polyfence_analytics_retry_${DateTime.now().millisecondsSinceEpoch}';
       await prefs.setString(key, json.encode(sessionData));
@@ -191,15 +210,11 @@ class PolyfenceAnalytics {
       for (final key in keys) {
         final sessionDataJson = prefs.getString(key);
         if (sessionDataJson != null) {
-          final sessionData = json.decode(sessionDataJson);
-          final payload = {
-            'app_identifier': _appIdentifier,
-            'platform': Platform.isAndroid ? 'android' : 'ios',
-            'plugin_version': _pluginVersion,
-            'industry_category': _config?.industryCategory,
-            'use_case': _config?.useCase,
-            ...sessionData,
-          };
+          // Stored data already contains app_identifier, platform, etc.
+          // from the original _sendTelemetry() call — send as-is to avoid
+          // double-wrapping those fields.
+          final sessionData =
+              json.decode(sessionDataJson) as Map<String, dynamic>;
 
           final endpoint = _config?.apiEndpoint ?? _defaultEndpoint;
           final idempotencyKey = const Uuid().v4();
@@ -216,7 +231,7 @@ class PolyfenceAnalytics {
           final response = await http.post(
             Uri.parse(endpoint),
             headers: headers,
-            body: json.encode(payload),
+            body: json.encode(sessionData),
           );
 
           if (response.statusCode == 201 || response.statusCode == 200) {

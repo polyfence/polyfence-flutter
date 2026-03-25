@@ -207,9 +207,9 @@ class PolyfenceService {
       // Anonymous plugin telemetry enabled by default. No location data or PII
       // ever sent — only plugin performance metrics.
       try {
-        // Telemetry is opt-in: developer must explicitly enable it.
-        // Check if developer opted in via config or environment variable.
-        final bool configEnabled = analyticsConfig?.enabled ?? false;
+        // Telemetry is opt-out (D008): enabled by default unless developer
+        // explicitly disables it via AnalyticsConfig(disableTelemetry: true).
+        final bool configEnabled = analyticsConfig?.enabled ?? true;
 
         // Environment variables can still override for production builds
         const String analyticsEnabledEnv = String.fromEnvironment(
@@ -226,7 +226,7 @@ class PolyfenceService {
 
         // Determine final telemetry state:
         // 1. If env var set → use it (production override)
-        // 2. Otherwise → only enabled if developer explicitly opted in
+        // 2. Otherwise → enabled by default (opt-out per D008)
         final bool telemetryEnabled = envOverride ? envEnabled : configEnabled;
 
         final analyticsConfigToUse = AnalyticsConfig(

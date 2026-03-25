@@ -48,9 +48,9 @@ class MockPolyfencePlatform extends PolyfencePlatform
 
   @override
   Future<void> initialize(
-      {String? licenseKey, Map<String, dynamic>? config}) async {
+      {String? licenseKey, PolyfenceConfiguration? config}) async {
     calls.add('initialize');
-    callArgs['initialize'] = {'licenseKey': licenseKey, 'config': config};
+    callArgs['initialize'] = {'licenseKey': licenseKey, 'config': config?.toMap()};
     if (errorToThrow != null) throw errorToThrow!;
   }
 
@@ -289,7 +289,9 @@ void main() {
       // The service catches and continues despite analytics errors.
       try {
         await PolyfenceService.instance.initialize(
-          config: {'debug': true},
+          config: PolyfenceConfiguration(
+            enableDebugLogging: true,
+          ),
           analyticsConfig: const AnalyticsConfig(disableTelemetry: true),
         );
       } catch (_) {

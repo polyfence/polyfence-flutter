@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:plugin_platform_interface/plugin_platform_interface.dart';
 import '../models/zone.dart';
 import '../models/location.dart';
+import '../configuration/polyfence_configuration.dart';
 
 abstract class PolyfencePlatform extends PlatformInterface {
   PolyfencePlatform() : super(token: _token);
@@ -20,7 +21,12 @@ abstract class PolyfencePlatform extends PlatformInterface {
   Stream<Map<String, dynamic>> get onError;
   Stream<Map<String, dynamic>> get onGeofenceEvent;
 
-  Future<void> initialize({String? licenseKey, Map<String, dynamic>? config});
+  /// Initializes the Polyfence plugin.
+  ///
+  /// The [config] parameter accepts a [PolyfenceConfiguration] object for typed
+  /// configuration. This is internally converted to a Map for native platform
+  /// communication.
+  Future<void> initialize({String? licenseKey, PolyfenceConfiguration? config});
   Future<void> addZone(Zone zone);
   Future<void> removeZone(String zoneId);
   Future<void> clearAllZones();
@@ -133,10 +139,10 @@ class MethodChannelPolyfence extends PolyfencePlatform {
 
   @override
   Future<void> initialize(
-      {String? licenseKey, Map<String, dynamic>? config}) async {
+      {String? licenseKey, PolyfenceConfiguration? config}) async {
     await _channel.invokeMethod('initialize', {
       'licenseKey': licenseKey,
-      'config': config,
+      'config': config?.toMap(),
     }).timeout(_platformTimeout);
   }
 

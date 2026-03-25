@@ -19,14 +19,9 @@ import 'package:package_info_plus/package_info_plus.dart';
 /// No location data or PII is ever sent. The optional [apiKey] enables
 /// additional Polyfence.io dashboard features.
 class AnalyticsConfig {
-  /// Whether analytics data collection is enabled.
+  /// Set to `true` to disable all anonymous telemetry.
   ///
-  /// Defaults to `true` — telemetry is opt-out (D008).
-  final bool enabled;
-
-  /// Set to `true` to explicitly disable all anonymous telemetry.
-  ///
-  /// Defaults to `false` — telemetry is on by default.
+  /// Defaults to `false` — telemetry is on by default (opt-out, D008).
   final bool disableTelemetry;
 
   /// Optional industry category for benchmarking.
@@ -42,8 +37,12 @@ class AnalyticsConfig {
   final String? apiKey;
 
   /// Creates an analytics configuration.
+  ///
+  /// Telemetry is enabled by default. To opt out:
+  /// ```dart
+  /// AnalyticsConfig(disableTelemetry: true)
+  /// ```
   const AnalyticsConfig({
-    this.enabled = true,
     this.disableTelemetry = false,
     this.industryCategory,
     this.useCase,
@@ -108,7 +107,7 @@ class PolyfenceAnalytics {
   /// Fetches the complete session telemetry from native polyfence-core
   /// and POSTs it to the analytics endpoint.
   Future<void> endSession() async {
-    if (!(_config?.enabled ?? false) || _sessionTelemetryFetcher == null) {
+    if ((_config?.disableTelemetry ?? true) || _sessionTelemetryFetcher == null) {
       return;
     }
 
@@ -199,7 +198,7 @@ class PolyfenceAnalytics {
 
   /// Retries sending previously failed analytics requests.
   Future<void> retryFailedRequests() async {
-    if (!(_config?.enabled ?? false)) return;
+    if ((_config?.disableTelemetry ?? true)) return;
 
     try {
       final prefs = await SharedPreferences.getInstance();

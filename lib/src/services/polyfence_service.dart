@@ -175,9 +175,17 @@ class PolyfenceService {
   /// ```
   ///
   /// Throws [PlatformOperationException] if platform initialization fails.
+  /// Initializes the Polyfence geofencing service.
+  ///
+  /// [config] accepts a typed [PolyfenceConfiguration] object for flexible GPS
+  /// accuracy and update frequency settings. If not provided, defaults are used.
+  ///
+  /// [analyticsConfig] controls analytics and telemetry settings.
+  ///
+  /// Throws [StateError] if the service has already been disposed.
   Future<void> initialize({
     String? licenseKey,
-    Map<String, dynamic>? config,
+    PolyfenceConfiguration? config,
     AnalyticsConfig? analyticsConfig,
   }) async {
     if (_isDisposed) {
@@ -194,13 +202,24 @@ class PolyfenceService {
       // This ensures we always use the plugin's version, not the app's version
       const pluginVersion = polyfencePluginVersion;
 
-      // Pass plugin version to native platforms for debug collectors
+      // Convert config to map (or create empty map if config is null),
+      // then add pluginVersion so native receives it via the method channel
+      final configMap = config?.toMap() ?? {};
+      final configWithVersion = {
+        ...configMap,
+        'pluginVersion': pluginVersion, // Pass version to native
+      };
+
+      // Reconstruct PolyfenceConfiguration from the merged map for type safety,
+      // or pass the original config if no modifications needed
+      final PolyfenceConfiguration? configToPass = config != null
+          ? PolyfenceConfiguration.fromMap(configWithVersion)
+          : null;
+
+      // Pass typed config to platform (which converts to map internally)
       await _platform.initialize(
         licenseKey: licenseKey,
-        config: {
-          ...?config,
-          'pluginVersion': pluginVersion, // Pass version to native
-        },
+        config: configToPass,
       );
 
       // Initialize analytics — isolated so failures never block geofencing.
@@ -209,7 +228,7 @@ class PolyfenceService {
       try {
         // Telemetry is opt-out (D008): enabled by default unless developer
         // explicitly disables it via AnalyticsConfig(disableTelemetry: true).
-        final bool configEnabled = analyticsConfig?.enabled ?? true;
+        final bool configDisabled = analyticsConfig?.disableTelemetry ?? false;
 
         // Environment variables can still override for production builds
         const String analyticsEnabledEnv = String.fromEnvironment(
@@ -217,7 +236,8 @@ class PolyfenceService {
           defaultValue: '',
         );
         final bool envOverride = analyticsEnabledEnv.isNotEmpty;
-        final bool envEnabled = analyticsEnabledEnv.toLowerCase() == 'true';
+        final bool envDisabled =
+            analyticsEnabledEnv.toLowerCase() != 'true';
 
         const String apiKeyEnv =
             String.fromEnvironment('POLYFENCE_API_KEY', defaultValue: '');
@@ -227,11 +247,11 @@ class PolyfenceService {
         // Determine final telemetry state:
         // 1. If env var set → use it (production override)
         // 2. Otherwise → enabled by default (opt-out per D008)
-        final bool telemetryEnabled = envOverride ? envEnabled : configEnabled;
+        final bool telemetryDisabled =
+            envOverride ? envDisabled : configDisabled;
 
         final analyticsConfigToUse = AnalyticsConfig(
-          enabled: telemetryEnabled,
-          disableTelemetry: !telemetryEnabled,
+          disableTelemetry: telemetryDisabled,
           apiKey:
               analyticsConfig?.apiKey ?? (apiKeyEnv.isEmpty ? null : apiKeyEnv),
           apiEndpoint: analyticsConfig?.apiEndpoint ??

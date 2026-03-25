@@ -10,7 +10,6 @@ void main() {
   group('AnalyticsConfig defaults — opt-out telemetry (D008)', () {
     test('default config has telemetry enabled (opt-out)', () {
       const config = AnalyticsConfig();
-      expect(config.enabled, isTrue);
       expect(config.disableTelemetry, isFalse);
     });
 
@@ -29,7 +28,6 @@ void main() {
 
     test('custom endpoint and apiKey are preserved', () {
       const config = AnalyticsConfig(
-        enabled: true,
         apiEndpoint: 'https://custom.example.com/analytics',
         apiKey: 'test-key-123',
         industryCategory: 'logistics',
@@ -47,8 +45,6 @@ void main() {
       expect(
         () => PolyfenceAnalytics.instance.initialize(
           config: const AnalyticsConfig(
-            enabled: true,
-            disableTelemetry: false,
             apiEndpoint: 'http://insecure.example.com/analytics',
           ),
           pluginVersion: '0.12.4',
@@ -61,8 +57,6 @@ void main() {
       expect(
         () => PolyfenceAnalytics.instance.initialize(
           config: const AnalyticsConfig(
-            enabled: true,
-            disableTelemetry: false,
             apiEndpoint: 'https://localhost/analytics',
           ),
           pluginVersion: '0.12.4',
@@ -74,9 +68,8 @@ void main() {
 
   group('PolyfenceAnalytics — endSession behavior', () {
     test('endSession does nothing when telemetry is disabled', () async {
-      // Initialize with telemetry explicitly disabled
       await PolyfenceAnalytics.instance.initialize(
-        config: const AnalyticsConfig(enabled: false),
+        config: const AnalyticsConfig(disableTelemetry: true),
         pluginVersion: '0.12.4',
         sessionTelemetryFetcher: () async =>
             throw Exception('should not be called'),
@@ -88,7 +81,7 @@ void main() {
 
     test('endSession does nothing when no fetcher provided', () async {
       await PolyfenceAnalytics.instance.initialize(
-        config: const AnalyticsConfig(enabled: true, disableTelemetry: false),
+        config: const AnalyticsConfig(),
         pluginVersion: '0.12.4',
         // No sessionTelemetryFetcher
       );

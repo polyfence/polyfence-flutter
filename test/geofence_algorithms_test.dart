@@ -243,4 +243,400 @@ void main() {
       expect(isInside, isFalse);
     });
   });
+
+  group('Haversine Edge Cases', () {
+    test('Distance along same longitude (meridian): Portland to Seattle', () {
+      // Portland, OR to Seattle, WA — both at approximately -122.67 longitude
+      // Real: ~300 km apart
+      final distance = GeofenceAlgorithms.haversineDistance(
+        45.5152, // Portland
+        -122.6784,
+        47.6062, // Seattle
+        -122.3321,
+      );
+      // Distance should be approximately 280-300 km
+      expect(distance, greaterThan(280000));
+      expect(distance, lessThan(300000));
+    });
+
+    test('Distance along same latitude (parallel): Los Angeles to San Diego', () {
+      // Both in Southern California, similar latitude (~32-34°N)
+      // Real: ~190 km apart
+      final distance = GeofenceAlgorithms.haversineDistance(
+        34.0522, // Los Angeles
+        -118.2437,
+        32.7157, // San Diego
+        -117.1611,
+      );
+      // Distance should be approximately 180-200 km
+      expect(distance, greaterThan(180000));
+      expect(distance, lessThan(200000));
+    });
+
+    test('Very small distance precision: 0.5 meter offset', () {
+      // Test sub-meter precision: move 0.00001° north and east from (40, -105)
+      // At 40°N, 1° ≈ 84.9 km longitude, so 0.00001° ≈ 0.849 meters
+      final distance = GeofenceAlgorithms.haversineDistance(
+        40.0000,
+        -105.0000,
+        40.00001, // ~0.85m north
+        -105.00001, // ~0.6m east
+      );
+      // Should be less than 2 meters
+      expect(distance, lessThan(2.0));
+      // But more than zero
+      expect(distance, greaterThan(0.0));
+    });
+
+    test('Near-antipodal points: London to New Zealand', () {
+      // Nearly opposite sides of Earth but not exactly antipodal
+      final distance = GeofenceAlgorithms.haversineDistance(
+        51.5074, // London
+        -0.1278,
+        -41.2865, // Auckland, NZ
+        174.8860,
+      );
+      // Should be close to half Earth circumference (~20,000 km)
+      // but slightly less since not exactly antipodal
+      expect(distance, greaterThan(18000000)); // 18,000 km
+      expect(distance, lessThan(20500000)); // 20,500 km
+    });
+
+    test('Meridian crossing at 90°W: exact same longitude different latitudes', () {
+      // Two points on the same meridian (90°W): Chicago to Houston
+      final distance = GeofenceAlgorithms.haversineDistance(
+        41.8781, // Chicago
+        -87.6298,
+        29.7604, // Houston
+        -95.3698,
+      );
+      // Should be approximately 1,080 km
+      expect(distance, greaterThan(1050000));
+      expect(distance, lessThan(1110000));
+    });
+
+    test('High latitude distance: Stockholm to Reykjavik', () {
+      // Both at high latitudes (~60°N), testing behavior near poles
+      final distance = GeofenceAlgorithms.haversineDistance(
+        59.3293, // Stockholm
+        18.0686,
+        64.1466, // Reykjavik
+        -21.9426,
+      );
+      // Should be approximately 1,200 km
+      expect(distance, greaterThan(1100000));
+      expect(distance, lessThan(1300000));
+    });
+
+    test('Crossing date line: Tokyo to Honolulu', () {
+      // Crosses international date line (-180/180 boundary)
+      final distance = GeofenceAlgorithms.haversineDistance(
+        35.6762, // Tokyo
+        139.6503,
+        21.3099, // Honolulu
+        -157.8581,
+      );
+      // Should be approximately 5,300 km
+      expect(distance, greaterThan(5100000));
+      expect(distance, lessThan(5500000));
+    });
+  });
+
+  group('Ray-Casting Edge Cases: Concave Polygons', () {
+    test('Point inside concave L-shaped polygon', () {
+      // L-shaped polygon with concavity on the right side
+      // Vertices form: bottom-left, bottom-right, middle-right, top-right, top-left
+      final polygon = [
+        {'latitude': 37.0, 'longitude': -122.0}, // bottom-left
+        {'latitude': 37.0, 'longitude': -121.0}, // bottom-right
+        {'latitude': 37.5, 'longitude': -121.0}, // middle-right
+        {'latitude': 37.5, 'longitude': -121.5}, // top-middle (indent)
+        {'latitude': 38.0, 'longitude': -121.5}, // top-left of indent
+        {'latitude': 38.0, 'longitude': -122.0}, // top-left
+      ];
+
+      // Point inside the concavity (left side of the indent)
+      final isInside = GeofenceAlgorithms.isPointInPolygon(
+        37.75,
+        -121.75,
+        polygon,
+      );
+
+      expect(isInside, isTrue);
+    });
+
+    test('Point in the concavity pocket of L-shaped polygon', () {
+      // Same L-shape, but point in the "pocket" of the concavity
+      final polygon = [
+        {'latitude': 37.0, 'longitude': -122.0},
+        {'latitude': 37.0, 'longitude': -121.0},
+        {'latitude': 37.5, 'longitude': -121.0},
+        {'latitude': 37.5, 'longitude': -121.5},
+        {'latitude': 38.0, 'longitude': -121.5},
+        {'latitude': 38.0, 'longitude': -122.0},
+      ];
+
+      // Point in the pocket (right side of indent, inside the polygon)
+      final isInside = GeofenceAlgorithms.isPointInPolygon(
+        37.75,
+        -121.25,
+        polygon,
+      );
+
+      expect(isInside, isTrue);
+    });
+
+    test('Point outside concave polygon in the indent', () {
+      // Same L-shape, point should be outside in the concave indent area
+      final polygon = [
+        {'latitude': 37.0, 'longitude': -122.0},
+        {'latitude': 37.0, 'longitude': -121.0},
+        {'latitude': 37.5, 'longitude': -121.0},
+        {'latitude': 37.5, 'longitude': -121.5},
+        {'latitude': 38.0, 'longitude': -121.5},
+        {'latitude': 38.0, 'longitude': -122.0},
+      ];
+
+      // Point in the exterior pocket of the concavity
+      final isInside = GeofenceAlgorithms.isPointInPolygon(
+        37.25,
+        -121.25, // Outside the concave indent
+        polygon,
+      );
+
+      expect(isInside, isFalse);
+    });
+  });
+
+  group('Ray-Casting Edge Cases: Large Polygons', () {
+    test('Point inside very large polygon spanning many degrees', () {
+      // Large polygon roughly covering the US West Coast
+      // Vertices spread across ~10° in each direction
+      final polygon = [
+        {'latitude': 32.0, 'longitude': -124.0}, // Southern CA coast
+        {'latitude': 32.0, 'longitude': -114.0}, // Arizona border
+        {'latitude': 49.0, 'longitude': -114.0}, // Canada border, east
+        {'latitude': 49.0, 'longitude': -124.0}, // Canada border, west
+      ];
+
+      // Point in the center
+      final isInside = GeofenceAlgorithms.isPointInPolygon(
+        40.5,
+        -119.0,
+        polygon,
+      );
+
+      expect(isInside, isTrue);
+    });
+
+    test('Point outside large polygon', () {
+      final polygon = [
+        {'latitude': 32.0, 'longitude': -124.0},
+        {'latitude': 32.0, 'longitude': -114.0},
+        {'latitude': 49.0, 'longitude': -114.0},
+        {'latitude': 49.0, 'longitude': -124.0},
+      ];
+
+      // Point far outside (Gulf of Mexico)
+      final isInside = GeofenceAlgorithms.isPointInPolygon(
+        30.0,
+        -90.0,
+        polygon,
+      );
+
+      expect(isInside, isFalse);
+    });
+  });
+
+  group('Ray-Casting Edge Cases: Triangle (Minimal Polygon)', () {
+    test('Point inside equilateral triangle', () {
+      // Simple equilateral triangle
+      final polygon = [
+        {'latitude': 37.0, 'longitude': -122.0},
+        {'latitude': 37.0, 'longitude': -121.0},
+        {'latitude': 38.0, 'longitude': -121.5},
+      ];
+
+      // Point roughly in center
+      final isInside = GeofenceAlgorithms.isPointInPolygon(
+        37.4,
+        -121.5,
+        polygon,
+      );
+
+      expect(isInside, isTrue);
+    });
+
+    test('Point outside triangle', () {
+      final polygon = [
+        {'latitude': 37.0, 'longitude': -122.0},
+        {'latitude': 37.0, 'longitude': -121.0},
+        {'latitude': 38.0, 'longitude': -121.5},
+      ];
+
+      // Point south of all vertices
+      final isInside = GeofenceAlgorithms.isPointInPolygon(
+        36.5,
+        -121.5,
+        polygon,
+      );
+
+      expect(isInside, isFalse);
+    });
+
+    test('Point near edge but outside triangle', () {
+      final polygon = [
+        {'latitude': 37.0, 'longitude': -122.0},
+        {'latitude': 37.0, 'longitude': -121.0},
+        {'latitude': 38.0, 'longitude': -121.5},
+      ];
+
+      // Point very close to the right edge but slightly outside
+      final isInside = GeofenceAlgorithms.isPointInPolygon(
+        37.3,
+        -120.95, // Just outside the triangle boundary
+        polygon,
+      );
+
+      expect(isInside, isFalse);
+    });
+  });
+
+  group('Ray-Casting Edge Cases: High Latitude (Pole Proximity)', () {
+    test('Point inside polygon near North Pole', () {
+      // High latitude polygon near the Arctic Circle (~66.5°N)
+      final polygon = [
+        {'latitude': 65.0, 'longitude': -120.0},
+        {'latitude': 65.0, 'longitude': -100.0},
+        {'latitude': 70.0, 'longitude': -100.0},
+        {'latitude': 70.0, 'longitude': -120.0},
+      ];
+
+      // Point in center
+      final isInside = GeofenceAlgorithms.isPointInPolygon(
+        67.5,
+        -110.0,
+        polygon,
+      );
+
+      expect(isInside, isTrue);
+    });
+
+    test('Point inside polygon near South Pole', () {
+      // High latitude polygon near Antarctic Circle (~-66.5°S)
+      final polygon = [
+        {'latitude': -65.0, 'longitude': -120.0},
+        {'latitude': -65.0, 'longitude': -100.0},
+        {'latitude': -70.0, 'longitude': -100.0},
+        {'latitude': -70.0, 'longitude': -120.0},
+      ];
+
+      // Point in center
+      final isInside = GeofenceAlgorithms.isPointInPolygon(
+        -67.5,
+        -110.0,
+        polygon,
+      );
+
+      expect(isInside, isTrue);
+    });
+  });
+
+  group('Circle Zone Edge Cases', () {
+    test('Point exactly at circle boundary', () {
+      // Circle centered at San Francisco with 1 km radius
+      const centerLat = 37.7749;
+      const centerLon = -122.4194;
+      const radiusMeters = 1000.0;
+
+      // Calculate a point exactly 1 km away using Haversine offset
+      final pointLat = 37.7849; // Approximately 1 km north
+      final pointLon = -122.4194;
+
+      final distance =
+          GeofenceAlgorithms.haversineDistance(centerLat, centerLon, pointLat, pointLon);
+
+      // Should be very close to 1 km
+      expect(distance, closeTo(radiusMeters, 10.0)); // Within 10 meters
+    });
+
+    test('Point inside circle (1m inside boundary)', () {
+      // Same circle as above, but point 1m inside the 1 km boundary
+      const centerLat = 37.7749;
+      const centerLon = -122.4194;
+      const radiusMeters = 1000.0;
+
+      // Point approximately 999m away
+      final pointLat = 37.78487;
+      final pointLon = -122.4194;
+
+      final distance =
+          GeofenceAlgorithms.haversineDistance(centerLat, centerLon, pointLat, pointLon);
+
+      // Should be just inside boundary
+      expect(distance, lessThan(radiusMeters));
+      expect(distance, greaterThan(radiusMeters - 50.0)); // Close to boundary
+    });
+
+    test('Point outside circle (1m outside boundary)', () {
+      // Point approximately 1001m away
+      const centerLat = 37.7749;
+      const centerLon = -122.4194;
+      const radiusMeters = 1000.0;
+
+      final pointLat = 37.78491;
+      final pointLon = -122.4194;
+
+      final distance =
+          GeofenceAlgorithms.haversineDistance(centerLat, centerLon, pointLat, pointLon);
+
+      // Should be just outside boundary
+      expect(distance, greaterThan(radiusMeters));
+      expect(distance, lessThan(radiusMeters + 50.0)); // Close to boundary
+    });
+
+    test('Very small circle (5m radius)', () {
+      // Tiny circle: 5 meter radius
+      const centerLat = 37.7749;
+      const centerLon = -122.4194;
+      const radiusMeters = 5.0;
+
+      // Point 4 meters away (inside)
+      final insideDistance =
+          GeofenceAlgorithms.haversineDistance(37.774915, -122.4194, centerLat, centerLon);
+
+      expect(insideDistance, lessThan(radiusMeters));
+
+      // Point 6 meters away (outside)
+      final outsideDistance =
+          GeofenceAlgorithms.haversineDistance(37.774945, -122.4194, centerLat, centerLon);
+
+      expect(outsideDistance, greaterThan(radiusMeters));
+    });
+
+    test('Very large circle (100km radius)', () {
+      // Huge circle: 100 km radius centered on Denver
+      const centerLat = 39.7392;
+      const centerLon = -104.9903;
+      const radiusMeters = 100000.0;
+
+      // Boulder is ~40 km from Denver (inside)
+      final boulderDistance = GeofenceAlgorithms.haversineDistance(
+        40.0149,
+        -105.2705,
+        centerLat,
+        centerLon,
+      );
+      expect(boulderDistance, lessThan(radiusMeters));
+
+      // Kansas City is ~600 km away (outside)
+      final kansasDistance = GeofenceAlgorithms.haversineDistance(
+        39.0997,
+        -94.5786,
+        centerLat,
+        centerLon,
+      );
+      expect(kansasDistance, greaterThan(radiusMeters));
+    });
+  });
 }

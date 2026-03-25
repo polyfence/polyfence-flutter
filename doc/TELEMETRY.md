@@ -33,7 +33,7 @@ Here's **exactly** what gets sent to our analytics endpoint when a session ends:
   // App/Platform Identifiers (NOT user identifiers)
   "app_identifier": "com.example.logistics",
   "platform": "android",
-  "plugin_version": "0.12.0",
+  "plugin_version": "0.13.0",
 
   // Optional Developer Metadata
   "industry_category": null,

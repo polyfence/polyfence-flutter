@@ -35,8 +35,8 @@ All three approaches use the **same plugin API** — switch anytime without code
 |-------------|---------|
 | **Flutter** | 3.10.0+ |
 | **Dart SDK** | 3.0.0+ |
-| **Android** | API 21+ (Android 5.0), tested up to API 35 (Android 15) |
-| **iOS** | 12.0+ |
+| **Android** | API 24+ (Android 7.0), tested up to API 35 (Android 15) |
+| **iOS** | 14.0+ |
 
 ## Platform Support
 
@@ -61,6 +61,8 @@ dependencies:
 ```
 
 **Current version:** 0.13.0
+
+> **Native dependency:** Polyfence uses [polyfence-core](https://github.com/blackabass/polyfence-core) for native geofencing engines. It's included automatically — Maven for Android, CocoaPods for iOS. On iOS, run `cd ios && pod install` after adding the dependency.
 
 ```bash
 flutter pub get
@@ -117,7 +119,7 @@ Polyfence requires a foreground service notification on Android. **The plugin au
 </array>
 ```
 
-- **iOS**: 12.0+
+- **iOS**: 14.0+
 - **Requires** "Always" location for background geofencing
 
 #### iOS Background Mode in Xcode

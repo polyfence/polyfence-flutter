@@ -246,31 +246,31 @@ void main() {
 
   group('Haversine Edge Cases', () {
     test('Distance along same longitude (meridian): Portland to Seattle', () {
-      // Portland, OR to Seattle, WA — both at approximately -122.67 longitude
-      // Real: ~300 km apart
+      // Portland, OR to Seattle, WA — close but not identical longitudes
+      // Real: ~234 km apart
       final distance = GeofenceAlgorithms.haversineDistance(
         45.5152, // Portland
         -122.6784,
         47.6062, // Seattle
         -122.3321,
       );
-      // Distance should be approximately 280-300 km
-      expect(distance, greaterThan(280000));
-      expect(distance, lessThan(300000));
+      // Distance should be approximately 230-240 km
+      expect(distance, greaterThan(230000));
+      expect(distance, lessThan(240000));
     });
 
     test('Distance along same latitude (parallel): Los Angeles to San Diego', () {
-      // Both in Southern California, similar latitude (~32-34°N)
-      // Real: ~190 km apart
+      // Both in Southern California, different latitudes (~32-34°N)
+      // Real: ~179 km apart
       final distance = GeofenceAlgorithms.haversineDistance(
         34.0522, // Los Angeles
         -118.2437,
         32.7157, // San Diego
         -117.1611,
       );
-      // Distance should be approximately 180-200 km
-      expect(distance, greaterThan(180000));
-      expect(distance, lessThan(200000));
+      // Distance should be approximately 175-185 km
+      expect(distance, greaterThan(175000));
+      expect(distance, lessThan(185000));
     });
 
     test('Very small distance precision: 0.5 meter offset', () {
@@ -302,30 +302,31 @@ void main() {
       expect(distance, lessThan(20500000)); // 20,500 km
     });
 
-    test('Meridian crossing at 90°W: exact same longitude different latitudes', () {
-      // Two points on the same meridian (90°W): Chicago to Houston
+    test('Meridian crossing at 90°W: Chicago to Houston', () {
+      // Chicago and Houston span across the 90°W meridian
+      // Chicago is at -87.6°W, Houston at -95.4°W
       final distance = GeofenceAlgorithms.haversineDistance(
         41.8781, // Chicago
         -87.6298,
         29.7604, // Houston
         -95.3698,
       );
-      // Should be approximately 1,080 km
-      expect(distance, greaterThan(1050000));
-      expect(distance, lessThan(1110000));
+      // Should be approximately 1,516 km
+      expect(distance, greaterThan(1500000));
+      expect(distance, lessThan(1530000));
     });
 
     test('High latitude distance: Stockholm to Reykjavik', () {
-      // Both at high latitudes (~60°N), testing behavior near poles
+      // Both at high latitudes (~60°N), ~40° longitude apart
       final distance = GeofenceAlgorithms.haversineDistance(
         59.3293, // Stockholm
         18.0686,
         64.1466, // Reykjavik
         -21.9426,
       );
-      // Should be approximately 1,200 km
-      expect(distance, greaterThan(1100000));
-      expect(distance, lessThan(1300000));
+      // Should be approximately 2,135 km
+      expect(distance, greaterThan(2120000));
+      expect(distance, lessThan(2150000));
     });
 
     test('Crossing date line: Tokyo to Honolulu', () {
@@ -336,9 +337,9 @@ void main() {
         21.3099, // Honolulu
         -157.8581,
       );
-      // Should be approximately 5,300 km
-      expect(distance, greaterThan(5100000));
-      expect(distance, lessThan(5500000));
+      // Should be approximately 6,209 km
+      expect(distance, greaterThan(6190000));
+      expect(distance, lessThan(6230000));
     });
   });
 
@@ -365,8 +366,9 @@ void main() {
       expect(isInside, isTrue);
     });
 
-    test('Point in the concavity pocket of L-shaped polygon', () {
-      // Same L-shape, but point in the "pocket" of the concavity
+    test('Point outside concave polygon in the cutout', () {
+      // Same L-shape. The cutout is the upper-right rectangle:
+      // lat 37.5–38.0, lon -121.5 to -121.0. Points here are OUTSIDE.
       final polygon = [
         {'latitude': 37.0, 'longitude': -122.0},
         {'latitude': 37.0, 'longitude': -121.0},
@@ -376,18 +378,19 @@ void main() {
         {'latitude': 38.0, 'longitude': -122.0},
       ];
 
-      // Point in the pocket (right side of indent, inside the polygon)
+      // Point in the upper-right cutout (outside the polygon)
       final isInside = GeofenceAlgorithms.isPointInPolygon(
         37.75,
         -121.25,
         polygon,
       );
 
-      expect(isInside, isTrue);
+      expect(isInside, isFalse);
     });
 
-    test('Point outside concave polygon in the indent', () {
-      // Same L-shape, point should be outside in the concave indent area
+    test('Point inside bottom rectangle of L-shaped polygon', () {
+      // Same L-shape. The bottom rectangle spans full width:
+      // lat 37.0–37.5, lon -122.0 to -121.0. Points here are INSIDE.
       final polygon = [
         {'latitude': 37.0, 'longitude': -122.0},
         {'latitude': 37.0, 'longitude': -121.0},
@@ -397,14 +400,14 @@ void main() {
         {'latitude': 38.0, 'longitude': -122.0},
       ];
 
-      // Point in the exterior pocket of the concavity
+      // Point in the bottom-right area (inside the polygon)
       final isInside = GeofenceAlgorithms.isPointInPolygon(
         37.25,
-        -121.25, // Outside the concave indent
+        -121.25,
         polygon,
       );
 
-      expect(isInside, isFalse);
+      expect(isInside, isTrue);
     });
   });
 
@@ -549,8 +552,8 @@ void main() {
       const centerLon = -122.4194;
       const radiusMeters = 1000.0;
 
-      // Calculate a point exactly 1 km away using Haversine offset
-      final pointLat = 37.7849; // Approximately 1 km north
+      // 1000m north: 1000 / 111195 ≈ 0.008993° latitude offset
+      final pointLat = 37.7749 + 0.008993;
       final pointLon = -122.4194;
 
       final distance =
@@ -566,8 +569,8 @@ void main() {
       const centerLon = -122.4194;
       const radiusMeters = 1000.0;
 
-      // Point approximately 999m away
-      final pointLat = 37.78487;
+      // 999m north: 999 / 111195 ≈ 0.008984° latitude offset
+      final pointLat = 37.7749 + 0.008984;
       final pointLon = -122.4194;
 
       final distance =
@@ -584,7 +587,8 @@ void main() {
       const centerLon = -122.4194;
       const radiusMeters = 1000.0;
 
-      final pointLat = 37.78491;
+      // 1001m north: 1001 / 111195 ≈ 0.009002° latitude offset
+      final pointLat = 37.7749 + 0.009002;
       final pointLon = -122.4194;
 
       final distance =

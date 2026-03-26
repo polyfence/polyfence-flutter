@@ -6,9 +6,13 @@ on:
   pull_request:
     branches: [main]
 
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  analyze:
-    name: Static Analysis
+  analyze-and-test:
+    name: Analyze & Test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -17,16 +21,6 @@ jobs:
           channel: stable
       - run: flutter pub get
       - run: flutter analyze --no-fatal-infos
-
-  test:
-    name: Unit Tests
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: subosito/flutter-action@v2
-        with:
-          channel: stable
-      - run: flutter pub get
       - run: flutter test
 
   code-quality:
@@ -68,6 +62,13 @@ jobs:
         run: |
           if grep -rn "Teslon\|Sector7" --include="*.dart" --include="*.kt" --include="*.swift" lib/ android/src/ ios/Classes/ 2>/dev/null; then
             echo "::error::Internal references found in production code"
+            exit 1
+          fi
+
+      - name: Check for local paths in docs
+        run: |
+          if git grep -nE '/Users/|C:\\\\Users\\\\|BEGIN PRIVATE KEY|BEGIN RSA PRIVATE KEY|AKIA[0-9A-Z]{16}' -- '**/*.md' 2>/dev/null; then
+            echo "::error::Local paths or secrets found in markdown files"
             exit 1
           fi
 

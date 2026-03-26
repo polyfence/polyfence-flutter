@@ -6,6 +6,7 @@ We actively support the following versions with security updates:
 
 | Version | Supported          |
 | ------- | ------------------ |
+| 0.13.x  | :white_check_mark: |
 | 0.12.x  | :white_check_mark: |
 | 0.11.x  | :white_check_mark: |
 | 0.10.x  | :white_check_mark: |
@@ -178,6 +179,8 @@ When reporting a vulnerability, please include:
 
 ## Privacy Policy Guidance
 
+Telemetry fields, legal basis, retention, and opt-out are documented in **[PRIVACY.md](./PRIVACY.md)** and the technical payload reference **[doc/TELEMETRY.md](./doc/TELEMETRY.md)**. Use those sources as the source of truth so your public policy stays aligned with what the plugin actually sends.
+
 When submitting apps using Polyfence to the App Store, include the following in your privacy policy:
 
 ### Location Data Usage Template
@@ -235,8 +238,10 @@ All dependencies are from trusted sources and actively maintained.
 
 ## Contact
 
-- **Security issues**: hello@polyfence.io
-- **General questions**: Open a GitHub issue with `question` label
+- **Security vulnerabilities**: hello@polyfence.io
+- **Privacy practices (telemetry, data requests)**: see [PRIVACY.md](./PRIVACY.md) — hello@polyfence.io
+- **General inquiries**: hello@polyfence.io
+- **Technical questions**: Open a GitHub issue with `question` label
 - **Commercial support**: https://polyfence.io
 
 Thank you for helping keep Polyfence and our users safe!

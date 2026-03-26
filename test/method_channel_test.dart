@@ -67,13 +67,13 @@ void main() {
     test('initialize sends correct method and arguments', () async {
       await platform.initialize(
         licenseKey: 'test-key',
-        config: {'debug': true},
+        config: PolyfenceConfiguration(enableDebugLogging: true),
       );
 
       expect(log, hasLength(1));
       expect(log[0].method, 'initialize');
       expect(log[0].arguments['licenseKey'], 'test-key');
-      expect(log[0].arguments['config']['debug'], true);
+      expect(log[0].arguments['config']['enableDebugLogging'], true);
     });
 
     test('initialize sends null licenseKey when not provided', () async {

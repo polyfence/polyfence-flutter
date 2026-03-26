@@ -33,7 +33,7 @@ class MockPolyfencePlatform extends PolyfencePlatform
 
   @override
   Future<void> initialize(
-      {String? licenseKey, Map<String, dynamic>? config}) async {
+      {String? licenseKey, PolyfenceConfiguration? config}) async {
     calls.add('initialize');
   }
 

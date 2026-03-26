@@ -270,7 +270,7 @@ class PolyfenceService {
 
         // Telemetry disclosure: show once per install or when state changes
         // Only in debug builds to avoid production log spam
-        await _showTelemetryDisclosureIfNeeded(telemetryEnabled);
+        await _showTelemetryDisclosureIfNeeded(!telemetryDisabled);
       } catch (e) {
         // Analytics failed — log and continue. Core geofencing must not
         // be blocked by telemetry failures.

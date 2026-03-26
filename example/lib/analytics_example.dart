@@ -28,7 +28,7 @@ class _AnalyticsExampleState extends State<AnalyticsExample> {
       // Initialize Polyfence with analytics configuration
       await Polyfence.instance.initialize(
         analyticsConfig: AnalyticsConfig(
-          enabled: _analyticsEnabled,
+          disableTelemetry: !_analyticsEnabled,
           industryCategory: 'logistics',
           useCase: 'delivery_tracking',
           apiEndpoint: 'https://polyfence.io/api/v1/analytics/session',

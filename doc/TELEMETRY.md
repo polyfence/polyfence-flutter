@@ -1,6 +1,6 @@
 # Polyfence Telemetry Reference
 
-**Last updated:** 2026-03-26
+**Last updated:** 2026-03-27
 **Plugin version:** 0.13.0
 
 This is the field-by-field technical reference for Polyfence's anonymous telemetry. For the privacy policy (opt-out instructions, legal basis, data retention, your rights), see [PRIVACY.md](../PRIVACY.md).
@@ -65,7 +65,9 @@ Here's exactly what gets sent to our analytics endpoint when a session ends:
 
   "device_category": "google_pixel",
   "os_version_major": 14,
-  "charging_during_session": false
+  "charging_during_session": false,
+
+  "bridge_platform": "flutter"
 }
 ```
 
@@ -80,6 +82,7 @@ Here's exactly what gets sent to our analytics endpoint when a session ends:
 | `app_identifier` | string | `"com.example.logistics"` | App package name (not a user identifier) |
 | `platform` | string | `"android"` | Operating system |
 | `plugin_version` | string | `"0.13.0"` | Plugin version |
+| `bridge_platform` | string | `"flutter"` | Bridge layer (e.g. `flutter`, `react-native`). Set automatically. |
 
 ### Performance Metrics
 
@@ -198,6 +201,9 @@ The plugin is open source. Verify the telemetry implementation directly:
 ---
 
 ## Changelog
+
+### 2026-03-27 (v0.13.0+)
+- Added `bridge_platform` field — identifies which bridge layer produced the session (e.g. `flutter`, `react-native`). Set automatically by the plugin during initialization. Not a user identifier.
 
 ### 2026-03-07 (v0.12.0)
 - Added 21 enhanced telemetry fields (config context, event aggregates, native session context, device context, battery levels)

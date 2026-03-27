@@ -131,17 +131,20 @@ public class PolyfencePlugin: NSObject, FlutterPlugin {
                let version = configDict["pluginVersion"] as? String {
                 PolyfenceDebugCollector.shared.setPluginVersion(version)
             }
-            
+
             // Initialize configuration
             config = PolyfenceConfig()
             config?.validateAndCorrect()
-            
+
             // Initialize persistence
             zonePersistence = ZonePersistence()
-            
+
             // Initialize location tracker
             locationTracker = LocationTracker()
-            
+
+            // Tag telemetry with bridge platform
+            locationTracker?.setBridgePlatform("flutter")
+
             // Handle disableAlertNotifications config
             if let args = arguments as? [String: Any],
                let configDict = args["config"] as? [String: Any],

@@ -210,17 +210,20 @@ class PolyfencePlugin: FlutterPlugin, MethodCallHandler, ActivityAware {
                 // Extract arguments from Flutter
                 val args = call.arguments<Map<String, Any>>()
                 val configDict = args?.get("config") as? Map<String, Any>
-                
+
                 // Extract plugin version from config if provided
                 val version = configDict?.get("pluginVersion") as? String
                 if (version != null) {
                     PolyfenceDebugCollector.setPluginVersion(version)
                 }
-                
+
                 // Handle disableAlertNotifications config
                 val disableAlerts = configDict?.get("disableAlertNotifications") as? Boolean ?: false
                 LocationTracker.setAlertNotificationsEnabled(!disableAlerts)
-                
+
+                // Tag telemetry with bridge platform
+                LocationTracker.setBridgePlatform("flutter")
+
                 result.success(null)
             }
             

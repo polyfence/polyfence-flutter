@@ -3,7 +3,7 @@
 **Privacy-first, on-device geofencing for Flutter.** Accurate circle & polygon zone detection with true background operation on both platforms. No location data or PII ever transmitted. Minimal dependencies.
 
 [![pub package](https://img.shields.io/pub/v/polyfence.svg)](https://pub.dev/packages/polyfence)
-[![CI](https://github.com/blackabass/polyfence-flutter/actions/workflows/ci.yml/badge.svg)](https://github.com/blackabass/polyfence-flutter/actions/workflows/ci.yml)
+[![CI](https://github.com/polyfence/polyfence-flutter/actions/workflows/ci.yml/badge.svg)](https://github.com/polyfence/polyfence-flutter/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-purple.svg)](https://opensource.org/licenses/MIT)
 ![Platform: Android & iOS](https://img.shields.io/badge/platform-Android%20%7C%20iOS-blue)
 [![pub points](https://img.shields.io/pub/points/polyfence)](https://pub.dev/packages/polyfence/score)
@@ -62,7 +62,7 @@ dependencies:
 
 **Current version:** 0.13.0
 
-> **Native dependency:** Polyfence uses [polyfence-core](https://github.com/blackabass/polyfence-core) for native geofencing engines. It's included automatically — Maven for Android, CocoaPods for iOS. On iOS, run `cd ios && pod install` after adding the dependency.
+> **Native dependency:** Polyfence uses [polyfence-core](https://github.com/polyfence/polyfence-core) for native geofencing engines. It's included automatically — Maven for Android, CocoaPods for iOS. On iOS, run `cd ios && pod install` after adding the dependency.
 
 ```bash
 flutter pub get
@@ -86,7 +86,7 @@ flutter pub get
 
 - **minSdk**: 24+ (Android 7.0)
 - **tested**: up to API 35 (Android 15)
-- **dependency**: [polyfence-core](https://github.com/blackabass/polyfence-core) 1.0.0 (native engine, pulled transitively via Maven)
+- **dependency**: [polyfence-core](https://github.com/polyfence/polyfence-core) 1.0.0 (native engine, pulled transitively via Maven)
 
 Ensure your `android/app/build.gradle` has the correct minimum SDK version:
 ```groovy
@@ -766,7 +766,7 @@ Contributions are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for developmen
 
 ## Support
 
-- **Plugin Issues**: [GitHub Issues](https://github.com/blackabass/polyfence-flutter/issues)
+- **Plugin Issues**: [GitHub Issues](https://github.com/polyfence/polyfence-flutter/issues)
 - **Questions & Discussions**: Open an issue with the `question` label
 - **Security Issues**: See [SECURITY.md](SECURITY.md)
 - **Commercial Support**: [polyfence.io](https://polyfence.io)

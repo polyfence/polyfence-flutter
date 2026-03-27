@@ -5,7 +5,7 @@ Pod::Spec.new do |s|
   s.description      = <<-DESC
 Privacy-first polygon and circle geofencing for Flutter. True background tracking without external dependencies.
                        DESC
-  s.homepage         = 'https://github.com/blackabass/polyfence-flutter'
+  s.homepage         = 'https://github.com/polyfence/polyfence-flutter'
   s.license          = { :file => '../LICENSE' }
   s.author           = { 'Polyfence' => 'hello@polyfence.io' }
   s.source           = { :path => '.' }

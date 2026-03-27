@@ -49,7 +49,7 @@ For commercial support, see [polyfence.io](https://polyfence.io).
 
 ```bash
 # Clone the repository
-git clone https://github.com/blackabass/polyfence-flutter.git
+git clone https://github.com/polyfence/polyfence-flutter.git
 cd polyfence-flutter
 
 # Install dependencies
@@ -189,7 +189,7 @@ test: Add ray-casting algorithm tests
 
 ### Dependency: polyfence-core
 
-The native geofencing engines (Kotlin + Swift) live in a separate repo: [polyfence-core](https://github.com/blackabass/polyfence-core). This Flutter plugin depends on polyfence-core for all native geofencing logic.
+The native geofencing engines (Kotlin + Swift) live in a separate repo: [polyfence-core](https://github.com/polyfence/polyfence-core). This Flutter plugin depends on polyfence-core for all native geofencing logic.
 
 ```
 polyfence-core           ← Shared native engine (Kotlin + Swift)

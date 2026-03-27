@@ -135,7 +135,7 @@ Polyfence provides the tools — how you use them in your app is your responsibi
 
 The plugin is open source under the MIT License. You can verify every claim in this policy:
 
-- **Source code:** [github.com/blackabass/polyfence-flutter](https://github.com/blackabass/polyfence-flutter)
+- **Source code:** [github.com/polyfence/polyfence-flutter](https://github.com/polyfence/polyfence-flutter)
 - **Telemetry implementation:** [lib/src/services/analytics_service.dart](lib/src/services/analytics_service.dart)
 - **Field-by-field reference:** [doc/TELEMETRY.md](doc/TELEMETRY.md)
 - **Network verification:** Use Charles Proxy or Wireshark to inspect actual payloads
@@ -158,7 +158,7 @@ The plugin is open source under the MIT License. You can verify every claim in t
 - **Data requests and deletion:** [hello@polyfence.io](mailto:hello@polyfence.io) (30-day response)
 - **Security vulnerabilities:** [hello@polyfence.io](mailto:hello@polyfence.io) (see [SECURITY.md](./SECURITY.md))
 - **General inquiries:** [hello@polyfence.io](mailto:hello@polyfence.io)
-- **Technical support:** [GitHub Issues](https://github.com/blackabass/polyfence-flutter/issues)
+- **Technical support:** [GitHub Issues](https://github.com/polyfence/polyfence-flutter/issues)
 
 ---
 

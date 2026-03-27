@@ -153,7 +153,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
       // Initialize Polyfence plugin
       // Anonymous plugin telemetry enabled by default (no location data or PII sent)
-      // See what's sent: https://github.com/blackabass/polyfence-flutter/blob/main/doc/TELEMETRY.md
+      // See what's sent: https://github.com/polyfence/polyfence-flutter/blob/main/doc/TELEMETRY.md
       await polyfence.Polyfence.instance.initialize();
 
       // Enable SmartGPS: INTELLIGENT strategy with proximity, movement, and battery

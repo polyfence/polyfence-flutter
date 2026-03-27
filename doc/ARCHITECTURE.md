@@ -167,7 +167,7 @@ The `intelligent` strategy hierarchy:
 
 ```bash
 # Clone the plugin
-git clone https://github.com/blackabass/polyfence-flutter.git
+git clone https://github.com/polyfence/polyfence-flutter.git
 cd polyfence-flutter
 
 # Install Dart dependencies
@@ -190,7 +190,7 @@ polyfence-core is pulled automatically as a dependency when building the plugin.
 
 ```bash
 # Clone polyfence-core
-git clone https://github.com/blackabass/polyfence-core.git
+git clone https://github.com/polyfence/polyfence-core.git
 
 # Android
 cd polyfence-core/android && ./gradlew build
@@ -203,6 +203,6 @@ cd polyfence-core/ios && pod lib lint
 
 | Repository | Purpose |
 |---|---|
-| [polyfence-flutter](https://github.com/blackabass/polyfence-flutter) | Flutter plugin (this repo) |
-| [polyfence-core](https://github.com/blackabass/polyfence-core) | Shared native engine (Kotlin + Swift) |
+| [polyfence-flutter](https://github.com/polyfence/polyfence-flutter) | Flutter plugin (this repo) |
+| [polyfence-core](https://github.com/polyfence/polyfence-core) | Shared native engine (Kotlin + Swift) |
 | polyfence-react-native | React Native bridge (planned) |

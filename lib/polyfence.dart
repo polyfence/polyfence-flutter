@@ -40,7 +40,7 @@
 /// await Polyfence.instance.startTracking();
 /// ```
 ///
-/// See the [README](https://github.com/blackabass/polyfence-flutter) for more examples.
+/// See the [README](https://github.com/polyfence/polyfence-flutter) for more examples.
 library polyfence;
 
 export 'src/models/zone.dart';

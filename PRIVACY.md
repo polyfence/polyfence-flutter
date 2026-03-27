@@ -1,7 +1,7 @@
 # Polyfence Plugin — Privacy Policy
 
 **Effective Date:** March 26, 2026
-**Last Updated:** March 26, 2026
+**Last Updated:** March 27, 2026
 **Applies to:** The Polyfence Flutter plugin (`package:polyfence`)
 
 ---
@@ -22,7 +22,7 @@ The plugin sends anonymous performance metrics to help us monitor reliability an
 
 **What's collected:**
 
-- **App/platform identifiers** (not user identifiers): app package name, platform (Android/iOS), plugin version
+- **App/platform identifiers** (not user identifiers): app package name, platform (Android/iOS), plugin version, bridge layer (e.g. Flutter, React Native)
 - **Performance metrics**: detection counts, detection timing, GPS accuracy averages (in meters, not coordinates), battery usage, session duration
 - **Zone usage** (types only, no locations): circle vs polygon counts — no coordinates, addresses, or names
 - **Error tracking**: error type counts (e.g., "gps_timeout"), service interruption counts

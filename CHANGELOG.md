@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Bridge platform telemetry** — Plugin sets `bridge_platform: "flutter"` on native core during initialization. Identifies Flutter sessions in analytics, distinguishing from future React Native sessions.
+
 ## [0.13.0] - 2026-03-19
 
 ### Breaking Changes

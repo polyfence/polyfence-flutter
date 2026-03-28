@@ -48,6 +48,7 @@ export 'src/models/geofence_event.dart';
 export 'src/models/location.dart';
 export 'src/models/industry_category.dart';
 export 'src/models/polyfence_runtime_status.dart';
+export 'src/models/health_score.dart';
 export 'src/services/polyfence_service.dart';
 export 'src/services/analytics_service.dart';
 export 'src/services/app_lifecycle_manager.dart';
@@ -57,6 +58,7 @@ export 'src/errors/polyfence_exceptions.dart';
 export 'src/debug/polyfence_debug_info.dart';
 export 'src/configuration/polyfence_configuration.dart';
 export 'src/utils/polygon_simplifier.dart';
+export 'src/widgets/polyfence_debug_overlay.dart';
 
 import 'src/services/polyfence_service.dart';
 

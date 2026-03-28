@@ -6,6 +6,7 @@ import '../models/zone.dart';
 import '../models/location.dart';
 import '../models/geofence_event.dart';
 import '../models/polyfence_runtime_status.dart';
+import '../models/health_score.dart';
 import '../platform/polyfence_platform.dart';
 import '../errors/polyfence_error.dart';
 import '../errors/polyfence_exceptions.dart';
@@ -1062,6 +1063,24 @@ class PolyfenceService {
   Stream<PolyfencePerformanceMetrics> get performanceStream {
     return _platform.performanceStream
         .map((event) => PolyfencePerformanceMetrics.fromMap(event));
+  }
+
+  /// Stream of health score updates emitted every 5 minutes by polyfence-core.
+  ///
+  /// Score 0-100 with a top issue description when score < 90.
+  /// Filters the performance stream for `type: "health_score"` events.
+  ///
+  /// **Example:**
+  /// ```dart
+  /// Polyfence.instance.healthScoreStream.listen((health) {
+  ///   print('Health: ${health.score}/100');
+  ///   if (health.topIssue != null) print('Issue: ${health.topIssue}');
+  /// });
+  /// ```
+  Stream<HealthScore> get healthScoreStream {
+    return _platform.performanceStream
+        .where((event) => event['type'] == 'health_score')
+        .map((event) => HealthScore.fromMap(event));
   }
 
   /// Gets error history for debugging and monitoring.

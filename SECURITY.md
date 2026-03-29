@@ -238,9 +238,7 @@ All dependencies are from trusted sources and actively maintained.
 
 ## Contact
 
-- **Security vulnerabilities**: hello@polyfence.io
-- **Privacy practices (telemetry, data requests)**: see [PRIVACY.md](./PRIVACY.md) — hello@polyfence.io
-- **General inquiries**: hello@polyfence.io
+- **Security vulnerabilities, privacy practices, or general inquiries**: hello@polyfence.io
 - **Technical questions**: Open a GitHub issue with `question` label
 - **Commercial support**: https://polyfence.io
 

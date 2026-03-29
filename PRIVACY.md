@@ -154,10 +154,7 @@ The plugin is open source under the MIT License. You can verify every claim in t
 
 ## Contact
 
-- **Privacy questions:** [hello@polyfence.io](mailto:hello@polyfence.io) (48-hour response)
-- **Data requests and deletion:** [hello@polyfence.io](mailto:hello@polyfence.io) (30-day response)
-- **Security vulnerabilities:** [hello@polyfence.io](mailto:hello@polyfence.io) (see [SECURITY.md](./SECURITY.md))
-- **General inquiries:** [hello@polyfence.io](mailto:hello@polyfence.io)
+- **Privacy questions, data requests, deletion, security vulnerabilities, or general inquiries:** [hello@polyfence.io](mailto:hello@polyfence.io) (48-hour response)
 - **Technical support:** [GitHub Issues](https://github.com/polyfence/polyfence-flutter/issues)
 
 ---

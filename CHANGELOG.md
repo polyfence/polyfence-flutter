@@ -13,6 +13,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Debug overlay widget** — `PolyfenceDebugOverlay` draggable widget showing real-time health metrics. Only renders in debug builds.
 
 ### Fixed
+- **Android delegate bridge missing** — `PolyfenceCoreDelegate` was never wired up on Android, so the core engine received GPS but location/geofence/error events never reached Flutter. Implemented delegate in `PolyfencePlugin` and registered via `LocationTracker.setPendingCoreDelegate()`. iOS was unaffected (uses closure callbacks).
+- **Platform channel deep cast** — `getConfiguration()` and `getDebugInfo()` used shallow `Map.from()` which left nested settings maps as `_Map<Object?, Object?>`, crashing `PolyfenceConfiguration.fromMap()`. Added recursive `_deepCastMap()` for all platform channel returns with nested maps.
+- **Dead companion methods removed** — `sendLocationUpdate()`, `sendGeofenceEvent()`, `sendPerformanceEvent()` on Android companion object were never called (superseded by delegate pattern). Removed.
+- **polyfence-core dependency bumped to 1.0.3** — Includes FGS crash fix, GPS cold-start seed, and distance filter deferral.
 - **polyfence-core dependency bumped to 1.0.2** — Plugin calls `setBridgePlatform()` which was added in core 1.0.2. Previously declared 1.0.0, causing build failures for consumers.
 - **Telemetry defaults, retry queue, and platform timeouts** — Audit findings resolved: telemetry field defaults corrected, retry queue backoff improved, platform-specific timeouts tuned.
 - **Analytics config consolidation** — `AnalyticsConfig` unified with typed `initialize()` method. Migration guide added.

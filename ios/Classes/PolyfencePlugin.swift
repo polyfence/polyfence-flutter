@@ -134,7 +134,6 @@ public class PolyfencePlugin: NSObject, FlutterPlugin {
 
             // Initialize configuration
             config = PolyfenceConfig()
-            config?.validateAndCorrect()
 
             // Initialize persistence
             zonePersistence = ZonePersistence()
@@ -276,7 +275,7 @@ public class PolyfencePlugin: NSObject, FlutterPlugin {
 
         do {
             let smartConfig = SmartGpsConfigFactory.fromMap(configMap)
-            config?.updateConfiguration(configMap)
+            config?.updateFromMap(configMap)
             locationTracker?.updateSmartConfiguration(smartConfig)
 
             // Update GPS accuracy threshold in GeofenceEngine if provided
@@ -322,7 +321,7 @@ public class PolyfencePlugin: NSObject, FlutterPlugin {
             return
         }
         
-        config.resetConfiguration()
+        config.resetToDefaults()
         result(nil)
     }
 

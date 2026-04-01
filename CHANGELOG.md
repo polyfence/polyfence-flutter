@@ -9,6 +9,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - **Bridge platform telemetry** — Plugin sets `bridge_platform: "flutter"` on native core during initialization. Identifies Flutter sessions in analytics, distinguishing from future React Native sessions.
+- **Health score stream** — `healthScoreStream` getter on `PolyfenceService` filters `performanceStream` for health score events. New `HealthScore` model.
+- **Debug overlay widget** — `PolyfenceDebugOverlay` draggable widget showing real-time health metrics. Only renders in debug builds.
+
+### Fixed
+- **polyfence-core dependency bumped to 1.0.2** — Plugin calls `setBridgePlatform()` which was added in core 1.0.2. Previously declared 1.0.0, causing build failures for consumers.
+- **Telemetry defaults, retry queue, and platform timeouts** — Audit findings resolved: telemetry field defaults corrected, retry queue backoff improved, platform-specific timeouts tuned.
+- **Analytics config consolidation** — `AnalyticsConfig` unified with typed `initialize()` method. Migration guide added.
+- **Haversine bounds and polygon test vectors** — Corrected edge-case calculations in `geofence_algorithms_test`.
+- **Debug overlay nested accessors** — Updated to use `PolyfenceDebugInfo` nested objects (`info.zones.activeZones`, `info.performance.totalZoneDetections`).
+- **Android build.gradle version alignment** — Was `1.0-SNAPSHOT`, now matches pubspec `0.13.0`.
+- **Example app namespace** — Renamed from `io.polyfence` to `io.polyfence.example` to avoid collision with the plugin package.
+
+### Changed
+- **CI restructured** — Quality checks moved to local pre-push hook. CI slimmed to analyze + test only.
+- **Contact emails consolidated** — All repo emails standardised to `hello@polyfence.io`.
+- **Documentation updates** — Platform versions corrected (iOS 14.0+, Android API 24+), stale links fixed, TELEMETRY.md trimmed to pure field reference.
 
 ## [0.13.0] - 2026-03-19
 
@@ -619,4 +635,3 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Known Limitations
 - iOS notification delivery requires Critical Alert entitlement for optimal performance
-

@@ -205,7 +205,24 @@ class MethodChannelPolyfence extends PolyfencePlatform {
   Future<Map<String, dynamic>> getConfiguration() async {
     final result =
         await _channel.invokeMethod<Map<Object?, Object?>>('getConfiguration');
-    return Map<String, dynamic>.from(result ?? {});
+    return _deepCastMap(result ?? {});
+  }
+
+  /// Recursively casts platform channel maps from Map<Object?, Object?> to
+  /// Map<String, dynamic>. Platform channels return untyped maps; a shallow
+  /// Map.from only fixes the top level, leaving nested maps as Object?.
+  static Map<String, dynamic> _deepCastMap(Map<Object?, Object?> map) {
+    return map.map((key, value) {
+      if (value is Map) {
+        return MapEntry(key.toString(), _deepCastMap(Map<Object?, Object?>.from(value)));
+      } else if (value is List) {
+        return MapEntry(key.toString(), value.map((e) {
+          if (e is Map) return _deepCastMap(Map<Object?, Object?>.from(e));
+          return e;
+        }).toList());
+      }
+      return MapEntry(key.toString(), value);
+    });
   }
 
   @override
@@ -227,7 +244,7 @@ class MethodChannelPolyfence extends PolyfencePlatform {
   Future<Map<String, dynamic>> getDebugInfo() async {
     final result =
         await _channel.invokeMethod<Map<Object?, Object?>>('getDebugInfo');
-    return Map<String, dynamic>.from(result ?? {});
+    return _deepCastMap(result ?? {});
   }
 
   @override
@@ -265,25 +282,6 @@ class MethodChannelPolyfence extends PolyfencePlatform {
         .invokeMethod<Map<Object?, Object?>>('getSessionTelemetry');
     if (result == null) return {};
     return _deepCastMap(result);
-  }
-
-  /// Recursively cast a Map<Object?, Object?> to Map<String, dynamic>.
-  static Map<String, dynamic> _deepCastMap(Map<Object?, Object?> raw) {
-    return raw.map((key, value) {
-      final castKey = key as String;
-      if (value is Map) {
-        return MapEntry(
-            castKey, _deepCastMap(Map<Object?, Object?>.from(value)));
-      } else if (value is List) {
-        return MapEntry(
-            castKey,
-            value.map((e) {
-              if (e is Map) return _deepCastMap(Map<Object?, Object?>.from(e));
-              return e;
-            }).toList());
-      }
-      return MapEntry(castKey, value);
-    });
   }
 
   @override

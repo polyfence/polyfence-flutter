@@ -18,6 +18,7 @@ import io.flutter.embedding.engine.plugins.activity.ActivityPluginBinding
 import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodCall
 import io.polyfence.core.LocationTracker
+import io.polyfence.core.PolyfenceCoreDelegate
 import io.polyfence.core.PolyfenceErrorManager
 import io.polyfence.core.PolyfenceDebugCollector
 import io.polyfence.core.ZonePersistence
@@ -81,56 +82,10 @@ class PolyfencePlugin: FlutterPlugin, MethodCallHandler, ActivityAware {
             )
         }
         
-        /**
-         * Send location updates to dedicated location channel
-         */
-        fun sendLocationUpdate(locationData: Map<String, Any>) {
-            locationSink?.success(locationData)
-        }
-        
-        /**
-         * Send geofence events to dedicated geofence channel
-         * Includes GPS coordinates for apps that need to sync events with backend APIs
-         */
-        fun sendGeofenceEvent(
-            zoneId: String,
-            zoneName: String,
-            eventType: String,
-            latitude: Double,
-            longitude: Double,
-            detectionTimeMs: Double = 0.0,
-            gpsAccuracy: Double = 0.0,
-            speedMps: Double = 0.0,
-            activityAtEvent: String = "unknown",
-            distanceToBoundaryM: Double = -1.0
-        ) {
-            val event = mapOf(
-                "zoneId" to zoneId,
-                "zoneName" to zoneName,
-                "eventType" to eventType,
-                "timestamp" to System.currentTimeMillis(),
-                "latitude" to latitude,
-                "longitude" to longitude,
-                "detectionTimeMs" to detectionTimeMs,
-                "gpsAccuracy" to gpsAccuracy,
-                "speedMps" to speedMps,
-                "activityAtEvent" to activityAtEvent,
-                "distanceToBoundaryM" to distanceToBoundaryM
-            )
-            geofenceSink?.success(event)
-        }
-
         /** Send status to performance channel */
         fun sendStatus(context: Context) {
             val payload = buildStatusPayload(context)
             performanceSink?.success(payload)
-        }
-        
-        /**
-         * Send performance events to dedicated performance channel
-         */
-        fun sendPerformanceEvent(event: Map<String, Any>) {
-            performanceSink?.success(event)
         }
 
     }
@@ -223,6 +178,9 @@ class PolyfencePlugin: FlutterPlugin, MethodCallHandler, ActivityAware {
 
                 // Tag telemetry with bridge platform
                 LocationTracker.setBridgePlatform("flutter")
+
+                // Wire up delegate so core sends events back to Flutter
+                LocationTracker.setPendingCoreDelegate(coreDelegate)
 
                 result.success(null)
             }
@@ -589,6 +547,29 @@ class PolyfencePlugin: FlutterPlugin, MethodCallHandler, ActivityAware {
         geofenceSink = null
     }
     
+    // PolyfenceCoreDelegate — bridges core events to Flutter EventChannel sinks
+    private val coreDelegate = object : PolyfenceCoreDelegate {
+        override fun onLocationUpdate(locationData: Map<String, Any>) {
+            locationSink?.success(locationData)
+        }
+
+        override fun onGeofenceEvent(eventData: Map<String, Any>) {
+            geofenceSink?.success(eventData)
+        }
+
+        override fun onPerformanceEvent(performanceData: Map<String, Any>) {
+            performanceSink?.success(performanceData)
+        }
+
+        override fun onError(errorData: Map<String, Any>) {
+            errorSink?.success(errorData)
+        }
+
+        override fun isTrackingEnabled(): Boolean {
+            return isTrackingEnabled(context)
+        }
+    }
+
     // ActivityAware implementation - minimal for now
     override fun onAttachedToActivity(binding: ActivityPluginBinding) {}
     override fun onDetachedFromActivityForConfigChanges() {}

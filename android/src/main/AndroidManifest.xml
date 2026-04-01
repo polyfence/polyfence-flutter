@@ -18,13 +18,13 @@
 
   <application>
     <service
-      android:name=".LocationTracker"
+      android:name="io.polyfence.core.LocationTracker"
       android:foregroundServiceType="location"
       android:stopWithTask="false"
       android:exported="false" />
 
     <receiver
-      android:name=".core.ScheduleReceiver"
+      android:name="io.polyfence.core.ScheduleReceiver"
       android:exported="false">
       <intent-filter>
         <action android:name="io.polyfence.SCHEDULE_START" />

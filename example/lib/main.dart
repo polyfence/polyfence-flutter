@@ -153,46 +153,30 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
       // Initialize Polyfence plugin
       // Anonymous plugin telemetry enabled by default (no location data or PII sent)
-      // See what's sent: https://github.com/polyfence/polyfence-flutter/blob/main/doc/TELEMETRY.md
+      // See what's sent: https://github.com/polyfence/polyfence-flutter/blob/main/docs/TELEMETRY.md
       await polyfence.Polyfence.instance.initialize();
 
-      // Enable SmartGPS: INTELLIGENT strategy with proximity, movement, and battery
-      // awareness. This dramatically reduces battery drain when stationary.
-      // On iOS, activity settings are excluded to avoid CMMotionActivityManager crash
-      // (confirmed in Roadie v0.10.0 upgrade) — all other optimizations are sent.
+      // Enable SmartGPS: INTELLIGENT strategy with proximity, movement, battery,
+      // and activity awareness. This dramatically reduces battery drain when stationary.
       {
         final current = await polyfence.Polyfence.instance.getConfiguration();
-        final clusterSettings = polyfence.ClusterSettings(
-          enabled: true,
-          activeRadiusMeters: 5000, // 5km radius - only monitor nearby zones
+        await polyfence.Polyfence.instance.updateConfiguration(
+          current.copyWith(
+            updateStrategy: polyfence.PolyfenceUpdateStrategy.intelligent,
+            proximitySettings: polyfence.ProximitySettings(),
+            movementSettings: polyfence.MovementSettings(),
+            batterySettings: polyfence.BatterySettings(),
+            activitySettings: polyfence.ActivitySettings(
+              enabled: true,
+              confidenceThreshold: 75,
+              debounceSeconds: 10, // Reduced for demo (default is 30)
+            ),
+            clusterSettings: polyfence.ClusterSettings(
+              enabled: true,
+              activeRadiusMeters: 5000, // 5km radius - only monitor nearby zones
+            ),
+          ),
         );
-
-        if (Platform.isIOS) {
-          await polyfence.Polyfence.instance.updateConfiguration(
-            current.copyWith(
-              updateStrategy: polyfence.PolyfenceUpdateStrategy.intelligent,
-              proximitySettings: polyfence.ProximitySettings(),
-              movementSettings: polyfence.MovementSettings(),
-              batterySettings: polyfence.BatterySettings(),
-              clusterSettings: clusterSettings,
-            ),
-          );
-        } else {
-          await polyfence.Polyfence.instance.updateConfiguration(
-            current.copyWith(
-              updateStrategy: polyfence.PolyfenceUpdateStrategy.intelligent,
-              proximitySettings: polyfence.ProximitySettings(),
-              movementSettings: polyfence.MovementSettings(),
-              batterySettings: polyfence.BatterySettings(),
-              activitySettings: polyfence.ActivitySettings(
-                enabled: true,
-                confidenceThreshold: 75,
-                debounceSeconds: 10, // Reduced for demo (default is 30)
-              ),
-              clusterSettings: clusterSettings,
-            ),
-          );
-        }
       }
 
       // Configuration examples:

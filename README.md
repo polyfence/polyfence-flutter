@@ -669,18 +669,10 @@ The app starts with 3 hardcoded zones. This is a valid production pattern — ma
 
 **What the example demonstrates:** standalone zone management, API integration patterns, delta-based sync, zone entry/exit event handling, background tracking across app states, GPS profile switching, permission request flow, and error stream handling.
 
-<details>
-  <summary>Example App Screenshots</summary>
-
-  <p>
-    <img alt="App screenshot 1" src="https://github.com/user-attachments/assets/e786391a-d178-4daf-8829-f97bbc29202d" width="240" />
-    <img alt="App screenshot 2" src="https://github.com/user-attachments/assets/bd1d07c2-d9bc-499b-bded-3e9dff9eeeb7" width="240" />
-    <img alt="Zone map view" src="https://github.com/user-attachments/assets/cc15ec76-819f-4d83-a1c1-dc83d8715da9" width="240" />
-    <img alt="Event stream" src="https://github.com/user-attachments/assets/b9e372ed-8269-4afc-8c1a-71e87ba41ea8" width="240" />
-    <img alt="GPS configuration" src="https://github.com/user-attachments/assets/ec6a214e-0d98-4008-8291-70c74b16ea07" width="240" />
-    <img alt="Debug info" src="https://github.com/user-attachments/assets/98f5a976-a2c2-40ef-98a9-4230f0ce0520" width="240" />
-  </p>
-</details>
+<p>
+  <img alt="Dashboard" src="assets/screenshot-dashboard.png" width="280" />
+  <img alt="Zone Map" src="assets/screenshot-map.png" width="280" />
+</p>
 
 ---
 

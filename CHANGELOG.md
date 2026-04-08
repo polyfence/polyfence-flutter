@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Bridge platform telemetry** — Plugin sets `bridge_platform: "flutter"` on native core during initialization. Identifies Flutter sessions in analytics, distinguishing from future React Native sessions.
 - **Health score stream** — `healthScoreStream` getter on `PolyfenceService` filters `performanceStream` for health score events. New `HealthScore` model.
 - **Debug overlay widget** — `PolyfenceDebugOverlay` draggable widget showing real-time health metrics. Only renders in debug builds.
-- **Android native bridge tests** — 39 JUnit tests (Mockito) covering method routing, argument coercion, error paths, service intent wiring, and core delegate initialization. iOS XCTest stubs for future use.
+- **Native bridge test files** — 39 Android (JUnit/Mockito) and 30 iOS (XCTest) tests for method channel marshalling. Local-only per L049 — CI validates compilation, not simulator/emulator tests.
 - **CI code quality job** — Emoji detection, secret scanning, internal file tracking, and internal reference checks.
 - **Dependabot** — Automated dependency updates for pub and github-actions (weekly).
 

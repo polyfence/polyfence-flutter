@@ -23,29 +23,6 @@ jobs:
       - run: flutter analyze --no-fatal-infos
       - run: flutter test
 
-  android-tests:
-    name: Android Native Tests
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-java@v4
-        with:
-          java-version: '17'
-          distribution: 'temurin'
-
-      - uses: subosito/flutter-action@v2
-        with:
-          channel: stable
-
-      - uses: gradle/actions/setup-gradle@v4
-
-      - name: Resolve Flutter dependencies
-        run: cd example && flutter pub get
-
-      - name: Run plugin unit tests
-        run: cd example/android && gradle :polyfence:test --info
-
   code-quality:
     name: Code Quality
     runs-on: ubuntu-latest

@@ -73,6 +73,12 @@ class PolyfenceConfiguration {
   /// Activity recognition settings
   final ActivitySettings? activitySettings;
 
+  /// Suppress built-in zone alert notifications on the native side.
+  /// When true, geofence enter/exit events are still fired but the native
+  /// engine will not post local notifications.
+  /// Default: false (notifications enabled)
+  final bool disableAlertNotifications;
+
   /// GPS accuracy threshold in meters
   /// Locations with accuracy worse than this are rejected
   /// Default: 100m (ensures platform parity between iOS and Android)
@@ -94,6 +100,7 @@ class PolyfenceConfiguration {
     this.clusterSettings,
     this.scheduleSettings,
     this.activitySettings,
+    this.disableAlertNotifications = false,
     this.gpsAccuracyThreshold = 100.0,
     this.enableDebugLogging = false,
   }) {
@@ -117,6 +124,7 @@ class PolyfenceConfiguration {
     ClusterSettings? clusterSettings,
     ScheduleSettings? scheduleSettings,
     ActivitySettings? activitySettings,
+    bool? disableAlertNotifications,
     double? gpsAccuracyThreshold,
     bool? enableDebugLogging,
   }) {
@@ -130,6 +138,7 @@ class PolyfenceConfiguration {
       clusterSettings: clusterSettings ?? this.clusterSettings,
       scheduleSettings: scheduleSettings ?? this.scheduleSettings,
       activitySettings: activitySettings ?? this.activitySettings,
+      disableAlertNotifications: disableAlertNotifications ?? this.disableAlertNotifications,
       gpsAccuracyThreshold: gpsAccuracyThreshold ?? this.gpsAccuracyThreshold,
       enableDebugLogging: enableDebugLogging ?? this.enableDebugLogging,
     );
@@ -151,6 +160,7 @@ class PolyfenceConfiguration {
       'clusterSettings': clusterSettings?.toMap(),
       'scheduleSettings': scheduleSettings?.toMap(),
       'activitySettings': activitySettings?.toMap(),
+      'disableAlertNotifications': disableAlertNotifications,
       'gpsAccuracyThreshold': gpsAccuracyThreshold,
       'enableDebugLogging': enableDebugLogging,
     };
@@ -190,6 +200,7 @@ class PolyfenceConfiguration {
       activitySettings: map['activitySettings'] != null
           ? ActivitySettings.fromMap(map['activitySettings'])
           : null,
+      disableAlertNotifications: map['disableAlertNotifications'] ?? false,
       gpsAccuracyThreshold:
           (map['gpsAccuracyThreshold'] as num?)?.toDouble() ?? 100.0,
       enableDebugLogging: map['enableDebugLogging'] ?? false,
@@ -209,6 +220,7 @@ class PolyfenceConfiguration {
         other.clusterSettings == clusterSettings &&
         other.scheduleSettings == scheduleSettings &&
         other.activitySettings == activitySettings &&
+        other.disableAlertNotifications == disableAlertNotifications &&
         other.gpsAccuracyThreshold == gpsAccuracyThreshold &&
         other.enableDebugLogging == enableDebugLogging;
   }
@@ -224,6 +236,7 @@ class PolyfenceConfiguration {
         clusterSettings,
         scheduleSettings,
         activitySettings,
+        disableAlertNotifications,
         gpsAccuracyThreshold,
         enableDebugLogging,
       );
@@ -240,6 +253,7 @@ class PolyfenceConfiguration {
         'clusterSettings: $clusterSettings, '
         'scheduleSettings: $scheduleSettings, '
         'activitySettings: $activitySettings, '
+        'disableAlertNotifications: $disableAlertNotifications, '
         'gpsAccuracyThreshold: $gpsAccuracyThreshold, '
         'enableDebugLogging: $enableDebugLogging'
         ')';

@@ -15,6 +15,7 @@ void main() {
       expect(config.clusterSettings, isNull);
       expect(config.scheduleSettings, isNull);
       expect(config.activitySettings, isNull);
+      expect(config.disableAlertNotifications, false);
       expect(config.gpsAccuracyThreshold, 100.0);
       expect(config.enableDebugLogging, false);
     });
@@ -60,6 +61,7 @@ void main() {
           stillInterval: const Duration(seconds: 120),
           drivingInterval: const Duration(seconds: 3),
         ),
+        disableAlertNotifications: true,
         gpsAccuracyThreshold: 50.0,
         enableDebugLogging: true,
       );
@@ -69,6 +71,7 @@ void main() {
 
       expect(restored.accuracyProfile, PolyfenceAccuracyProfile.balanced);
       expect(restored.updateStrategy, PolyfenceUpdateStrategy.intelligent);
+      expect(restored.disableAlertNotifications, true);
       expect(restored.gpsAccuracyThreshold, 50.0);
       expect(restored.enableDebugLogging, true);
       expect(restored.proximitySettings, isNotNull);
@@ -85,6 +88,7 @@ void main() {
 
       expect(config.accuracyProfile, PolyfenceAccuracyProfile.balanced);
       expect(config.updateStrategy, PolyfenceUpdateStrategy.continuous);
+      expect(config.disableAlertNotifications, false);
       expect(config.gpsAccuracyThreshold, 100.0);
       expect(config.enableDebugLogging, false);
       expect(config.proximitySettings, isNull);
@@ -97,18 +101,33 @@ void main() {
         accuracyProfile: PolyfenceAccuracyProfile.maxAccuracy,
         gpsAccuracyThreshold: 100.0,
         enableDebugLogging: false,
+        disableAlertNotifications: false,
       );
 
       final modified = original.copyWith(
         accuracyProfile: PolyfenceAccuracyProfile.batteryOptimal,
         enableDebugLogging: true,
+        disableAlertNotifications: true,
       );
 
       expect(modified.accuracyProfile, PolyfenceAccuracyProfile.batteryOptimal);
       expect(modified.enableDebugLogging, true);
+      expect(modified.disableAlertNotifications, true);
       // Preserved from original:
       expect(modified.gpsAccuracyThreshold, 100.0);
       expect(modified.updateStrategy, PolyfenceUpdateStrategy.continuous);
+    });
+
+    test('toMap serializes disableAlertNotifications with correct key', () {
+      final config = PolyfenceConfiguration(disableAlertNotifications: true);
+      final map = config.toMap();
+
+      expect(map.containsKey('disableAlertNotifications'), true);
+      expect(map['disableAlertNotifications'], true);
+
+      final defaultConfig = PolyfenceConfiguration();
+      final defaultMap = defaultConfig.toMap();
+      expect(defaultMap['disableAlertNotifications'], false);
     });
 
     test('all accuracy profiles serialize to correct channel format', () {
@@ -136,6 +155,7 @@ void main() {
       final str = config.toString();
       expect(str, contains('accuracyProfile'));
       expect(str, contains('updateStrategy'));
+      expect(str, contains('disableAlertNotifications'));
       expect(str, contains('gpsAccuracyThreshold'));
     });
   });

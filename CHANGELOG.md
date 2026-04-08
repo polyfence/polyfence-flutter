@@ -5,28 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.14.0] - 2026-04-08
 
 ### Added
 - **Bridge platform telemetry** — Plugin sets `bridge_platform: "flutter"` on native core during initialization. Identifies Flutter sessions in analytics, distinguishing from future React Native sessions.
 - **Health score stream** — `healthScoreStream` getter on `PolyfenceService` filters `performanceStream` for health score events. New `HealthScore` model.
 - **Debug overlay widget** — `PolyfenceDebugOverlay` draggable widget showing real-time health metrics. Only renders in debug builds.
+- **Native bridge tests** — 39 Android (JUnit/Mockito) and 30 iOS (XCTest) tests covering method channel marshalling and delegate forwarding.
+- **CI code quality job** — Emoji detection, secret scanning, internal file tracking, and internal reference checks.
+- **Dependabot** — Automated dependency updates for pub and github-actions (weekly).
 
 ### Fixed
 - **Android delegate bridge missing** — `PolyfenceCoreDelegate` was never wired up on Android, so the core engine received GPS but location/geofence/error events never reached Flutter. Implemented delegate in `PolyfencePlugin` and registered via `LocationTracker.setPendingCoreDelegate()`. iOS was unaffected (uses closure callbacks).
 - **Platform channel deep cast** — `getConfiguration()` and `getDebugInfo()` used shallow `Map.from()` which left nested settings maps as `_Map<Object?, Object?>`, crashing `PolyfenceConfiguration.fromMap()`. Added recursive `_deepCastMap()` for all platform channel returns with nested maps.
 - **Dead companion methods removed** — `sendLocationUpdate()`, `sendGeofenceEvent()`, `sendPerformanceEvent()` on Android companion object were never called (superseded by delegate pattern). Removed.
-- **polyfence-core dependency bumped to 1.0.3** — Includes FGS crash fix, GPS cold-start seed, and distance filter deferral.
-- **polyfence-core dependency bumped to 1.0.2** — Plugin calls `setBridgePlatform()` which was added in core 1.0.2. Previously declared 1.0.0, causing build failures for consumers.
+- **polyfence-core bumped to 1.0.3** — Includes FGS crash fix, GPS cold-start seed, and distance filter deferral.
+- **polyfence-core bumped to 1.0.2** — Plugin calls `setBridgePlatform()` which was added in core 1.0.2. Previously declared 1.0.0, causing build failures for consumers.
 - **Telemetry defaults, retry queue, and platform timeouts** — Audit findings resolved: telemetry field defaults corrected, retry queue backoff improved, platform-specific timeouts tuned.
 - **Analytics config consolidation** — `AnalyticsConfig` unified with typed `initialize()` method. Migration guide added.
 - **Haversine bounds and polygon test vectors** — Corrected edge-case calculations in `geofence_algorithms_test`.
 - **Debug overlay nested accessors** — Updated to use `PolyfenceDebugInfo` nested objects (`info.zones.activeZones`, `info.performance.totalZoneDetections`).
-- **Android build.gradle version alignment** — Was `1.0-SNAPSHOT`, now matches pubspec `0.13.0`.
+- **Android build.gradle version alignment** — Was `1.0-SNAPSHOT`, now matches pubspec version.
 - **Example app namespace** — Renamed from `io.polyfence` to `io.polyfence.example` to avoid collision with the plugin package.
 
 ### Changed
-- **CI restructured** — Quality checks moved to local pre-push hook. CI slimmed to analyze + test only.
+- **CI restructured** — Quality checks added as dedicated job. CI now runs analyze, test, native tests, and code quality.
 - **Contact emails consolidated** — All repo emails standardised to `hello@polyfence.io`.
 - **Documentation updates** — Platform versions corrected (iOS 14.0+, Android API 24+), stale links fixed, TELEMETRY.md trimmed to pure field reference.
 

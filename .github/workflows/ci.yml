@@ -38,12 +38,13 @@ jobs:
         with:
           channel: stable
 
-      - name: Build example app and run plugin unit tests
-        run: |
-          cd example
-          flutter pub get
-          cd android
-          ./gradlew :polyfence:test --info
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Resolve Flutter dependencies
+        run: cd example && flutter pub get
+
+      - name: Run plugin unit tests
+        run: cd example/android && gradle :polyfence:test --info
 
   code-quality:
     name: Code Quality

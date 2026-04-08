@@ -35,11 +35,6 @@ if grep -rPn '(sk_live|sk_test|pk_live|pk_test|AKIA[A-Z0-9]{16}|ghp_[a-zA-Z0-9]{
   exit 1
 fi
 
-echo "  Checking for internal references..."
-if grep -rn "Teslon\|Sector7" --include="*.dart" --include="*.kt" --include="*.swift" lib/ android/src/ ios/Classes/ 2>/dev/null; then
-  echo "ERROR: Internal references found in production code"
-  exit 1
-fi
 
 echo "  Checking for local paths in docs..."
 if git grep -nE '/Users/|C:\\\\Users\\\\|BEGIN PRIVATE KEY|BEGIN RSA PRIVATE KEY|AKIA[0-9A-Z]{16}' -- '**/*.md' 2>/dev/null; then

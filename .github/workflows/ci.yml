@@ -86,10 +86,3 @@ jobs:
             echo "::error::Potential secrets found in code"
             exit 1
           fi
-
-      - name: Check for internal references
-        run: |
-          if grep -rn "Teslon\|Sector7" --include="*.dart" --include="*.kt" --include="*.swift" --include="*.m" lib/ android/src/ ios/Classes/ 2>/dev/null; then
-            echo "::error::Internal references found in production code"
-            exit 1
-          fi

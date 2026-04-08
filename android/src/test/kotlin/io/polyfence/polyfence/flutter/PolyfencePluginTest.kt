@@ -137,7 +137,7 @@ class PolyfencePluginTest {
 
     @Test
     fun testGetErrorHistoryReturnsListOfMaps() {
-        val call = MethodCall("getErrorHistory", mapOf("timeRangeMs" to 3600000L, "errorTypes" to listOf()))
+        val call = MethodCall("getErrorHistory", mapOf("timeRangeMs" to 3600000L, "errorTypes" to listOf<String>()))
         plugin.onMethodCall(call, result)
         verify(result).success(any(List::class.java))
     }

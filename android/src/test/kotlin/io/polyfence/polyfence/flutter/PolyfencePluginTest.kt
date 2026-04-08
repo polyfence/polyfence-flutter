@@ -10,8 +10,8 @@ import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 import io.polyfence.core.LocationTracker
 import io.polyfence.core.PolyfenceDebugCollector
-import io.polyfence.core.SmartGpsConfig
-import io.polyfence.core.SmartGpsConfigFactory
+import io.polyfence.core.configuration.SmartGpsConfig
+import io.polyfence.core.configuration.SmartGpsConfigFactory
 import io.polyfence.core.ZonePersistence
 import org.junit.After
 import org.junit.Before
@@ -68,9 +68,9 @@ class PolyfencePluginTest {
             .thenReturn(mapOf("zone1" to true))
         mockedTracker.`when`<Map<String, Any>> { LocationTracker.getSessionTelemetry() }
             .thenReturn(mapOf("session_duration_ms" to 60000L))
-        mockedConfigFactory.`when`<Map<String, Any>> { SmartGpsConfigFactory.toMap(any()) }
+        mockedConfigFactory.`when`<Map<String, Any>> { SmartGpsConfigFactory.toMap(any(SmartGpsConfig::class.java)) }
             .thenReturn(mapOf("accuracyProfile" to "BALANCED"))
-        mockedConfigFactory.`when`<SmartGpsConfig> { SmartGpsConfigFactory.fromMap(any()) }
+        mockedConfigFactory.`when`<SmartGpsConfig> { SmartGpsConfigFactory.fromMap(any(Map::class.java) as Map<String, Any>) }
             .thenReturn(SmartGpsConfig())
         mockedDebug.`when`<Map<String, Any>> { PolyfenceDebugCollector.collectDebugInfo(any()) }
             .thenReturn(mapOf("version" to "0.14.0"))

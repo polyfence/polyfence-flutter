@@ -28,28 +28,22 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-java@v3
+
+      - uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'temurin'
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v2
-      - name: Build and run Android unit tests
-        run: |
-          cd android
-          chmod +x gradlew
-          ./gradlew test --info || echo "Tests completed with status $?"
 
-  ios-tests:
-    name: iOS Native Tests
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Run iOS unit tests
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Build example app and run plugin unit tests
         run: |
-          cd ios
-          if [ -f Podfile ]; then pod install; fi
-          xcodebuild test -scheme polyfence -configuration Debug 2>&1 || echo "Tests completed with status $?"
+          cd example
+          flutter pub get
+          cd android
+          ./gradlew :polyfence:test --info
 
   code-quality:
     name: Code Quality

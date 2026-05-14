@@ -1,5 +1,7 @@
 # <img src="logo-icon-512.png" alt="PolyFence Logo" width="48" style="vertical-align: middle; margin-right: 10px;"> <span style="vertical-align: middle">Polyfence</span>
 
+Polyfence is the geofence layer — same zones run on your mobile app, your IoT device, and your server. This package is the Flutter SDK; see [polyfence-core](https://github.com/polyfence/polyfence-core) (native engines) and [polyfence-embedded](https://github.com/polyfence/polyfence-embedded) (C library for IoT) for the other surfaces.
+
 **Privacy-first, on-device geofencing for Flutter.** Accurate circle & polygon zone detection with true background operation on both platforms. No location data or PII ever transmitted. Minimal dependencies.
 
 [![pub package](https://img.shields.io/pub/v/polyfence.svg)](https://pub.dev/packages/polyfence)

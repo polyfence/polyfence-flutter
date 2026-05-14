@@ -24,9 +24,20 @@ sed -i '' "s/^version:.*/version: $EXAMPLE_VERSION/" example/pubspec.yaml
 # Update Dart version constant
 sed -i '' "s/const String polyfencePluginVersion = '.*';/const String polyfencePluginVersion = '$PLUGIN_VERSION';/" lib/src/version.dart
 
-echo "✅ Version synced successfully!"
+# Update README.md version sentinels (BCT-FLT-005)
+sed -i '' "s|<!-- pf:version -->^[0-9][0-9.]*<!-- /pf:version -->|<!-- pf:version -->^$PLUGIN_VERSION<!-- /pf:version -->|" README.md
+sed -i '' "s|<!-- pf:version-plain -->[0-9][0-9.]*<!-- /pf:version-plain -->|<!-- pf:version-plain -->$PLUGIN_VERSION<!-- /pf:version-plain -->|" README.md
+
+# Update doc/TELEMETRY.md header and payload examples (BCT-FLT-005)
+sed -i '' "s/^\*\*Plugin version:\*\* [0-9][0-9.]*/**Plugin version:** $PLUGIN_VERSION/" doc/TELEMETRY.md
+sed -i '' "s/\"plugin_version\": \"[0-9][0-9.]*\"/\"plugin_version\": \"$PLUGIN_VERSION\"/g" doc/TELEMETRY.md
+sed -i '' "s/\`\"[0-9][0-9.]*\"\` | Plugin version/\`\"$PLUGIN_VERSION\"\` | Plugin version/" doc/TELEMETRY.md
+
+echo "Version synced successfully."
 echo "  Plugin version: $PLUGIN_VERSION"
 echo "  Example app version: $EXAMPLE_VERSION"
 echo "  iOS podspec: $PLUGIN_VERSION"
 echo "  Dart version constant: $PLUGIN_VERSION"
+echo "  README.md sentinels: $PLUGIN_VERSION"
+echo "  doc/TELEMETRY.md: $PLUGIN_VERSION"
 

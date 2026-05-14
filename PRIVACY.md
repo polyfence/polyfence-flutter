@@ -1,8 +1,8 @@
-# Polyfence Plugin — Privacy Policy
+# Polyfence Flutter SDK — Privacy Policy
 
 **Effective Date:** March 26, 2026
 **Last Updated:** March 27, 2026
-**Applies to:** The Polyfence Flutter plugin (`package:polyfence`)
+Applies to: The Polyfence Flutter SDK (`package:polyfence`)
 
 ---
 

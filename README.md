@@ -1,5 +1,7 @@
 # <img src="logo-icon-512.png" alt="PolyFence Logo" width="48" style="vertical-align: middle; margin-right: 10px;"> <span style="vertical-align: middle">Polyfence</span>
 
+Polyfence is the geofence layer — same zones run on your mobile app, your IoT device, and your server. This package is the Flutter SDK; see [polyfence-core](https://github.com/polyfence/polyfence-core) (native engines) and [polyfence-embedded](https://github.com/polyfence/polyfence-embedded) (C library for IoT) for the other surfaces.
+
 **Privacy-first, on-device geofencing for Flutter.** Accurate circle & polygon zone detection with true background operation on both platforms. No location data or PII ever transmitted. Minimal dependencies.
 
 [![pub package](https://img.shields.io/pub/v/polyfence.svg)](https://pub.dev/packages/polyfence)
@@ -15,9 +17,9 @@
 - **Privacy-first** — All geofencing runs on-device. Zero location data ever leaves the device by default. No cloud dependency.
 - **SmartGPS** — Intelligent GPS scheduling based on proximity, movement, activity, and battery state. 40-50% less battery drain than naive polling.
 
-## How to Use Polyfence
+## Zone sources — three ways
 
-**Three ways to use Polyfence** — choose what fits your workflow:
+Once you're using the Flutter SDK, you can source zones from three places. (For where the SDK fits in the wider Polyfence platform — the three integration surfaces across mobile, IoT, and server — see the header at the top of this README.)
 
 | Approach | Backend | API Key | Best For |
 |----------|---------|---------|----------|
@@ -25,7 +27,7 @@
 | **Fetch from your own API** | Your backend | Not needed | Existing infrastructure, custom zone logic |
 | **Use Polyfence SaaS** _(optional)_ | polyfence.io | Required | Visual zone editor, analytics dashboard |
 
-All three approaches use the **same plugin API** — switch anytime without code changes.
+All three zone-sourcing approaches use the **same plugin API** — switch anytime without code changes.
 
 ---
 
@@ -57,10 +59,10 @@ All three approaches use the **same plugin API** — switch anytime without code
 ```yaml
 # pubspec.yaml
 dependencies:
-  polyfence: ^0.13.0
+  polyfence: <!-- pf:version -->^0.14.0<!-- /pf:version -->
 ```
 
-**Current version:** 0.13.0
+**Current version:** <!-- pf:version-plain -->0.14.0<!-- /pf:version-plain -->
 
 > **Native dependency:** Polyfence uses [polyfence-core](https://github.com/polyfence/polyfence-core) for native geofencing engines. It's included automatically — Maven for Android, CocoaPods for iOS. On iOS, run `cd ios && pod install` after adding the dependency.
 
@@ -688,6 +690,18 @@ Polyfence is built with privacy as the foundation.
 - **Personal information** of any kind
 
 **Your users' location data stays on their device. Always.**
+
+### Zero PII about your end users
+
+Polyfence collects **zero PII and zero identifiable data about your end users.** The only personal information our analytics endpoint sees is anonymous platform aggregates — never coordinates, never identifiers.
+
+Different defaults for different data classes — control on every axis, no privacy theatre:
+
+| Data class | Default | Why |
+|---|---|---|
+| **Raw positions** | **Opt-IN** | We don't have your customers' location data unless you explicitly turn retention on. |
+| **Anonymous platform aggregates** | **Opt-OUT** with one-line disable | Collected by default to fuel product improvements everyone benefits from. Never coordinates, never identifiers, never PII. Industry-standard pattern (Stripe, Vercel, Cloudflare, Sentry). |
+| **Zone events** | **Always** | They're the value we deliver — collecting them isn't surveillance, it's the product. |
 
 ### Anonymous Plugin Telemetry (Opt-Out)
 

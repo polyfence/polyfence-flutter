@@ -168,8 +168,8 @@ test: Add ray-casting algorithm tests
 ### Core Principles
 
 1. **Privacy First**
-   - No external API calls by default
-   - Anonymous telemetry is opt-in (disabled by default)
+   - No external API calls related to user data — the anonymous telemetry endpoint is the one exception, opt-out via `AnalyticsConfig(disableTelemetry: true)`.
+   - Anonymous platform telemetry is opt-out (one-line disable). No GPS coordinates, no zone definitions, no user identifiers — ever sent.
    - Location data stays on device
 
 2. **Platform Parity**

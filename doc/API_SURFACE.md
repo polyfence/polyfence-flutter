@@ -197,8 +197,7 @@
 
 | Property | Type | Default | Notes |
 |----------|------|---------|-------|
-| `enabled` | `bool` | `true` | Whether analytics is enabled (opt-out, D008) |
-| `disableTelemetry` | `bool` | `false` | Explicit opt-out flag (redundant with `enabled`, see R7) |
+| `disableTelemetry` | `bool` | `false` | Opt-out flag — telemetry is enabled by default (D008). Set to `true` to disable. |
 | `industryCategory` | `String?` | `null` | From IndustryCategory enum values |
 | `useCase` | `String?` | `null` | Custom use-case string |
 | `apiEndpoint` | `String?` | `null` | Must be HTTPS |

@@ -106,7 +106,7 @@ Developer code handles event
 
 ### Telemetry Flow
 
-Telemetry is opt-in. When enabled:
+Telemetry is opt-out — enabled by default with one-line disable (`AnalyticsConfig(disableTelemetry: true)`). When enabled:
 
 ```
 GeofenceEngine + LocationTracker (polyfence-core)

@@ -15,15 +15,15 @@ The app works immediately with **no setup required** using hardcoded demo zones.
 
 This example shows:
 
-- ✅ **Standalone zone management** (hardcoded zones)
-- ✅ **API zone fetching** (from polyfence.io)
-- ✅ **Delta-based zone sync** (efficient updates)
-- ✅ **Real-time geofence events** (entry/exit)
-- ✅ **Background tracking** (app minimized/killed)
-- ✅ **GPS profile switching** (Android)
-- ✅ **Permission handling** (iOS/Android)
-- ✅ **Error stream handling**
-- ✅ **Battery optimization** (Android)
+- **Standalone zone management** (hardcoded zones)
+- **API zone fetching** (from polyfence.io)
+- **Delta-based zone sync** (efficient updates)
+- **Real-time geofence events** (entry/exit)
+- **Background tracking** (app minimized/killed)
+- **GPS profile switching** (Android)
+- **Permission handling** (iOS/Android)
+- **Error stream handling**
+- **Battery optimization** (Android)
 
 ## Running in Demo Mode (Default)
 

@@ -17,7 +17,7 @@ mkdir -p .git/hooks
 if [ -f "$SCRIPT_DIR/pre-commit-hook" ]; then
     cp "$SCRIPT_DIR/pre-commit-hook" "$HOOK_FILE"
     chmod +x "$HOOK_FILE"
-    echo "✅ Pre-commit hook installed successfully"
+    echo "[OK] Pre-commit hook installed successfully"
     echo "   Versions will now auto-sync when pubspec.yaml changes"
 else
     # Create hook inline if template doesn't exist
@@ -34,7 +34,7 @@ cd "$REPO_ROOT"
 
 # Check if pubspec.yaml is being committed or modified
 if git diff --cached --name-only | grep -q "pubspec.yaml"; then
-    echo "📦 pubspec.yaml changed - syncing versions..."
+    echo "pubspec.yaml changed - syncing versions..."
     
     # Run sync script
     if [ -f "scripts/sync_version.sh" ]; then
@@ -43,16 +43,16 @@ if git diff --cached --name-only | grep -q "pubspec.yaml"; then
         # Stage the synced files
         git add example/pubspec.yaml ios/polyfence.podspec 2>/dev/null || true
         
-        echo "✅ Versions synced and staged"
+        echo "[OK] Versions synced and staged"
     else
-        echo "⚠️  Warning: sync_version.sh not found, skipping version sync"
+        echo "Warning: sync_version.sh not found, skipping version sync"
     fi
 fi
 
 exit 0
 EOF
     chmod +x "$HOOK_FILE"
-    echo "✅ Pre-commit hook created and installed successfully"
+    echo "[OK] Pre-commit hook created and installed successfully"
     echo "   Versions will now auto-sync when pubspec.yaml changes"
 fi
 

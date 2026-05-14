@@ -33,7 +33,7 @@ sed -i '' "s/^\*\*Plugin version:\*\* [0-9][0-9.]*/**Plugin version:** $PLUGIN_V
 sed -i '' "s/\"plugin_version\": \"[0-9][0-9.]*\"/\"plugin_version\": \"$PLUGIN_VERSION\"/g" doc/TELEMETRY.md
 sed -i '' "s/\`\"[0-9][0-9.]*\"\` | Plugin version/\`\"$PLUGIN_VERSION\"\` | Plugin version/" doc/TELEMETRY.md
 
-echo "✅ Version synced successfully!"
+echo "Version synced successfully."
 echo "  Plugin version: $PLUGIN_VERSION"
 echo "  Example app version: $EXAMPLE_VERSION"
 echo "  iOS podspec: $PLUGIN_VERSION"

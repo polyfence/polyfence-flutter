@@ -9,7 +9,7 @@
 ///
 /// - **Circle & Polygon Zones**: Support for both circular and complex polygon zones
 /// - **True Background Operation**: Works reliably in background on iOS and Android
-/// - **Privacy-First**: All processing happens on-device by default
+/// - **Privacy-First**: Positions never leave the device — only zone events. Anonymous platform telemetry is opt-out with one line.
 /// - **Cross-Platform Consistency**: Identical behavior on Android and iOS
 /// - **Structured Error Handling**: Comprehensive error streams for debugging
 /// - **Battery Optimization**: Built-in battery optimization management

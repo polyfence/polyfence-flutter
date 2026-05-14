@@ -128,14 +128,14 @@ test: Add ray-casting algorithm tests
 
 ### What We Look For in PRs
 
-✅ **Good PRs:**
+Good PRs:
 - Solve a specific problem
 - Include tests
 - Have clear commit messages
 - Update relevant documentation
 - Are focused (one feature/fix per PR)
 
-❌ **PRs we'll likely reject:**
+PRs we'll likely reject:
 - Large, unfocused changes
 - No tests for new features
 - Breaking changes without discussion
@@ -268,6 +268,6 @@ By contributing, you agree that your contributions will be licensed under the sa
 - **Security issues**: See [SECURITY.md](SECURITY.md)
 - **Commercial support**: [polyfence.io](https://polyfence.io)
 
-## Thank You! 🎉
+## Thank You!
 
 Every contribution makes Polyfence better for the entire Flutter community. We appreciate your time and effort!

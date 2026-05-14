@@ -166,12 +166,9 @@ class PolyfenceService {
   ///   },
   /// );
   ///
-  /// // With analytics (opt-in):
+  /// // Opt out of telemetry:
   /// await Polyfence.instance.initialize(
-  ///   analyticsConfig: AnalyticsConfig(
-  ///     enabled: true,
-  ///     apiKey: 'your-api-key',
-  ///   ),
+  ///   analyticsConfig: AnalyticsConfig(disableTelemetry: true),
   /// );
   /// ```
   ///

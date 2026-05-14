@@ -59,10 +59,10 @@ All three approaches use the **same plugin API** — switch anytime without code
 ```yaml
 # pubspec.yaml
 dependencies:
-  polyfence: ^0.13.0
+  polyfence: <!-- pf:version -->^0.14.0<!-- /pf:version -->
 ```
 
-**Current version:** 0.13.0
+**Current version:** <!-- pf:version-plain -->0.14.0<!-- /pf:version-plain -->
 
 > **Native dependency:** Polyfence uses [polyfence-core](https://github.com/polyfence/polyfence-core) for native geofencing engines. It's included automatically — Maven for Android, CocoaPods for iOS. On iOS, run `cd ios && pod install` after adding the dependency.
 

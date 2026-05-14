@@ -58,18 +58,16 @@ When reporting a vulnerability, please include:
 
    **Example: Secure API Key Storage**
 
+   API keys are only required for Polyfence.io dashboard features. The anonymous
+   telemetry pipeline does NOT require an API key and is enabled by default —
+   see [PRIVACY.md](PRIVACY.md) and [doc/TELEMETRY.md](doc/TELEMETRY.md) for the
+   canonical one-line opt-out.
+
    **Option 1: Environment Variables (Recommended for CI/CD)**
 
    ```dart
    // Load from environment at build time
    const String? apiKey = String.fromEnvironment('POLYFENCE_API_KEY');
-
-   await Polyfence.instance.initialize(
-     analyticsConfig: AnalyticsConfig(
-       enabled: apiKey != null,
-       apiKey: apiKey,
-     ),
-   );
    ```
 
    Build command:
@@ -93,15 +91,6 @@ When reporting a vulnerability, please include:
        await _storage.write(key: 'polyfence_api_key', value: key);
      }
    }
-
-   // Usage
-   final apiKey = await ApiKeyManager.getApiKey();
-   await Polyfence.instance.initialize(
-     analyticsConfig: AnalyticsConfig(
-       enabled: apiKey != null,
-       apiKey: apiKey,
-     ),
-   );
    ```
 
 2. **Location Data**
@@ -195,11 +184,10 @@ We use the Polyfence open-source SDK for geofencing. By default, Polyfence:
 - Does not transmit location data to any external servers
 - Stores geofence zone definitions locally in device storage
 
-Optional Analytics (if enabled):
-If you enable analytics, aggregated performance metrics (GPS accuracy, battery
-usage, detection latency) are transmitted to [polyfence.io / your backend].
-These metrics do NOT include your actual GPS coordinates or personal location
-history.
+Anonymous performance metrics (GPS accuracy averages, battery usage, detection
+latency) are transmitted to polyfence.io by default. These metrics do NOT
+include your actual GPS coordinates or personal location history. Disable
+telemetry with one line: `AnalyticsConfig(disableTelemetry: true)`.
 
 You can disable location services at any time in your device Settings.
 ```

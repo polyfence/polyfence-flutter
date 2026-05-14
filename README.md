@@ -17,9 +17,9 @@ Polyfence is the geofence layer — same zones run on your mobile app, your IoT 
 - **Privacy-first** — All geofencing runs on-device. Zero location data ever leaves the device by default. No cloud dependency.
 - **SmartGPS** — Intelligent GPS scheduling based on proximity, movement, activity, and battery state. 40-50% less battery drain than naive polling.
 
-## How to Use Polyfence
+## Zone sources — three ways
 
-**Three ways to use Polyfence** — choose what fits your workflow:
+Once you're using the Flutter SDK, you can source zones from three places. (For where the SDK fits in the wider Polyfence platform — the three integration surfaces across mobile, IoT, and server — see the header at the top of this README.)
 
 | Approach | Backend | API Key | Best For |
 |----------|---------|---------|----------|
@@ -27,7 +27,7 @@ Polyfence is the geofence layer — same zones run on your mobile app, your IoT 
 | **Fetch from your own API** | Your backend | Not needed | Existing infrastructure, custom zone logic |
 | **Use Polyfence SaaS** _(optional)_ | polyfence.io | Required | Visual zone editor, analytics dashboard |
 
-All three approaches use the **same plugin API** — switch anytime without code changes.
+All three zone-sourcing approaches use the **same plugin API** — switch anytime without code changes.
 
 ---
 

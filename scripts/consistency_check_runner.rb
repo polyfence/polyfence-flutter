@@ -11,6 +11,13 @@ require "pathname"
 require "psych"
 require "set"
 
+# Force UTF-8 across all file I/O. Avoids `invalid byte sequence in
+# US-ASCII` crashes on em dashes / other Unicode in target files when
+# the shell locale isn't UTF-8 (Ruby's File.read otherwise inherits the
+# external locale, which is ASCII on minimal shells).
+Encoding.default_external = Encoding::UTF_8
+Encoding.default_internal = Encoding::UTF_8
+
 ROOT = ENV.fetch("CONSISTENCY_REPO_ROOT")
 
 def fail_check(id, error, fix)

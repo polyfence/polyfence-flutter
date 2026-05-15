@@ -141,6 +141,8 @@ class PolyfenceAnalytics {
       final headers = <String, String>{
         'Content-Type': 'application/json',
         'Idempotency-Key': idempotencyKey,
+        'User-Agent': 'polyfence-flutter/$_pluginVersion',
+        'X-Platform': Platform.isIOS ? 'ios' : 'android',
       };
 
       if (_config?.apiKey != null && _config!.apiKey!.isNotEmpty) {
@@ -221,6 +223,8 @@ class PolyfenceAnalytics {
           final headers = <String, String>{
             'Content-Type': 'application/json',
             'Idempotency-Key': idempotencyKey,
+            'User-Agent': 'polyfence-flutter/$_pluginVersion',
+            'X-Platform': Platform.isIOS ? 'ios' : 'android',
           };
 
           if (_config?.apiKey != null && _config!.apiKey!.isNotEmpty) {

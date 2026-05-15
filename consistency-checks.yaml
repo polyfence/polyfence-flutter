@@ -34,6 +34,14 @@ checks:
     pattern: "doc/TELEMETRY\\.md"
     fix: Restore the telemetry reference doc link in PRIVACY.md so SDK privacy and telemetry stay cross-linked.
 
+  - id: privacy-md-zero-pii-headline
+    description: PRIVACY.md carries the Role-1 canonical Zero PII headline (verbatim)
+    type: regex-presence
+    files:
+      - PRIVACY.md
+    pattern: "Zero PII about your end users"
+    fix: Sync the Zero PII block against polyfence-internal/templates/PRIVACY_ROLE1.md (verbatim headline).
+
   - id: pubspec-description-geofencing
     description: pubspec.yaml description states the geofencing purpose (brand-adjacent clarity)
     type: regex-presence

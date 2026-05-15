@@ -1,0 +1,27 @@
+# Phase 2 declarative drift checks — polyfence-flutter
+checks:
+  - id: bootstrap-files-not-tracked
+    description: CLAUDE.md, .cursorrules, tasks/, prompts/, .claude/ must never be tracked
+    type: subprocess
+    runs: bash scripts/consistency-bootstrap-not-tracked.sh
+    fix: Untrack forbidden scaffold paths — git rm --cached — keep them machine-local only.
+
+  - id: pubspec-readme-version-sync
+    description: pubspec.yaml semver matches sentinel occurrences in README and doc/TELEMETRY.md
+    type: subprocess
+    runs: bash scripts/consistency-pubspec-readme-version.sh
+    fix: Bump the README sentinels and doc/TELEMETRY.md whenever pubspec.yaml version changes.
+
+  - id: dart-analyze-clean
+    description: Flutter analyzer reports zero errors on plugin surfaces (infos tolerated via project precedent)
+    type: subprocess
+    runs: flutter analyze lib android ios example --no-fatal-infos
+    fix: Run flutter analyze and resolve failures until clean — mirror CI/pre-push expectations.
+
+  - id: readme-cites-brand-positioning
+    description: README carries canonical positioning anchor
+    type: regex-presence
+    files:
+      - README.md
+    pattern: "(BRAND_POSITIONING\\.md|geofence layer)"
+    fix: Sync README positioning paragraph against polyfence-internal commercial/BRAND_POSITIONING.md.

@@ -1,4 +1,4 @@
-# Phase 2 declarative drift checks — polyfence-flutter
+# Phase 3 declarative drift checks — polyfence-flutter
 checks:
   - id: bootstrap-files-not-tracked
     description: CLAUDE.md, .cursorrules, tasks/, prompts/, .claude/ must never be tracked
@@ -25,3 +25,19 @@ checks:
       - README.md
     pattern: "(BRAND_POSITIONING\\.md|geofence layer)"
     fix: Sync README positioning paragraph against polyfence-internal commercial/BRAND_POSITIONING.md.
+
+  - id: privacy-md-links-telemetry-doc
+    description: PRIVACY.md links readers to doc/TELEMETRY.md for field-level detail
+    type: regex-presence
+    files:
+      - PRIVACY.md
+    pattern: "doc/TELEMETRY\\.md"
+    fix: Restore the telemetry reference doc link in PRIVACY.md so SDK privacy and telemetry stay cross-linked.
+
+  - id: pubspec-description-geofencing
+    description: pubspec.yaml description states the geofencing purpose (brand-adjacent clarity)
+    type: regex-presence
+    files:
+      - pubspec.yaml
+    pattern: "(?i)geofenc"
+    fix: Ensure pubspec description mentions geofencing so package metadata matches README positioning.

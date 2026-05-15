@@ -21,10 +21,11 @@ bash scripts/consistency-check.sh --local-only
 | dart-analyze-clean | Static analysis passes |
 | readme-cites-brand-positioning | Canonical pitch anchor present |
 | privacy-md-links-telemetry-doc | `PRIVACY.md` links `doc/TELEMETRY.md` |
+| privacy-md-zero-pii-headline | `PRIVACY.md` includes the verbatim Role-1 Zero PII headline |
 | pubspec-description-geofencing | `pubspec.yaml` description mentions geofencing |
 
 ## Phase 3
 
-`pubspec-readme-version-sync` already covered `doc/TELEMETRY.md` in Phase 2; Phase 3 adds explicit privacy/telemetry cross-links and package-description copy hygiene. Flutter’s `PRIVACY.md` is not yet on the Role-1 template headline verbatim — a headline-alignment check is deferred until that propagation lands.
+`pubspec-readme-version-sync` already covered `doc/TELEMETRY.md` in Phase 2; Phase 3 adds explicit privacy/telemetry cross-links, package-description copy hygiene, and the Role-1 Zero PII headline check on `PRIVACY.md`.
 
 Note: this repo gitignores `docs/` (website build output); the runbook lives under `doc/` alongside other developer docs.

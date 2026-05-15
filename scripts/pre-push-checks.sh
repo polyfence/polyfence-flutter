@@ -49,4 +49,7 @@ flutter analyze --no-fatal-infos
 echo "  Running flutter test..."
 flutter test
 
+echo "  Running consistency checks..."
+bash scripts/consistency-check.sh --local-only
+
 echo "All pre-push checks passed."

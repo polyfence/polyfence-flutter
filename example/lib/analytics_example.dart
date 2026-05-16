@@ -31,7 +31,7 @@ class _AnalyticsExampleState extends State<AnalyticsExample> {
           disableTelemetry: !_analyticsEnabled,
           industryCategory: 'logistics',
           useCase: 'delivery_tracking',
-          apiEndpoint: 'https://polyfence.io/api/v1/analytics/session',
+          apiEndpoint: 'https://polyfence.io/api/v1/telemetry/session',
         ),
       );
 

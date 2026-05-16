@@ -121,7 +121,7 @@ PolyfenceAnalytics (Dart)
   │  Merges native metrics with Dart-side metrics
   │  Converts camelCase keys → snake_case for API
   ▼
-HTTPS POST → polyfence.io/api/v1/analytics/session
+HTTPS POST → polyfence.io/api/v1/telemetry/session
   │  Anonymous aggregate metrics only
   │  No GPS coordinates, no PII, no zone definitions
 ```

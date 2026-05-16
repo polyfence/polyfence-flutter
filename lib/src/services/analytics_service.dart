@@ -72,7 +72,7 @@ class PolyfenceAnalytics {
   Future<Map<String, dynamic>> Function()? _sessionTelemetryFetcher;
 
   static const String _defaultEndpoint =
-      'https://polyfence.io/api/v1/analytics/session';
+      'https://polyfence.io/api/v1/telemetry/session';
 
   /// Initializes the analytics service with the given configuration.
   ///

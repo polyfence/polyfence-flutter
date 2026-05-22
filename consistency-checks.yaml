@@ -24,7 +24,7 @@ checks:
     files:
       - README.md
     pattern: "(BRAND_POSITIONING\\.md|geofence layer)"
-    fix: Sync README positioning paragraph against internal commercial/BRAND_POSITIONING.md.
+    fix: Restore the canonical positioning paragraph in README ("geofence layer" framing).
 
   - id: privacy-md-links-telemetry-doc
     description: PRIVACY.md links readers to doc/TELEMETRY.md for field-level detail
@@ -40,7 +40,7 @@ checks:
     files:
       - PRIVACY.md
     pattern: "Zero PII about your end users"
-    fix: Sync the Zero PII block against internal/templates/PRIVACY_ROLE1.md (verbatim headline).
+    fix: Restore the verbatim "Zero PII about your end users" headline block in PRIVACY.md.
 
   - id: pubspec-description-geofencing
     description: pubspec.yaml description states the geofencing purpose (brand-adjacent clarity)

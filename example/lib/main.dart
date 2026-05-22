@@ -748,7 +748,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                       : null;
                   await LogBuffer.exportLogs(shareOrigin: origin);
                 } catch (e) {
-                  if (mounted) {
+                  if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(content: Text('Export failed: $e')),
                     );

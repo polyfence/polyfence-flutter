@@ -1,0 +1,5 @@
+# Default owners for all paths.
+# The @polyfence/maintainers team is the canonical owner; @blackabass
+# is listed as an individual fallback so reviews still route while the
+# team has only one active member.
+*       @polyfence/maintainers @blackabass

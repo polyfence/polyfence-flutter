@@ -32,6 +32,13 @@ tasks/
 # Scripts (dev tooling, not needed by consumers)
 scripts/
 
+# Tests (run in CI, not needed at install time — reduces ~200KB archive bloat)
+test/
+integration_test/
+consistency-checks.yaml
+.pubignore
+Makefile
+
 # iOS build artifacts in example
 example/ios/Podfile.lock
 example/ios/Pods/

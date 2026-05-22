@@ -175,5 +175,3 @@ The SDK is open source under the MIT License. You can verify claims in this poli
 ---
 
 **Summary:** Anonymous platform telemetry is on by default with a one-line opt-out. **Zero PII about your end users** in our SDK telemetry path: no coordinates, no end-user identifiers, no end-user PII. Customer account data for polyfence.io follows the platform policy. Open source — verify our claims in the code.
-
-<!-- source: polyfence-internal/templates/PRIVACY_ROLE1.md -->

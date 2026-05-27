@@ -31,12 +31,12 @@ class GpsProfileCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // Header Row
-                Row(
+                const Row(
                   children: [
                     Icon(LucideIcons.settings,
                         size: 20, color: AppTheme.mutedForeground),
-                    const SizedBox(width: 8),
-                    const Text(
+                    SizedBox(width: 8),
+                    Text(
                       'GPS Profile',
                       style: TextStyle(
                         fontSize: 16, // text-base (match Tracking Active)

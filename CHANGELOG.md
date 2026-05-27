@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.14.1] - 2026-05-27
+
+### Fixed
+- **"Invalid timestamp type: Null" error emitted per geofence transition on Android.** `_handleGeofenceEvent` in `polyfence_service.dart` validates `eventData['timestamp']` as `int | double` and emits a `PolyfenceError` to consumers' SDK error streams when the field is null or absent. polyfence-core on Android was omitting the `timestamp` field from its geofence event delegate map (iOS had always included it), so every ENTER/EXIT/DWELL on Android Flutter consumers produced a red error banner alongside the legitimate event. **Fix:** bumped the Android `polyfence-core` Gradle dependency from `1.0.5` to `1.0.8`, which adds `"timestamp" to System.currentTimeMillis()` to the event map. The Dart code is unchanged — the bridge was correct; the underlying SDK was the source of the null.
+
+### Changed
+- **`polyfence-core` dependency bumped from `1.0.5` to `1.0.8`** (see Fixed above for the why). iOS Pod side is unchanged — consumers' iOS Podfiles continue to pin core via their existing mechanism; no new requirement for this Flutter release.
+
 ## [0.14.0] - 2026-04-08
 
 ### Added

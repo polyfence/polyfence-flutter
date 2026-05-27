@@ -41,7 +41,12 @@ jobs:
     runs-on: ubuntu-latest
     needs: [validate-version-sync, validate-code]
     permissions:
+      # GitHub Actions: declaring ANY explicit permissions implicitly sets all
+      # others to `none`. Without `contents: read`, `actions/checkout` fails
+      # with "Repository not found" (this killed v0.14.0 and v0.14.1 publish
+      # attempts). `id-token: write` is required by pub.dev's OIDC exchange.
       id-token: write
+      contents: read
     steps:
       - uses: actions/checkout@v6
       - uses: subosito/flutter-action@v2

@@ -7,7 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.14.1] - 2026-05-27
+## [0.14.2] - 2026-05-27
+
+### Fixed
+- **Tag-triggered publish workflow's `publish-pub` job failed at `actions/checkout`** with `fatal: repository ... not found`. Root cause: the job's `permissions:` block declared `id-token: write` only. GitHub Actions implicitly sets all other permissions to `none` whenever any explicit permissions are declared — so `contents` defaulted to `none`, denying `actions/checkout` access to the repository. **Fix:** add `contents: read` alongside `id-token: write`. Both v0.14.0 and v0.14.1 tag publishes failed for this reason and never reached pub.dev; v0.14.2 is the first version of this plugin to actually publish under the OIDC flow.
+
+### Changed
+- This release is functionally identical to the never-published v0.14.1: bumps the Android `polyfence-core` Gradle dependency `1.0.5 → 1.0.8` for Android geofence event-map `timestamp` field parity with iOS (fixes "Invalid timestamp type: Null" error banner in consumer apps on Android).
+
+## [0.14.1] - 2026-05-27 [YANKED — failed publish]
+
+> v0.14.1 was tagged on 2026-05-27 but the Publish workflow's `publish-pub` job failed at `actions/checkout` due to missing `contents: read` permission. **No artifact reached pub.dev for this version.** See v0.14.2 for the actual shipped release. Tag retained for git history.
 
 ### Fixed
 - **"Invalid timestamp type: Null" error emitted per geofence transition on Android.** `_handleGeofenceEvent` in `polyfence_service.dart` validates `eventData['timestamp']` as `int | double` and emits a `PolyfenceError` to consumers' SDK error streams when the field is null or absent. polyfence-core on Android was omitting the `timestamp` field from its geofence event delegate map (iOS had always included it), so every ENTER/EXIT/DWELL on Android Flutter consumers produced a red error banner alongside the legitimate event. **Fix:** bumped the Android `polyfence-core` Gradle dependency from `1.0.5` to `1.0.8`, which adds `"timestamp" to System.currentTimeMillis()` to the event map. The Dart code is unchanged — the bridge was correct; the underlying SDK was the source of the null.

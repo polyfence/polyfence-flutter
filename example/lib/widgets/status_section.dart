@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../models/app_models.dart';
 import '../theme/app_theme.dart';
+import 'common/poly_card.dart';
 
 class StatusSection extends StatefulWidget {
   final bool isTracking;
@@ -30,6 +31,10 @@ class StatusSection extends StatefulWidget {
 }
 
 class _StatusSectionState extends State<StatusSection> {
+  // Activity label — emoji-prefixed per the ratified UX spec. The repo's
+  // "no emojis" CI guard scopes to the plugin's lib/, android/src/, and
+  // ios/Classes/ — example/lib/ is intentionally not covered, and these
+  // activity glyphs are part of the example's surface design.
   String _formatActivity(String activity) {
     switch (activity.toLowerCase()) {
       case 'still':
@@ -68,12 +73,7 @@ class _StatusSectionState extends State<StatusSection> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppTheme.lavenderBackground,
-        borderRadius: BorderRadius.circular(AppTheme.radiusLg),
-        border: Border.all(color: AppTheme.lavenderBorder),
-      ),
+    return PolyCard(
       padding: const EdgeInsets.all(AppTheme.spacingLg),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -83,78 +83,81 @@ class _StatusSectionState extends State<StatusSection> {
             children: [
               _PulsingDot(
                 isActive: widget.isTracking,
-                color: widget.isTracking ? AppTheme.success : AppTheme.muted,
+                color: widget.isTracking ? AppTheme.success : AppTheme.textTertiary,
               ),
               const SizedBox(width: AppTheme.spacingSm),
               Text(
                 widget.isTracking ? 'Tracking Active' : 'Tracking Stopped',
                 style: const TextStyle(
-                  fontSize: 16, // text-base
-                  fontWeight: FontWeight.w500, // font-medium
-                  color: AppTheme.foreground, // text-gray-900
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                  color: AppTheme.foreground,
                 ),
               ),
             ],
           ),
           const SizedBox(height: AppTheme.spacingMd),
 
-          // Coordinates - Copyable
-          InkWell(
-            onTap: widget.location != null ? _copyToClipboard : null,
-            borderRadius: BorderRadius.circular(AppTheme.radiusMd),
-            child: Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(AppTheme.radiusMd),
-                border: Border.all(color: Colors.transparent),
+          // Coordinates block
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Current Position',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: AppTheme.mutedForeground,
+                ),
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              const SizedBox(height: AppTheme.spacingXs),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  const Text(
-                    'Current Position',
-                    style: TextStyle(
-                      fontSize: 14, // text-sm
-                      color: Color(0xFF4B5563), // text-gray-600
-                    ),
+                  Flexible(
+                    child: widget.location != null
+                        ? Text(
+                            widget.location!.toFormattedString(),
+                            // Space Grotesk + tabular figures gives stable
+                            // digit widths so coords don't jitter as values
+                            // update — without forcing a font switch.
+                            style: AppTheme.brandTextStyle(
+                              fontSize: 14,
+                              color: AppTheme.foreground,
+                              fontFeatures: const [
+                                FontFeature.tabularFigures(),
+                              ],
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          )
+                        : Text(
+                            widget.locationStatus ?? 'Waiting for GPS...',
+                            style: AppTheme.brandTextStyle(
+                              fontSize: 14,
+                              color: AppTheme.foreground,
+                            ),
+                          ),
                   ),
-                  const SizedBox(height: 4),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Expanded(
-                        child: widget.location != null
-                            ? Text(
-                                widget.location!.toFormattedString(),
-                                style: const TextStyle(
-                                  fontSize: 14, // text-sm
-                                  color: Color(0xFF6B7280), // text-gray-500
-                                  fontStyle: FontStyle.italic,
-                                  fontFeatures: [FontFeature.tabularFigures()],
-                                ),
-                              )
-                            : Text(
-                                widget.locationStatus ?? 'Waiting for GPS...',
-                                style: const TextStyle(
-                                  fontSize: 14, // text-sm
-                                  color: Color(0xFF6B7280), // text-gray-500
-                                  fontStyle: FontStyle.italic,
-                                ),
-                              ),
-                      ),
-                      if (widget.location != null)
-                        const Icon(
+                  if (widget.location != null) ...[
+                    const SizedBox(width: AppTheme.spacingSm),
+                    InkWell(
+                      onTap: _copyToClipboard,
+                      borderRadius: BorderRadius.circular(AppTheme.spacingXs),
+                      child: const Padding(
+                        padding: EdgeInsets.all(AppTheme.spacingXs),
+                        child: Icon(
                           LucideIcons.copy,
-                          size: 16,
+                          size: 14,
                           color: AppTheme.mutedForeground,
                         ),
-                    ],
-                  ),
+                      ),
+                    ),
+                  ],
                 ],
               ),
-            ),
+            ],
           ),
-          const SizedBox(height: AppTheme.spacingMd),
+          const SizedBox(height: AppTheme.spacingLg),
 
           // Metrics Grid - 2x2 layout
           Row(
@@ -177,7 +180,7 @@ class _StatusSectionState extends State<StatusSection> {
               ),
             ],
           ),
-          const SizedBox(height: AppTheme.spacingSm),
+          const SizedBox(height: AppTheme.spacingMd),
           Row(
             children: [
               Expanded(
@@ -284,25 +287,27 @@ class _MetricTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         Text(
           value,
           style: const TextStyle(
-            fontSize: 18, // text-lg
-            fontWeight: FontWeight.w600, // font-semibold
-            color: AppTheme.foreground, // text-gray-900
+            fontSize: 20,
+            fontWeight: FontWeight.w600,
+            color: AppTheme.foreground,
           ),
         ),
-        const SizedBox(height: 4),
+        const SizedBox(height: 2),
         Text(
           label,
           style: const TextStyle(
-            fontSize: 12, // text-xs
-            color: Color(0xFF4B5563), // text-gray-600
+            fontSize: 12,
+            color: AppTheme.mutedForeground,
           ),
         ),
       ],
     );
   }
 }
+

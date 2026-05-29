@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **Example app replaced with the ratified Polyfence QA Flutter implementation.** The previous demo (a single Dashboard screen with hardcoded London zones in `demo_data.dart` and a `demoMode`/`apiKey` toggle in `config.dart`) is gone. The new example ships with no preconfigured zones, a Dashboard + Map two-tab layout, brand typography (Space Grotesk via `google_fonts`), and live zone sync from the user's Polyfence account.
+- **Example identifiers renamed.** Display name → "Polyfence Flutter Example", iOS bundle id + Android applicationId/namespace → `io.polyfence.example.flutter`, `MainActivity` moved to `io/polyfence/example/flutter/`. The Dart pubspec package name stays `polyfence_example`.
+- **Example API-key flow.** Users sign up for a free key at polyfence.io and pass it at build time via `--dart-define=POLYFENCE_API_KEY=...`. This is a dev-facing example run from an IDE or shell, so the key belongs in the build invocation — there is no in-app paste field. When the define is missing the Dashboard renders an empty-state card surfacing the exact `flutter run` command; the Map tab continues to render the user's position with zero zones.
+- **Example permissions.** Added `ACTIVITY_RECOGNITION` (and the GMS variant) to the example's `AndroidManifest.xml` so the SmartGPS intelligent strategy can read activity confidence. Bumped the example's iOS Podfile platform from 13.0 to 14.0 to match the plugin's `polyfence.podspec` floor.
+- **Example dependency footprint trimmed.** Removed `battery_plus`, `connectivity_plus`, `device_info_plus`, `path_provider`, and `share_plus` (which only existed to support a now-removed on-device log buffer). Added `flutter_map`, `latlong2`, and `google_fonts` for the new Map tab and brand typography. The `polyfence` dependency continues to point at `path: ../` so plugin changes can be exercised against the example in PRs.
+- **Example Xcode project now tracked.** `example/ios/Runner.xcodeproj/` and `example/ios/Runner.xcworkspace/` were previously gitignored, which meant an iOS user cloning the repo had no Xcode project at all (Flutter does not regenerate them on `flutter pub get`). They're now tracked with `PRODUCT_BUNDLE_IDENTIFIER = io.polyfence.example.flutter` and no `DEVELOPMENT_TEAM` set, so a fresh clone builds cleanly under any signing identity.
+
 ## [0.14.2] - 2026-05-27
 
 ### Fixed

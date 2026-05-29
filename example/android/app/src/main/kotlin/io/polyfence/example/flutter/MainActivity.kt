@@ -1,4 +1,4 @@
-package io.polyfence.example
+package io.polyfence.example.flutter
 
 import android.content.Intent
 import io.flutter.embedding.android.FlutterActivity

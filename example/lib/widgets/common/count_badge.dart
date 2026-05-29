@@ -28,7 +28,7 @@ class CountBadge extends StatelessWidget {
         displayText,
         style: const TextStyle(
           fontSize: 12, // text-xs
-          color: Color(0xFF4B5563), // text-gray-600
+          color: AppTheme.mutedForeground,
         ),
       ),
     );

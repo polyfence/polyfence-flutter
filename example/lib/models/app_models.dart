@@ -7,7 +7,7 @@ enum GpsProfile { max, balanced, battery, smart }
 
 enum ZoneType { circle, polygon }
 
-enum EventType { enter, exit, error }
+enum EventType { enter, exit, dwell, error }
 
 class LatLng {
   final double latitude;
@@ -59,7 +59,7 @@ extension GpsProfileExtension on GpsProfile {
       case GpsProfile.max:
         return 'Max';
       case GpsProfile.balanced:
-        return 'Balance';
+        return 'Balanced';
       case GpsProfile.battery:
         return 'Battery';
       case GpsProfile.smart:
@@ -76,7 +76,7 @@ extension GpsProfileExtension on GpsProfile {
       case GpsProfile.battery:
         return 'Lower accuracy, requests every 30s';
       case GpsProfile.smart:
-        return 'Adaptive 10s, varies by movement';
+        return 'Adaptive accuracy, varies by movement';
     }
   }
 
@@ -89,7 +89,7 @@ extension GpsProfileExtension on GpsProfile {
       case GpsProfile.battery:
         return '30s';
       case GpsProfile.smart:
-        return '10s';
+        return '~10s';
     }
   }
 

@@ -39,11 +39,11 @@ consistency-checks.yaml
 .pubignore
 Makefile
 
-# iOS build artifacts in example
+# iOS build artifacts in example (Runner.xcodeproj/ and Runner.xcworkspace/
+# are tracked in git and ship with the example — Flutter doesn't regenerate
+# them on pub get).
 example/ios/Podfile.lock
 example/ios/Pods/
-example/ios/Runner.xcodeproj/
-example/ios/Runner.xcworkspace/
 example/ios/Flutter/
 example/ios/.symlinks/
 example/ios/RunnerTests/

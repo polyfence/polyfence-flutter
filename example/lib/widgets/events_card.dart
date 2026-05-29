@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../models/app_models.dart';
 import '../theme/app_theme.dart';
+import 'common/compact_icon_button.dart';
 import 'common/count_badge.dart';
+import 'common/poly_card.dart';
 
 class EventsCard extends StatefulWidget {
   final List<GeofenceEvent> events;
@@ -41,7 +43,6 @@ class _EventsCardState extends State<EventsCard>
     if (diffDays == 0) return 'Today';
     if (diffDays == 1) return 'Yesterday';
 
-    // Format as "Jan 24"
     const months = [
       'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
       'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
@@ -92,22 +93,17 @@ class _EventsCardState extends State<EventsCard>
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppTheme.card,
-        border: Border.all(color: AppTheme.border),
-        borderRadius: BorderRadius.circular(AppTheme.radiusLg),
-      ),
+    return PolyCard(
       child: Column(
         children: [
-          // Expandable Header (same pattern as ZonesCard)
+          // Expandable Header
           InkWell(
             onTap: _toggleExpanded,
             child: Container(
-              constraints: const BoxConstraints(minHeight: 44),
+              constraints: const BoxConstraints(minHeight: 40),
               padding: const EdgeInsets.symmetric(
                 horizontal: AppTheme.spacingLg,
-                vertical: 10, // py-2.5: 10+24+10 = 44px touch target
+                vertical: 8,
               ),
               decoration: BoxDecoration(
                 border: _isExpanded
@@ -128,21 +124,21 @@ class _EventsCardState extends State<EventsCard>
                       fontSize: 16,
                       fontWeight: FontWeight.w500,
                       color: AppTheme.foreground,
+                      height: 1.1,
                     ),
                   ),
                   const SizedBox(width: AppTheme.spacingSm),
                   CountBadge(count: widget.events.length),
                   const Spacer(),
-                  if (widget.events.isNotEmpty)
-                    IconButton(
+                  if (widget.events.isNotEmpty) ...[
+                    CompactIconButton(
+                      icon: LucideIcons.trash2,
+                      iconSize: 16,
                       onPressed: widget.onClear,
-                      icon: const Icon(LucideIcons.trash2, size: 16),
-                      constraints: const BoxConstraints.tightFor(
-                        width: 36,
-                        height: 36,
-                      ),
                       tooltip: 'Clear all events',
                     ),
+                    const SizedBox(width: AppTheme.spacingSm),
+                  ],
                   Icon(
                     _isExpanded
                         ? LucideIcons.chevronUp
@@ -155,7 +151,7 @@ class _EventsCardState extends State<EventsCard>
             ),
           ),
 
-          // Content - Only visible when expanded
+          // Content
           SizeTransition(
             sizeFactor: _expandAnimation,
             child: widget.events.isEmpty
@@ -169,13 +165,13 @@ class _EventsCardState extends State<EventsCard>
 
   Widget _buildEmptyState() {
     return const Padding(
-      padding: EdgeInsets.symmetric(vertical: 32, horizontal: 16),
+      padding: EdgeInsets.symmetric(vertical: AppTheme.spacingXl3, horizontal: AppTheme.spacingLg),
       child: Text(
         'No events recorded yet. Start tracking to see geofence entries and exits.',
-        textAlign: TextAlign.center, // text-center
+        textAlign: TextAlign.center,
         style: TextStyle(
-          fontSize: 14, // text-sm
-          color: Color(0xFF6B7280), // text-gray-500
+          fontSize: 14,
+          color: AppTheme.mutedForeground,
         ),
       ),
     );
@@ -185,119 +181,142 @@ class _EventsCardState extends State<EventsCard>
     final grouped = _groupEventsByDate();
     final dateKeys = grouped.keys.toList();
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        ...dateKeys.asMap().entries.map((entry) {
-          final dateKey = entry.value;
-          final events = grouped[dateKey]!;
-
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Date Header
-              Padding(
-                padding: const EdgeInsets.only(
-                  left: 16,
-                  right: 16,
-                  top: 12,
-                  bottom: 8,
-                ),
-                child: Text(
-                  dateKey,
-                  style: const TextStyle(
-                    fontSize: 14, // text-sm
-                    fontWeight: FontWeight.w600, // font-semibold
-                    color: Color(0xFF374151), // text-gray-700
-                  ),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: AppTheme.spacingLg, vertical: AppTheme.spacingMd),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          for (int i = 0; i < dateKeys.length; i++) ...[
+            if (i > 0) const SizedBox(height: AppTheme.spacingLg),
+            Padding(
+              padding: const EdgeInsets.only(left: AppTheme.spacingXs, right: AppTheme.spacingXs, bottom: AppTheme.spacingSm),
+              child: Text(
+                dateKeys[i],
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: AppTheme.foreground,
                 ),
               ),
-              // Events for this date
-              ...events.map((event) => _buildEventItem(event)),
-            ],
-          );
-        }),
-        const SizedBox(height: 8),
-      ],
+            ),
+            ...grouped[dateKeys[i]]!.map((event) => _buildEventItem(event)),
+          ],
+        ],
+      ),
     );
   }
 
+  ({IconData icon, Color iconColor, Color bgColor, Color? borderColor, String label})
+      _eventStyle(EventType type) {
+    switch (type) {
+      case EventType.enter:
+        return (
+          icon: LucideIcons.arrowDown,
+          iconColor: Colors.white,
+          bgColor: AppTheme.success,
+          borderColor: null,
+          label: 'ENTER',
+        );
+      case EventType.dwell:
+        return (
+          icon: LucideIcons.clock,
+          iconColor: Colors.white,
+          bgColor: AppTheme.warning,
+          borderColor: null,
+          label: 'DWELL',
+        );
+      case EventType.exit:
+        return (
+          icon: LucideIcons.arrowUp,
+          iconColor: AppTheme.error,
+          bgColor: Colors.transparent,
+          borderColor: AppTheme.error,
+          label: 'EXIT',
+        );
+      case EventType.error:
+        return (
+          icon: LucideIcons.alertCircle,
+          iconColor: Colors.white,
+          bgColor: AppTheme.error,
+          borderColor: null,
+          label: 'ERROR',
+        );
+    }
+  }
+
   Widget _buildEventItem(GeofenceEvent event) {
-    final isEnter = event.type == EventType.enter;
+    final style = _eventStyle(event.type);
 
     return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppTheme.spacingLg, // 16px - consistent left edge with headers
-        vertical: 10, // py-2.5
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: AppTheme.spacingMd, vertical: 10),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          // Circle with arrow icon (original style)
           Container(
             width: 24,
             height: 24,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: isEnter ? AppTheme.success : Colors.transparent,
-              border:
-                  isEnter ? null : Border.all(color: AppTheme.error, width: 2),
+              color: style.bgColor,
+              border: style.borderColor != null
+                  ? Border.all(color: style.borderColor!, width: 2)
+                  : null,
             ),
             alignment: Alignment.center,
             child: Icon(
-              isEnter ? LucideIcons.arrowDown : LucideIcons.arrowUp,
+              style.icon,
               size: 12,
-              color: isEnter ? Colors.white : AppTheme.error,
+              color: style.iconColor,
             ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: AppTheme.spacingMd),
           Expanded(
             child: Row(
               children: [
                 Text(
                   _formatTime(event.timestamp),
                   style: const TextStyle(
-                    fontSize: 14, // text-sm
+                    fontSize: 14,
                     fontWeight: FontWeight.w400,
-                    color: Color(0xFF4B5563), // text-gray-600
-                    fontFeatures: [FontFeature.tabularFigures()], // tabular-nums
+                    color: AppTheme.mutedForeground,
+                    fontFeatures: [FontFeature.tabularFigures()],
                   ),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: AppTheme.spacingSm),
                 const Text(
                   '•',
                   style: TextStyle(
-                    fontSize: 14, // text-sm
-                    color: Color(0xFF9CA3AF), // text-gray-400
+                    fontSize: 14,
+                    color: AppTheme.textTertiary,
                   ),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: AppTheme.spacingSm),
                 Text(
-                  isEnter ? 'ENTER' : 'EXIT',
+                  style.label,
                   style: const TextStyle(
-                    fontSize: 14, // text-sm
+                    fontSize: 14,
                     fontWeight: FontWeight.w400,
-                    color: Color(0xFF374151), // text-gray-700
+                    color: AppTheme.foreground,
                   ),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: AppTheme.spacingSm),
                 const Text(
                   '•',
                   style: TextStyle(
-                    fontSize: 14, // text-sm
-                    color: Color(0xFF9CA3AF), // text-gray-400
+                    fontSize: 14,
+                    color: AppTheme.textTertiary,
                   ),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: AppTheme.spacingSm),
                 Expanded(
                   child: Text(
                     event.zoneName,
                     style: const TextStyle(
-                      fontSize: 14, // text-sm
-                      fontWeight: FontWeight.w500, // font-medium, matches zone list
-                      color: AppTheme.foreground, // text-gray-900
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      color: AppTheme.foreground,
                     ),
-                    overflow: TextOverflow.ellipsis, // truncate
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
               ],

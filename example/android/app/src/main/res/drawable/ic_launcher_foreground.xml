@@ -1,33 +1,27 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+  Polyfence brand mark — "THE VOID"
+  Canonical paths from internal-brand/src/app/components/brand-tokens.ts
+  (MARK_BLOCK + MARK_CHANNEL combined with even-odd fill)
+
+  Adaptive icon foreground:
+    - 108dp canvas
+    - Mark coord system is 0..64; scaled 1.4375× to render 92dp
+      (≈85% of 108dp canvas), centered with 8dp translate.
+-->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <group android:scaleX="2.25"
-           android:scaleY="2.25"
-           android:translateX="30"
-           android:translateY="30">
+    <group
+        android:translateX="8"
+        android:translateY="8"
+        android:scaleX="1.4375"
+        android:scaleY="1.4375">
         <path
-            android:strokeWidth="2.5"
-            android:pathData="M12,2L2,7L12,12L22,7L12,2Z"
-            android:strokeColor="#FFFFFF"
-            android:fillColor="#00000000"
-            android:strokeLineCap="round"
-            android:strokeLineJoin="round"/>
-        <path
-            android:strokeWidth="2.5"
-            android:pathData="M2,17L12,22L22,17"
-            android:strokeColor="#FFFFFF"
-            android:fillColor="#00000000"
-            android:strokeLineCap="round"
-            android:strokeLineJoin="round"/>
-        <path
-            android:strokeWidth="2.5"
-            android:pathData="M2,12L12,17L22,12"
-            android:strokeColor="#FFFFFF"
-            android:fillColor="#00000000"
-            android:strokeLineCap="round"
-            android:strokeLineJoin="round"/>
+            android:fillColor="#111111"
+            android:fillType="evenOdd"
+            android:pathData="M6,6 H58 V58 H6 Z M6,16 L30,16 L48,42 L48,58 L40,58 L40,46 L24,24 L6,24 Z"/>
     </group>
 </vector>

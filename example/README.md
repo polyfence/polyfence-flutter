@@ -1,179 +1,61 @@
-# Polyfence Example App
+# Polyfence Flutter Example
 
-A complete example demonstrating all Polyfence features.
+A complete example app demonstrating the Polyfence Flutter SDK end-to-end:
+zone sync, real-time geofence events, background tracking, GPS accuracy
+profiles, and live position on a map.
 
-## Quick Start
+## What you'll see
+
+- **Dashboard** — tracking status, current position, accuracy/speed/activity,
+  GPS profile selector, the zones you've defined in your Polyfence account,
+  and a live event feed (enter/exit/dwell).
+- **Map** — your position over OpenStreetMap tiles, with a zone counter
+  and tracking indicator overlay.
+
+## Prerequisites
+
+- Flutter ≥ 3.10
+- iOS 14+ or Android API 24+
+- A **free Polyfence API key** — sign up at
+  [polyfence.io](https://polyfence.io). You'll define zones in the Polyfence
+  dashboard; this example renders whichever ones are active on your account.
+
+## Run it
+
+The API key is supplied at build/run time via `--dart-define`:
 
 ```bash
 cd example
-flutter run
+flutter pub get
+flutter run --dart-define=POLYFENCE_API_KEY=pf_live_xxx
 ```
 
-The app works immediately with **no setup required** using hardcoded demo zones.
+Without the define, the Dashboard renders an empty-state card that surfaces
+the exact command to re-run. The Map tab still works (shows your position
+with zero zones) so you can sanity-check location permissions without a key.
 
-## Features Demonstrated
+## Permissions
 
-This example shows:
+The example asks for:
 
-- **Standalone zone management** (hardcoded zones)
-- **API zone fetching** (from polyfence.io)
-- **Delta-based zone sync** (efficient updates)
-- **Real-time geofence events** (entry/exit)
-- **Background tracking** (app minimized/killed)
-- **GPS profile switching** (Android)
-- **Permission handling** (iOS/Android)
-- **Error stream handling**
-- **Battery optimization** (Android)
+- **Location (always)** — required for background tracking. On iOS this
+  is "Always" in Settings → Privacy → Location.
+- **Notifications** (Android 13+) — used by the plugin's foreground
+  service while tracking.
+- **Activity recognition** (Android) — optional. Powers the SmartGPS
+  intelligent strategy. The example continues to work without it.
 
-## Running in Demo Mode (Default)
+## Where to look in the code
 
-The app starts with 3 hardcoded demo zones around London landmarks:
+| File | What it does |
+|---|---|
+| `lib/main.dart` | App shell, plugin init, tracking control, zone delta sync, navigation |
+| `lib/api_key_store.dart` | Single read point for the `POLYFENCE_API_KEY` dart-define |
+| `lib/zone_api_service.dart` | HTTP client for the Polyfence Zone API |
+| `lib/screens/map_screen.dart` | OSM map with current position |
+| `lib/widgets/` | Dashboard cards (status, GPS profile, zones, events) |
 
-```dart
-// example/lib/demo_data.dart
-class DemoZones {
-  static List<Zone> getDemoZones() {
-    return [
-      Zone.circle(
-        id: 'demo-1',
-        name: 'Trafalgar Square',
-        center: PolyfenceLocation(latitude: 51.5074, longitude: -0.1278),
-        radius: 500,
-      ),
-      // ... more zones
-    ];
-  }
-}
-```
+## Plugin docs
 
-**No API key needed. No internet required.**
-
-## Running with Live Zones
-
-To fetch zones from polyfence.io:
-
-1. Get a free API key from [polyfence.io](https://polyfence.io)
-2. Edit `example/lib/config.dart`:
-   ```dart
-   static const bool demoMode = false;
-   static const String? apiKey = 'your-api-key-here';
-   ```
-3. Restart the app
-
-## Code Structure
-
-```
-example/
-├── lib/
-│   ├── main.dart              # Entry point
-│   ├── config.dart            # Demo mode / API key config
-│   ├── demo_data.dart         # Hardcoded demo zones
-│   ├── zone_api_service.dart  # Optional: Fetch zones from polyfence.io
-│   └── widgets/               # UI components
-└── android/ios/               # Platform-specific config
-```
-
-## Key Patterns Demonstrated
-
-### 1. Standalone Mode (No Backend)
-
-```dart
-// Hardcode zones directly
-final zones = [
-  Zone.circle(id: 'office', name: 'Office', ...),
-  Zone.circle(id: 'home', name: 'Home', ...),
-];
-
-for (var zone in zones) {
-  await Polyfence.instance.addZone(zone);
-}
-```
-
-### 2. API Integration (Polyfence SaaS)
-
-```dart
-// Fetch from polyfence.io
-final zones = await ZoneApiService.fetchActiveZones();
-
-for (var zone in zones) {
-  await Polyfence.instance.addZone(zone);
-}
-```
-
-### 3. Delta-Based Sync
-
-```dart
-// Only update changed zones (efficient)
-final existingZoneIds = Polyfence.instance.zones
-    .map((z) => z.id)
-    .toSet();
-
-final currentZoneIds = zones.map((z) => z.id).toSet();
-
-// Remove deleted zones
-final zonesToRemove = existingZoneIds.difference(currentZoneIds);
-for (var id in zonesToRemove) {
-  await Polyfence.instance.removeZone(id);
-}
-
-// Add new zones
-final zonesToAdd = currentZoneIds.difference(existingZoneIds);
-for (var zone in zones.where((z) => zonesToAdd.contains(z.id))) {
-  await Polyfence.instance.addZone(zone);
-}
-```
-
-### 4. Event Handling
-
-```dart
-// Listen for geofence events
-Polyfence.instance.onGeofenceEvent.listen((event) {
-  switch (event.type) {
-    case GeofenceEventType.enter:
-      print('Entered ${event.zone?.name ?? event.zoneId}');
-      break;
-    case GeofenceEventType.exit:
-      print('Exited ${event.zone?.name ?? event.zoneId}');
-      break;
-    case GeofenceEventType.dwell:
-      print('Dwelling in ${event.zone?.name ?? event.zoneId}');
-      break;
-  }
-});
-```
-
-## Platform Setup
-
-See the main [README Platform Setup](../README.md#platform-setup) section for required permissions and configuration.
-
-## Testing
-
-The app includes visual feedback for:
-- Current GPS location
-- Active zones (colored by proximity)
-- Recent geofence events
-- Tracking status
-- Battery optimization status
-
-## Troubleshooting
-
-### "No geofence events"
-- Ensure "Always" location permission is granted (iOS)
-- Check battery optimization is disabled (Android)
-- Verify GPS accuracy is good (<100m)
-- Make sure you're actually moving in/out of zones
-
-### "Zones not persisting"
-- Zones automatically save to local storage
-- They persist across app restarts
-- Check you're not calling `clearAllZones()` accidentally
-
-### "Background tracking stops"
-- iOS: Needs "Always" permission (Settings → Privacy → Location)
-- Android: Needs battery optimization exemption
-
-## Learn More
-
-- [Main README](../README.md) - Full documentation
-- [API Reference](https://pub.dev/documentation/polyfence/latest/)
-- [GitHub Issues](https://github.com/polyfence/polyfence-flutter/issues)
+For the plugin's full API, telemetry behaviour, and platform setup, see
+the main [README](../README.md) at the repository root.

@@ -3,6 +3,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 import '../models/app_models.dart';
 import '../theme/app_theme.dart';
 import 'common/count_badge.dart';
+import 'common/poly_card.dart';
 
 class ZonesCard extends StatefulWidget {
   final List<Zone> zones;
@@ -53,22 +54,17 @@ class _ZonesCardState extends State<ZonesCard>
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppTheme.card,
-        border: Border.all(color: AppTheme.border),
-        borderRadius: BorderRadius.circular(AppTheme.radiusLg),
-      ),
+    return PolyCard(
       child: Column(
         children: [
           // Expandable Header
           InkWell(
             onTap: () => setState(() => _isExpanded = !_isExpanded),
             child: Container(
-              constraints: const BoxConstraints(minHeight: 44),
+              constraints: const BoxConstraints(minHeight: 40),
               padding: const EdgeInsets.symmetric(
                 horizontal: AppTheme.spacingLg,
-                vertical: 10, // py-2.5: 10+24+10 = 44px touch target
+                vertical: 8,
               ),
               decoration: BoxDecoration(
                 border: _isExpanded
@@ -86,9 +82,10 @@ class _ZonesCardState extends State<ZonesCard>
                   const Text(
                     'Zones',
                     style: TextStyle(
-                      fontSize: 16, // text-base (match Tracking Active)
-                      fontWeight: FontWeight.w500, // font-medium
-                      color: AppTheme.foreground, // text-gray-900
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                      color: AppTheme.foreground,
+                      height: 1.1,
                     ),
                   ),
                   const SizedBox(width: AppTheme.spacingSm),
@@ -100,12 +97,14 @@ class _ZonesCardState extends State<ZonesCard>
                       child: const Icon(LucideIcons.refreshCcw, size: 16),
                     ),
                     onPressed: widget.onRefresh,
+                    padding: EdgeInsets.zero,
                     constraints: const BoxConstraints.tightFor(
-                      width: 36,
-                      height: 36,
+                      width: 24,
+                      height: 24,
                     ),
-                    tooltip: 'Reload zones from plugin API',
+                    tooltip: 'Reload zones from the Polyfence API',
                   ),
+                  const SizedBox(width: AppTheme.spacingSm),
                   Icon(
                     _isExpanded
                         ? LucideIcons.chevronUp
@@ -122,13 +121,18 @@ class _ZonesCardState extends State<ZonesCard>
           if (_isExpanded)
             widget.zones.isEmpty
                 ? _EmptyZonesState()
-                : Column(
-                    children: widget.zones.asMap().entries.map((entry) {
-                      final index = entry.key;
-                      final zone = entry.value;
-                      final isLast = index == widget.zones.length - 1;
-                      return _ZoneListItem(zone: zone, isLast: isLast);
-                    }).toList(),
+                : Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppTheme.spacingLg,
+                    ),
+                    child: Column(
+                      children: widget.zones.asMap().entries.map((entry) {
+                        final index = entry.key;
+                        final zone = entry.value;
+                        final isLast = index == widget.zones.length - 1;
+                        return _ZoneListItem(zone: zone, isLast: isLast);
+                      }).toList(),
+                    ),
                   ),
         ],
       ),
@@ -153,15 +157,15 @@ class _ZoneListItem extends StatelessWidget {
     if (distance <= 50) {
       return (
         label: 'Inside',
-        bgColor: AppTheme.primary, // #5B6FEE purple
-        textColor: AppTheme.primaryForeground, // white
+        bgColor: AppTheme.primary,
+        textColor: Colors.white,
       );
     }
     if (distance < 500) {
       return (
         label: 'Near',
-        bgColor: AppTheme.secondary, // #F0F0F3 light gray (original)
-        textColor: AppTheme.secondaryForeground, // #030213 dark text (original)
+        bgColor: AppTheme.secondary,
+        textColor: AppTheme.secondaryForeground,
       );
     }
     return null;
@@ -175,17 +179,16 @@ class _ZoneListItem extends StatelessWidget {
       onTap: () {},
       child: Container(
         padding: const EdgeInsets.symmetric(
-          horizontal: AppTheme.spacingLg,
           vertical: AppTheme.spacingMd,
         ),
         decoration: BoxDecoration(
           border: isLast
               ? null
-              : const Border(bottom: BorderSide(color: AppTheme.border)),
+              : const Border(bottom: BorderSide(color: AppTheme.borderMuted)),
         ),
         child: Row(
           children: [
-            // Type Icon (original: 32x32 with radiusLg)
+            // 32×32 rounded square with pastel zone-type fill.
             Container(
               width: 32,
               height: 32,
@@ -198,8 +201,8 @@ class _ZoneListItem extends StatelessWidget {
               child: Icon(
                 zone.type == ZoneType.circle
                     ? LucideIcons.circle
-                    : LucideIcons.hexagon,
-                size: 16,
+                    : LucideIcons.octagon,
+                size: 20,
                 color: zone.type == ZoneType.circle
                     ? AppTheme.circleZoneIcon
                     : AppTheme.polygonZoneIcon,
@@ -215,9 +218,9 @@ class _ZoneListItem extends StatelessWidget {
                   Text(
                     zone.name,
                     style: const TextStyle(
-                      fontSize: 14, // text-sm
-                      fontWeight: FontWeight.w500, // font-medium
-                      color: AppTheme.foreground, // text-gray-900
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      color: AppTheme.foreground,
                     ),
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -227,20 +230,20 @@ class _ZoneListItem extends StatelessWidget {
                       Text(
                         zone.type == ZoneType.circle ? 'Circle' : 'Polygon',
                         style: const TextStyle(
-                          fontSize: 12, // text-xs
-                          color: Color(0xFF6B7280), // text-gray-500
+                          fontSize: 12,
+                          color: AppTheme.mutedForeground,
                         ),
                       ),
                       if (zone.distance != null) ...[
                         const Text(
                           ' • ',
-                          style: TextStyle(color: Color(0xFF6B7280)), // text-gray-500
+                          style: TextStyle(color: AppTheme.mutedForeground),
                         ),
                         Text(
                           '${_formatDistance(zone.distance)} away',
                           style: const TextStyle(
-                            fontSize: 12, // text-xs
-                            color: Color(0xFF6B7280), // text-gray-500
+                            fontSize: 12,
+                            color: AppTheme.mutedForeground,
                           ),
                         ),
                       ],
@@ -255,18 +258,18 @@ class _ZoneListItem extends StatelessWidget {
               const SizedBox(width: AppTheme.spacingSm),
               Container(
                 padding: const EdgeInsets.symmetric(
-                  horizontal: 8, // px-2
-                  vertical: 2, // slight vertical padding for better pill shape
+                  horizontal: 8,
+                  vertical: 2,
                 ),
                 decoration: BoxDecoration(
                   color: status.bgColor,
-                  borderRadius: BorderRadius.circular(10), // rounded-full pill shape
+                  borderRadius: BorderRadius.circular(999),
                 ),
                 child: Text(
                   status.label,
                   style: TextStyle(
-                    fontSize: 12, // text-xs
-                    fontWeight: FontWeight.w500, // font-medium
+                    fontSize: 12,
+                    fontWeight: FontWeight.w400,
                     color: status.textColor,
                   ),
                 ),
@@ -283,7 +286,7 @@ class _EmptyZonesState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 32),
+      padding: const EdgeInsets.symmetric(vertical: AppTheme.spacingXl3),
       child: Column(
         children: [
           Text(
@@ -292,9 +295,9 @@ class _EmptyZonesState extends StatelessWidget {
                   color: AppTheme.mutedForeground,
                 ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: AppTheme.spacingXs),
           Text(
-            'Tap refresh to load zones from plugin',
+            'Create zones in the Polyfence dashboard, then tap refresh',
             style: Theme.of(context).textTheme.labelMedium?.copyWith(
                   color: AppTheme.mutedForeground,
                 ),

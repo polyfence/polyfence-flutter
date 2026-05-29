@@ -56,10 +56,13 @@ ALLOWED_ORIGINS
 DB_SSL_CERT
 
 # iOS
+# Runner.xcodeproj/ and Runner.xcworkspace/ are intentionally tracked —
+# Flutter does NOT regenerate them on `flutter pub get`, so an iOS user
+# cloning the repo would otherwise have no Xcode project at all (or
+# `flutter create .` would scaffold one with default template bundle ids
+# that defeat the Info.plist + Podfile customisation).
 example/ios/Podfile.lock
 example/ios/Pods/
-example/ios/Runner.xcodeproj/
-example/ios/Runner.xcworkspace/
 example/ios/Flutter/
 example/ios/.symlinks/
 example/ios/RunnerTests/

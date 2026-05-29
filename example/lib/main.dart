@@ -3,37 +3,40 @@ import 'package:flutter/services.dart';
 import 'package:polyfence/polyfence.dart' as polyfence hide GeofenceEvent;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io' show Platform;
 import 'dart:math' as math;
-// Import new design system and components
+import 'api_key_store.dart';
 import 'theme/app_theme.dart';
 import 'models/app_models.dart';
 import 'widgets/status_section.dart';
 import 'widgets/gps_profile_card.dart';
 import 'widgets/zones_card.dart';
 import 'widgets/events_card.dart';
-import 'widgets/tracking_button.dart';
 import 'widgets/error_banner.dart';
+import 'widgets/common/poly_card.dart';
+import 'screens/map_screen.dart';
 import 'zone_api_service.dart';
-import 'config.dart';
-import 'demo_data.dart';
-import 'utils/logger.dart';
 
-void main() async {
+void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  await LogBuffer.initialize();
-  logDebug('App started', level: LogLevel.info);
   runApp(const PolyfenceApp());
 }
 
 Future<bool> ensureAndroidTrackingPermissions() async {
   if (!Platform.isAndroid) return true;
 
-  // 33+: notifications
-  if (await Permission.notification.isDenied ||
-      await Permission.notification.isPermanentlyDenied) {
+  // Notifications (API 33+). If the user has permanently denied, the
+  // standard `.request()` call returns immediately without showing the
+  // system prompt — guide them to the app settings instead so they
+  // aren't stuck in a "denied + no path forward" state.
+  if (await Permission.notification.isPermanentlyDenied) {
+    await openAppSettings();
+    return false;
+  }
+  if (await Permission.notification.isDenied) {
     final notif = await Permission.notification.request();
     if (!notif.isGranted) return false;
   }
@@ -50,14 +53,9 @@ Future<bool> ensureAndroidTrackingPermissions() async {
     return false;
   }
 
-  // Activity recognition (API 29+) - needed for activity-based GPS optimization
-  if (await Permission.activityRecognition.isDenied) {
-    final activity = await Permission.activityRecognition.request();
-    if (!activity.isGranted) {
-      // Activity recognition is optional - continue without it
-      logDebug('Activity recognition permission not granted - continuing without it');
-    }
-  }
+  // Activity recognition (API 29+) — powers the SmartGPS intelligent
+  // strategy. Optional: the example keeps working if the user declines.
+  await Permission.activityRecognition.request();
 
   return true;
 }
@@ -71,8 +69,6 @@ class PolyfenceApp extends StatelessWidget {
       title: 'Polyfence',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
-      darkTheme: AppTheme.darkTheme,
-      themeMode: ThemeMode.light,
       home: const HomeScreen(),
       builder: (context, child) {
         return AnnotatedRegion<SystemUiOverlayStyle>(
@@ -96,15 +92,16 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
-  // Preserve all existing state variables
+class _HomeScreenState extends State<HomeScreen> {
+  // Event log (entry/exit/dwell events from the plugin)
   final List<Map<String, dynamic>> _events = [];
-  bool _isTracking = false; // Default to OFF until we read saved state
+
+  bool _isTracking = false;
   String _locationStatus = 'Waiting for GPS...';
-  bool _isLoadingZones = true;
+  bool _isLoadingZones = false;
   List<polyfence.Zone> _loadedZones = [];
 
-  // Simple status tracking
+  // GPS telemetry surfaced in StatusSection
   double? _gpsAccuracy;
   double _currentSpeed = 0.0;
   String _currentActivity = 'unknown';
@@ -113,31 +110,46 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   // Error tracking
   final List<GeofenceEvent> _errors = [];
+  bool _errorsVisible = true;
+
+  // Tab navigation: 0 = Dashboard, 1 = Map
+  int _currentTab = 0;
+
+  // API key state — null until we've read from ApiKeyStore.
+  // `_apiKeyLoaded` distinguishes "still loading" from "loaded, no key
+  // configured" so we don't flash the empty-state gate during startup.
+  String? _apiKey;
+  bool _apiKeyLoaded = false;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this);
     _loadStoredEvents();
-    _initializePolyfence();
+    _bootstrap();
   }
 
-  @override
-  void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    LogBuffer.dispose();
-    super.dispose();
-  }
-
-  // App lifecycle handling (analytics lifecycle managed by plugin when enabled)
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    // Flush logs to disk on app pause/background
-    if (state == AppLifecycleState.paused ||
-        state == AppLifecycleState.detached) {
-      LogBuffer.flush();
-      logDebug('App lifecycle: ${state.name}', level: LogLevel.info);
+  /// Order of operations on cold start:
+  ///   1. Read the API key from [ApiKeyStore] (build-time dart-define).
+  ///      Flipping `_apiKeyLoaded` synchronously means the Dashboard
+  ///      renders the empty-state CTA immediately when no key was
+  ///      supplied, instead of showing a blank scroll view during init.
+  ///   2. Initialise the plugin (no key required — only zone fetch is
+  ///      gated).
+  ///   3. If a key is present, fetch zones.
+  Future<void> _bootstrap() async {
+    _loadApiKey();
+    await _initializePolyfence();
+    if (_apiKey != null && _apiKey!.isNotEmpty) {
+      await _loadZonesFromAPI();
     }
+  }
+
+  /// Snapshot the resolved API key into state.
+  void _loadApiKey() {
+    setState(() {
+      _apiKey = ApiKeyStore.get();
+      _apiKeyLoaded = true;
+    });
   }
 
   Future<void> _initializePolyfence() async {
@@ -151,82 +163,64 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         }
       }
 
-      // Initialize Polyfence plugin
-      // Anonymous plugin telemetry enabled by default (no location data or PII sent)
-      // See what's sent: https://github.com/polyfence/polyfence-flutter/blob/main/doc/TELEMETRY.md
+      // Initialise the plugin. Anonymous SDK telemetry is opt-out by
+      // default — see https://github.com/polyfence/polyfence-flutter for
+      // disabling via AnalyticsConfig.
       await polyfence.Polyfence.instance.initialize();
 
-      // Enable SmartGPS: INTELLIGENT strategy with proximity, movement, battery,
-      // and activity awareness. This dramatically reduces battery drain when stationary.
-      {
-        final current = await polyfence.Polyfence.instance.getConfiguration();
-        await polyfence.Polyfence.instance.updateConfiguration(
-          current.copyWith(
-            updateStrategy: polyfence.PolyfenceUpdateStrategy.intelligent,
-            proximitySettings: polyfence.ProximitySettings(),
-            movementSettings: polyfence.MovementSettings(),
-            batterySettings: polyfence.BatterySettings(),
-            activitySettings: polyfence.ActivitySettings(
-              enabled: true,
-              confidenceThreshold: 75,
-              debounceSeconds: 10, // Reduced for demo (default is 30)
-            ),
-            clusterSettings: polyfence.ClusterSettings(
-              enabled: true,
-              activeRadiusMeters: 5000, // 5km radius - only monitor nearby zones
-            ),
+      // SmartGPS — intelligent strategy with proximity, movement, and
+      // battery awareness. Dramatically reduces battery drain when
+      // stationary.
+      final current = await polyfence.Polyfence.instance.getConfiguration();
+      await polyfence.Polyfence.instance.updateConfiguration(
+        current.copyWith(
+          updateStrategy: polyfence.PolyfenceUpdateStrategy.intelligent,
+          proximitySettings: polyfence.ProximitySettings(),
+          movementSettings: polyfence.MovementSettings(),
+          batterySettings: polyfence.BatterySettings(),
+          activitySettings: polyfence.ActivitySettings(
+            enabled: true,
+            confidenceThreshold: 75,
+            debounceSeconds: 10,
           ),
-        );
-      }
+          clusterSettings: polyfence.ClusterSettings(
+            enabled: true,
+            activeRadiusMeters: 5000,
+          ),
+        ),
+      );
 
-      // Configuration examples:
-
-      // To disable telemetry (opt-out):
-      // await polyfence.Polyfence.instance.initialize(
-      //   analyticsConfig: polyfence.AnalyticsConfig(
-      //     disableTelemetry: true,
-      //   ),
-      // );
-
-      // To disable built-in alert notifications (for custom notifications):
-      // await polyfence.Polyfence.instance.initialize(
-      //   config: {
-      //     'disableAlertNotifications': true,
-      //   },
-      // );
-
-      // Load zones from API (may still be down; no fallback)
-      await _loadZonesFromAPI();
-
-      // Listen to geofence events
+      // Geofence events: entry/exit/dwell. We deliberately do NOT pre-resolve
+      // the zone name here — if a zone-entry event fires before the zone
+      // fetch completes (cold-start race), the lookup would fall back to
+      // the zoneId and get baked into persistent storage. Instead we store
+      // the zoneId only and resolve the name at render time, so names
+      // surface as soon as the zone fetch lands.
       polyfence.Polyfence.instance.onGeofenceEvent.listen((event) {
-        final timestamp = DateTime.now().toIso8601String(); // Full ISO8601 for date grouping
-        final eventType = event.type.name.toUpperCase();
-        final zoneName = _getZoneName(event.zoneId);
-
-        // Note: Analytics are automatically recorded by the plugin when geofence events occur
-        // No need to manually call recordDetection here
-
         _addEvent({
-          'timestamp': timestamp,
-          'type': eventType,
-          'zone': zoneName,
+          'timestamp': DateTime.now().toIso8601String(),
+          'type': event.type.name.toUpperCase(),
           'zoneId': event.zoneId,
         });
       });
 
-      // Listen to location updates
+      // Location stream
       polyfence.Polyfence.instance.onLocationUpdate.listen((location) {
-        if (mounted) {
-          setState(() {
-            _locationStatus =
-                '${location.latitude.toStringAsFixed(4)}, ${location.longitude.toStringAsFixed(4)}';
-            _gpsAccuracy = location.accuracy;
-            _currentSpeed = location.speed ??
-                0.0; // Already converted to km/h by native code
-            _currentActivity = location.activity ?? 'unknown';
-          });
-        }
+        if (!mounted) return;
+        setState(() {
+          _locationStatus =
+              '${location.latitude.toStringAsFixed(4)}, ${location.longitude.toStringAsFixed(4)}';
+          _gpsAccuracy = location.accuracy;
+          _currentSpeed = location.speed ?? 0.0;
+          _currentActivity = location.activity ?? 'unknown';
+        });
+      });
+
+      // Plugin error stream — GPS drops, stream health, geofence engine
+      // faults. Surfaces in the error banner.
+      polyfence.Polyfence.instance.onError.listen((error) {
+        if (!mounted) return;
+        _addErrorEvent(error.message);
       });
     } catch (e) {
       _addErrorEvent('Failed to initialize Polyfence: $e');
@@ -234,74 +228,59 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   }
 
   Future<void> _loadZonesFromAPI() async {
+    if (_apiKey == null || _apiKey!.isEmpty) {
+      // Silent no-op when the user hasn't configured a key yet — the
+      // empty-state gate in the Dashboard already surfaces this.
+      return;
+    }
     setState(() => _isLoadingZones = true);
 
     try {
       final prefs = await SharedPreferences.getInstance();
 
-      // Get previously registered zone IDs from persistent storage (truth source)
-      // This survives app kills, crashes, and restarts
+      // Persistent record of zones we've registered with the plugin —
+      // survives app kill / crash / restart. Treated as the truth source
+      // for "what's currently registered" so we can compute a delta.
       final storedZoneIdsJson = prefs.getString('registered_zone_ids') ?? '[]';
       final previousZoneIds = (jsonDecode(storedZoneIdsJson) as List<dynamic>)
           .cast<String>()
           .toSet();
 
-      List<polyfence.Zone> zones;
+      final zones = await ZoneApiService.fetchActiveZones();
+      if (!mounted) return;
+      final currentZoneIds = zones.map((z) => z.id).toSet();
 
-      // Use demo zones if demo mode is enabled
-      if (AppConfig.demoMode) {
-        zones = DemoZones.getDemoZones();
-      } else {
-        // Try to fetch from API
+      // Delta: remove what's no longer in the API
+      final zonesToRemove = previousZoneIds.difference(currentZoneIds);
+
+      for (final zoneId in zonesToRemove) {
         try {
-          zones = await ZoneApiService.fetchActiveZones();
+          await polyfence.Polyfence.instance.removeZone(zoneId);
         } catch (e) {
-          // Fallback to demo zones if API fails
-          zones = DemoZones.getDemoZones();
+          _addErrorEvent('Failed to remove zone $zoneId: $e');
         }
       }
 
-      if (mounted) {
-        final currentZoneIds = zones.map((z) => z.id).toSet();
-
-        // Calculate delta: what to remove, what to add
-        final zonesToRemove = previousZoneIds.difference(currentZoneIds);
-        final zonesToAdd = currentZoneIds.difference(previousZoneIds);
-
-        // Remove deleted zones (efficient: only removed zones)
-        for (final zoneId in zonesToRemove) {
-          try {
-            await polyfence.Polyfence.instance.removeZone(zoneId);
-          } catch (e) {
-            _addErrorEvent('Failed to remove zone $zoneId: $e');
-          }
+      // Re-add every current zone — the plugin overwrites its own zone
+      // map on `addZone`, so this self-heals if local state drifts from
+      // plugin state without producing duplicate-id failures.
+      for (final zone in zones) {
+        try {
+          await polyfence.Polyfence.instance.addZone(zone);
+        } catch (e) {
+          _addErrorEvent('Failed to add zone ${zone.id}: $e');
         }
-
-        // Add all zones (ensure they're registered with plugin)
-        // Note: Plugin handles deduplication internally, so it's safe to add all zones
-        for (final zone in zones) {
-          try {
-            await polyfence.Polyfence.instance.addZone(zone);
-          } catch (e) {
-            // Only log error if it's actually a new zone (not a duplicate)
-            if (zonesToAdd.contains(zone.id)) {
-              _addErrorEvent('Failed to add zone ${zone.id}: $e');
-            }
-            // Silently ignore duplicate zone errors from plugin
-          }
-        }
-
-        // Update persistent record of registered zones
-        await prefs.setString(
-          'registered_zone_ids',
-          jsonEncode(currentZoneIds.toList()),
-        );
-
-        setState(() {
-          _loadedZones = zones;
-          _isLoadingZones = false;
-        });
       }
+
+      await prefs.setString(
+        'registered_zone_ids',
+        jsonEncode(currentZoneIds.toList()),
+      );
+
+      setState(() {
+        _loadedZones = zones;
+        _isLoadingZones = false;
+      });
     } catch (e) {
       if (mounted) {
         setState(() => _isLoadingZones = false);
@@ -314,53 +293,54 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     try {
       final prefs = await SharedPreferences.getInstance();
       final eventsJson = prefs.getString('events');
-      if (eventsJson != null) {
-        final List<dynamic> eventsList = jsonDecode(eventsJson);
-        final List<Map<String, dynamic>> events = eventsList.cast<Map<String, dynamic>>();
+      if (eventsJson == null) return;
 
-        // Migrate legacy events (time-only) to full ISO8601 timestamps
-        bool needsMigration = false;
-        final now = DateTime.now();
-        int eventIndex = 0;
+      final List<dynamic> eventsList = jsonDecode(eventsJson);
+      final List<Map<String, dynamic>> events =
+          eventsList.cast<Map<String, dynamic>>();
 
-        for (var event in events) {
-          final timestamp = event['timestamp'] as String? ?? '';
-          // Check if it's legacy format (no date, just time like "22:57:34")
-          if (!timestamp.contains('T') && !timestamp.contains('-') && timestamp.contains(':')) {
-            needsMigration = true;
-            // Spread events across last 5 days based on position in list
-            // Newer events (lower index) get more recent dates
-            final daysAgo = (eventIndex * 5) ~/ events.length; // 0-4 days ago
-            final eventDate = now.subtract(Duration(days: daysAgo));
-            final timeParts = timestamp.split(':');
-            if (timeParts.length >= 3) {
-              final fullTimestamp = DateTime(
-                eventDate.year,
-                eventDate.month,
-                eventDate.day,
-                int.tryParse(timeParts[0]) ?? 0,
-                int.tryParse(timeParts[1]) ?? 0,
-                int.tryParse(timeParts[2]) ?? 0,
-              ).toIso8601String();
-              event['timestamp'] = fullTimestamp;
-            }
+      // Migrate legacy events (time-only) to full ISO8601 timestamps so
+      // EventsCard's date-grouping logic doesn't fall over on entries
+      // written before the timestamp format change.
+      bool needsMigration = false;
+      final now = DateTime.now();
+      int eventIndex = 0;
+
+      for (var event in events) {
+        final timestamp = event['timestamp'] as String? ?? '';
+        if (!timestamp.contains('T') &&
+            !timestamp.contains('-') &&
+            timestamp.contains(':')) {
+          needsMigration = true;
+          final daysAgo = (eventIndex * 5) ~/ events.length;
+          final eventDate = now.subtract(Duration(days: daysAgo));
+          final timeParts = timestamp.split(':');
+          if (timeParts.length >= 3) {
+            final fullTimestamp = DateTime(
+              eventDate.year,
+              eventDate.month,
+              eventDate.day,
+              int.tryParse(timeParts[0]) ?? 0,
+              int.tryParse(timeParts[1]) ?? 0,
+              int.tryParse(timeParts[2]) ?? 0,
+            ).toIso8601String();
+            event['timestamp'] = fullTimestamp;
           }
-          eventIndex++;
         }
-
-        setState(() {
-          _events.clear();
-          _events.addAll(events);
-        });
-
-        // Save migrated events
-        if (needsMigration) {
-          _saveEvents();
-        }
+        eventIndex++;
       }
-    } catch (e) {
-      // Failed to load stored events
-      debugPrint('Failed to load stored events: $e');
+
+      setState(() {
+        _events.clear();
+        _events.addAll(events);
+      });
+
+      if (needsMigration) {
+        _saveEvents();
+      }
+    } catch (_) {
+      // Persisted events are best-effort — a corrupt blob shouldn't
+      // block the rest of the app from loading.
     }
   }
 
@@ -368,16 +348,14 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('events', jsonEncode(_events));
-    } catch (e) {
-      // Failed to save events - log but don't show error banner
-      logDebug('Failed to save events: $e');
+    } catch (_) {
+      // Best-effort persistence; ignore write failures.
     }
   }
 
   void _addEvent(Map<String, dynamic> event) {
     setState(() {
       _events.insert(0, event);
-      // Keep only last 100 events
       if (_events.length > 100) {
         _events.removeRange(100, _events.length);
       }
@@ -402,8 +380,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     try {
       final zone = _loadedZones.firstWhere((z) => z.id == zoneId);
       return zone.name;
-    } catch (e) {
-      // No crash - just return the ID as fallback
+    } catch (_) {
       return zoneId;
     }
   }
@@ -423,11 +400,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   Future<void> _startTracking() async {
     try {
       await polyfence.Polyfence.instance.startTracking();
-      setState(() {
-        _isTracking = true;
-      });
-
-      // Save state
+      setState(() => _isTracking = true);
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool('isTracking', true);
     } catch (e) {
@@ -442,8 +415,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         _isTracking = false;
         _currentSpeed = 0.0;
       });
-
-      // Save state
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool('isTracking', false);
     } catch (e) {
@@ -455,18 +426,14 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       polyfence.PolyfenceAccuracyProfile profile) async {
     try {
       await polyfence.Polyfence.instance.setAccuracyProfile(profile);
-      setState(() {
-        _currentProfile = profile;
-      });
+      setState(() => _currentProfile = profile);
     } catch (e) {
       _addErrorEvent('Failed to set accuracy profile: $e');
     }
   }
 
   void _clearEvents() {
-    setState(() {
-      _events.clear();
-    });
+    setState(() => _events.clear());
     _saveEvents();
   }
 
@@ -476,7 +443,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     });
   }
 
-  // Convert Polyfence enums to new model enums
+  // Convert Polyfence enums to local model enums
   GpsProfile _convertToGpsProfile(polyfence.PolyfenceAccuracyProfile profile) {
     switch (profile) {
       case polyfence.PolyfenceAccuracyProfile.maxAccuracy:
@@ -504,7 +471,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     }
   }
 
-  // Convert Polyfence Zone to new Zone model
+  // Convert Polyfence Zone to local Zone model (carries distance info)
   List<Zone> _convertZones(List<polyfence.Zone> polyfenceZones) {
     return polyfenceZones.map((zone) {
       double? distance;
@@ -541,8 +508,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               }
               break;
           }
-        } catch (e) {
-          logDebug('Zone distance calculation failed for ${zone.name}: $e');
+        } catch (_) {
+          // Distance is best-effort; leave it null on failure.
         }
       }
 
@@ -631,17 +598,15 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     return _distanceBetweenLatLng(point, projection);
   }
 
-  // Convert events to new GeofenceEvent model
   List<GeofenceEvent> _convertEvents() {
     return _events.map((event) {
       DateTime timestamp;
       try {
         final timeStr = event['timestamp'] as String? ?? '';
-        // Try parsing as full ISO8601 first (new format)
         if (timeStr.contains('T') || timeStr.contains('-')) {
           timestamp = DateTime.parse(timeStr);
         } else {
-          // Legacy format: time-only string like "22:57:34" - assume today
+          // Legacy time-only format — assume today
           final now = DateTime.now();
           final timeParts = timeStr.split(':');
           timestamp = DateTime(
@@ -653,16 +618,41 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             int.parse(timeParts[2]),
           );
         }
-      } catch (e) {
+      } catch (_) {
         timestamp = DateTime.now();
       }
+
+      EventType eventType;
+      switch (event['type']) {
+        case 'ENTER':
+          eventType = EventType.enter;
+          break;
+        case 'DWELL':
+          eventType = EventType.dwell;
+          break;
+        default:
+          eventType = EventType.exit;
+          break;
+      }
+
+      // Resolve zone name fresh against the current zone list so events
+      // that fired before zones loaded (or pre-rename) display the right
+      // name as soon as the data catches up. Falls back to:
+      //   1. Any previously-stored 'zone' field (legacy events written
+      //      under the old pre-resolve scheme)
+      //   2. The zoneId itself (zone deleted upstream or never loaded)
+      final zoneId = event['zoneId'] as String? ?? 'unknown';
+      final resolved = _getZoneName(zoneId);
+      final zoneName = resolved != zoneId
+          ? resolved
+          : (event['zone'] as String? ?? zoneId);
 
       return GeofenceEvent(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
         timestamp: timestamp,
-        type: event['type'] == 'ENTER' ? EventType.enter : EventType.exit,
-        zoneName: event['zone'] ?? 'Unknown',
-        zoneId: event['zoneId'] ?? 'unknown',
+        type: eventType,
+        zoneName: zoneName,
+        zoneId: zoneId,
       );
     }).toList();
   }
@@ -673,7 +663,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   }
 
   LatLng? _getCurrentLocation() {
-    // Fallback to parsed location status
     try {
       final parts = _locationStatus.split(',');
       if (parts.length == 2) {
@@ -681,106 +670,41 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         final lng = double.parse(parts[1].trim());
         return LatLng(lat, lng);
       }
-    } catch (e) {
-      // Fallback to default location
+    } catch (_) {
+      // Fall through to null
     }
-    return null; // Return null when GPS is not available
+    return null;
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        backgroundColor: AppTheme.background,
-        foregroundColor: AppTheme.foreground,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        title: const Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              'Polyfence',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.w600,
-                color: AppTheme.foreground,
-              ),
-            ),
-            Text(
-              'Flutter Example App',
-              style: TextStyle(
-                fontSize: 14,
-                color: AppTheme.mutedForeground,
-              ),
-            ),
-          ],
-        ),
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(1),
-          child: Container(
-            height: 1,
-            color: AppTheme.border,
-          ),
-        ),
-        actions: [
-          Builder(
-            builder: (btnContext) => IconButton(
-              icon: Badge(
-                label: Text('${LogBuffer.length}'),
-                isLabelVisible: LogBuffer.length > 0,
-                child: const Icon(Icons.share, color: AppTheme.foreground),
-              ),
-              tooltip: 'Export Logs (${LogBuffer.length})',
-              onPressed: () async {
-                if (LogBuffer.length == 0) {
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('No logs to export')),
-                    );
-                  }
-                  return;
-                }
-                try {
-                  final box = btnContext.findRenderObject() as RenderBox?;
-                  final origin = box != null
-                      ? box.localToGlobal(Offset.zero) & box.size
-                      : null;
-                  await LogBuffer.exportLogs(shareOrigin: origin);
-                } catch (e) {
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Export failed: $e')),
-                    );
-                  }
-                }
-              },
-            ),
-          ),
-        ],
-      ),
-      body: Stack(
-        children: [
-          // Main scrollable content
-          Column(
-            children: [
-              // Error Banner
-              if (_errors.isNotEmpty)
-                ErrorBanner(
-                  errors: _errors,
-                  onDismiss: _dismissError,
-                ),
+  /// Dashboard contents — either the empty-state CTA (no API key
+  /// configured) or the full card stack (key present). The error banner
+  /// renders above either, gated by visibility.
+  Widget _buildDashboardTab() {
+    final hasKey = _apiKey != null && _apiKey!.isNotEmpty;
 
-              // Scrollable content
-              Expanded(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.only(
-                    left: AppTheme.spacingLg,
-                    right: AppTheme.spacingLg,
-                    top: AppTheme.spacingLg,
-                    bottom: 220,
-                  ),
-                  child: Column(
+    return Column(
+      children: [
+        if (_errorsVisible && _errors.isNotEmpty)
+          ErrorBanner(
+            errors: _errors,
+            onDismiss: _dismissError,
+            onClearAll: () => setState(() {
+              _errors.clear();
+              _errorsVisible = false;
+            }),
+            onClose: () => setState(() => _errorsVisible = false),
+          ),
+        Expanded(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.only(
+              left: AppTheme.spacingLg,
+              right: AppTheme.spacingLg,
+              top: AppTheme.spacingLg,
+              bottom: AppTheme.spacingXl3,
+            ),
+            child: _apiKeyLoaded && !hasKey
+                ? const ApiKeyEmptyState()
+                : Column(
                     children: [
                       StatusSection(
                         isTracking: _isTracking,
@@ -811,23 +735,341 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                       ),
                     ],
                   ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMapTab() {
+    return MapScreen(
+      isTracking: _isTracking,
+      location: _getCurrentLocation(),
+      accuracy: _gpsAccuracy,
+      zoneCount: _loadedZones.length,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        backgroundColor: AppTheme.card,
+        foregroundColor: AppTheme.foreground,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        title: const Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Polyfence',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w600,
+                color: AppTheme.foreground,
+              ),
+            ),
+            Text(
+              'Flutter Example App',
+              style: TextStyle(
+                fontSize: 14,
+                color: AppTheme.mutedForeground,
+              ),
+            ),
+          ],
+        ),
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1),
+          child: Container(height: 1, color: AppTheme.border),
+        ),
+        actions: [
+          // Notification bell — tap always toggles the error banner;
+          // the red badge appears only when there are errors to surface.
+          IconButton(
+            icon: Badge(
+              label: Text(
+                _errors.length > 99 ? '99+' : '${_errors.length}',
+              ),
+              isLabelVisible: _errors.isNotEmpty,
+              backgroundColor: AppTheme.destructive,
+              textColor: AppTheme.destructiveForeground,
+              child: const Icon(
+                LucideIcons.bell,
+                color: AppTheme.mutedForeground,
+              ),
+            ),
+            tooltip: _errors.isEmpty
+                ? 'No errors'
+                : '${_errors.length} error${_errors.length != 1 ? "s" : ""}',
+            onPressed: () =>
+                setState(() => _errorsVisible = !_errorsVisible),
+          ),
+        ],
+      ),
+      body: IndexedStack(
+        index: _currentTab,
+        children: [
+          _buildDashboardTab(),
+          _buildMapTab(),
+        ],
+      ),
+      floatingActionButton: _buildTrackingFab(),
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+      bottomNavigationBar: _buildBottomNavBar(),
+    );
+  }
+
+  Widget _buildTrackingFab() {
+    return GestureDetector(
+      onTap: _toggleTracking,
+      child: Container(
+        width: 96,
+        height: 96,
+        decoration: BoxDecoration(
+          color: _isTracking ? AppTheme.destructive : AppTheme.primary,
+          shape: BoxShape.circle,
+          boxShadow: AppTheme.fabShadow,
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            _TrackingDot(isTracking: _isTracking),
+            const SizedBox(height: 6),
+            Text(
+              _isTracking ? 'Stop' : 'Start',
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: Colors.white,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBottomNavBar() {
+    return Container(
+      decoration: const BoxDecoration(
+        color: AppTheme.card,
+        border: Border(
+          top: BorderSide(color: AppTheme.border),
+        ),
+      ),
+      child: SafeArea(
+        top: false,
+        child: SizedBox(
+          height: 56,
+          child: Row(
+            children: [
+              Expanded(
+                child: _NavBarItem(
+                  icon: LucideIcons.layoutDashboard,
+                  label: 'Dashboard',
+                  isActive: _currentTab == 0,
+                  onTap: () => setState(() => _currentTab = 0),
+                ),
+              ),
+              // Spacer for the centerDocked FAB
+              const SizedBox(width: 96),
+              Expanded(
+                child: _NavBarItem(
+                  icon: LucideIcons.map,
+                  label: 'Map',
+                  isActive: _currentTab == 1,
+                  onTap: () => setState(() => _currentTab = 1),
                 ),
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
 
-          // Fixed tracking button at bottom
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: TrackingButton(
-              isTracking: _isTracking,
-              onPressed: _toggleTracking,
+/// Dashboard CTA shown when no Polyfence API key was supplied at build
+/// time. Pure documentation — surfaces the dart-define command the
+/// developer needs to rerun with. There is no in-app paste flow by
+/// design (this example is run from an IDE/shell; the key belongs in
+/// the build invocation, not in app state).
+///
+/// Public so widget tests can mount it directly without bootstrapping
+/// the full app (which would require a MethodChannel for the Polyfence
+/// plugin's `initialize` call).
+class ApiKeyEmptyState extends StatelessWidget {
+  const ApiKeyEmptyState({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return PolyCard(
+      padding: const EdgeInsets.all(AppTheme.spacingXl),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(
+                LucideIcons.key,
+                size: 22,
+                color: AppTheme.primary,
+              ),
+              SizedBox(width: AppTheme.spacingSm),
+              Text(
+                'Connect Polyfence',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: AppTheme.foreground,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppTheme.spacingMd),
+          const Text(
+            'This example needs a Polyfence API key to load your zones. '
+            'Sign up for a free key at polyfence.io, then re-run the '
+            'app with the key passed as a build-time define:',
+            style: TextStyle(
+              fontSize: 14,
+              height: 1.5,
+              color: AppTheme.mutedForeground,
+            ),
+          ),
+          const SizedBox(height: AppTheme.spacingMd),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(AppTheme.spacingMd),
+            decoration: BoxDecoration(
+              color: AppTheme.secondary,
+              borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+            ),
+            child: SelectableText(
+              'flutter run --dart-define=POLYFENCE_API_KEY=pf_...',
+              style: AppTheme.brandTextStyle(
+                fontSize: 13,
+                color: AppTheme.foreground,
+                fontFeatures: const [FontFeature.tabularFigures()],
+              ),
             ),
           ),
         ],
       ),
     );
+  }
+}
+
+class _NavBarItem extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final bool isActive;
+  final VoidCallback onTap;
+
+  const _NavBarItem({
+    required this.icon,
+    required this.label,
+    required this.isActive,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            icon,
+            size: 20,
+            color: isActive ? AppTheme.primary : AppTheme.mutedForeground,
+          ),
+          const SizedBox(height: 4),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+              color: isActive ? AppTheme.primary : AppTheme.mutedForeground,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TrackingDot extends StatefulWidget {
+  final bool isTracking;
+
+  const _TrackingDot({required this.isTracking});
+
+  @override
+  State<_TrackingDot> createState() => _TrackingDotState();
+}
+
+class _TrackingDotState extends State<_TrackingDot>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _animation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: const Duration(milliseconds: 1000),
+      vsync: this,
+    );
+
+    _animation = Tween<double>(begin: 0.7, end: 1.0).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+    );
+
+    if (widget.isTracking) {
+      _controller.repeat(reverse: true);
+    }
+  }
+
+  @override
+  void didUpdateWidget(_TrackingDot oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.isTracking && !oldWidget.isTracking) {
+      _controller.repeat(reverse: true);
+    } else if (!widget.isTracking && oldWidget.isTracking) {
+      _controller.stop();
+      _controller.reset();
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return widget.isTracking
+        ? FadeTransition(
+            opacity: _animation,
+            child: Container(
+              width: 10,
+              height: 10,
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                shape: BoxShape.circle,
+              ),
+            ),
+          )
+        : Container(
+            width: 10,
+            height: 10,
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              shape: BoxShape.circle,
+            ),
+          );
   }
 }

@@ -8,9 +8,14 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <!-- Activity recognition powers the SmartGPS intelligent strategy
+         (still / walking / running / cycling / driving). Optional at
+         runtime — the example continues without it if denied. -->
+    <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" />
+    <uses-permission android:name="com.google.android.gms.permission.ACTIVITY_RECOGNITION" />
 
     <application
-        android:label="polyfence_example"
+        android:label="Polyfence Flutter Example"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity
@@ -30,14 +35,16 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
-        
-        <!-- LocationTracker service for geofencing -->
-        <service 
+
+        <!-- LocationTracker service for background geofencing.
+             Class lives in the plugin under the io.polyfence.polyfence
+             package (see plugin android/build.gradle namespace). -->
+        <service
             android:name="io.polyfence.polyfence.core.LocationTracker"
             android:foregroundServiceType="location"
             android:exported="false"
             android:enabled="true" />
-            
+
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />

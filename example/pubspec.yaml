@@ -1,5 +1,5 @@
 name: polyfence_example
-description: Example app for Polyfence plugin
+description: Example app for the Polyfence Flutter SDK.
 publish_to: 'none'
 version: 0.14.2
 
@@ -10,6 +10,8 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  # Plugin under development — points at the parent directory so PRs to
+  # the plugin can be exercised in this example without publishing.
   polyfence:
     path: ../
   cupertino_icons: ^1.0.2
@@ -17,11 +19,12 @@ dependencies:
   http: ^1.1.0
   shared_preferences: ^2.2.2
   permission_handler: ^11.3.1
-  path_provider: ^2.1.4
-  share_plus: ^10.1.4
-  battery_plus: ^4.0.2
-  connectivity_plus: ^5.0.0
-  device_info_plus: ^10.1.2
+  # Map tab uses OSM raster tiles via flutter_map; latlong2 is its
+  # required companion type for marker coordinates.
+  flutter_map: ^7.0.2
+  latlong2: ^0.9.1
+  # Space Grotesk (brand typography) loaded at runtime via google_fonts.
+  google_fonts: ^6.2.1
 
 dev_dependencies:
   flutter_test:

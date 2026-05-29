@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 import '../models/app_models.dart';
 import '../theme/app_theme.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'common/poly_card.dart';
 
 class GpsProfileCard extends StatelessWidget {
   final GpsProfile currentProfile;
@@ -16,49 +17,41 @@ class GpsProfileCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final description = currentProfile.description;
-    return Container(
-      decoration: BoxDecoration(
-        color: AppTheme.card,
-        border: Border.all(color: AppTheme.border),
-        borderRadius: BorderRadius.circular(AppTheme.radiusLg),
-      ),
+    return PolyCard(
       child: Column(
         children: [
-          // All content in one padded container (no header border)
           Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(AppTheme.spacingLg),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Header Row
                 const Row(
                   children: [
                     Icon(LucideIcons.settings,
                         size: 20, color: AppTheme.mutedForeground),
-                    SizedBox(width: 8),
+                    SizedBox(width: AppTheme.spacingSm),
                     Text(
                       'GPS Profile',
                       style: TextStyle(
-                        fontSize: 16, // text-base (match Tracking Active)
-                        fontWeight: FontWeight.w500, // font-medium
-                        color: AppTheme.foreground, // text-gray-900
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                        color: AppTheme.foreground,
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: AppTheme.spacingSm),
 
-                // Description Text
                 Text(
                   description,
                   style: const TextStyle(
-                    fontSize: 14, // text-sm
-                    color: Color(0xFF4B5563), // text-gray-600
+                    fontSize: 14,
+                    color: AppTheme.mutedForeground,
                   ),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: AppTheme.spacingLg),
 
-                // Profile Grid - 4 columns
+                // Profile Grid — 4 equal-width tiles.
                 Row(
                   children: [
                     Expanded(
@@ -66,19 +59,19 @@ class GpsProfileCard extends StatelessWidget {
                             profile: GpsProfile.max,
                             isActive: currentProfile == GpsProfile.max,
                             onTap: () => onProfileChange(GpsProfile.max))),
-                    const SizedBox(width: 6),
+                    const SizedBox(width: AppTheme.spacingSm),
                     Expanded(
                         child: _ProfileButton(
                             profile: GpsProfile.balanced,
                             isActive: currentProfile == GpsProfile.balanced,
                             onTap: () => onProfileChange(GpsProfile.balanced))),
-                    const SizedBox(width: 6),
+                    const SizedBox(width: AppTheme.spacingSm),
                     Expanded(
                         child: _ProfileButton(
                             profile: GpsProfile.battery,
                             isActive: currentProfile == GpsProfile.battery,
                             onTap: () => onProfileChange(GpsProfile.battery))),
-                    const SizedBox(width: 6),
+                    const SizedBox(width: AppTheme.spacingSm),
                     Expanded(
                         child: _ProfileButton(
                             profile: GpsProfile.smart,
@@ -108,50 +101,41 @@ class _ProfileButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    const activeFg = Colors.white;
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(10), // rounded-lg
+      borderRadius: BorderRadius.circular(AppTheme.radiusLg),
       child: Container(
-        constraints: const BoxConstraints(minHeight: 70),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        // Tightened horizontal padding (8dp instead of 12dp) so "Balanced"
+        // (8 chars) fits on narrow devices (Samsung ~360dp). Vertical
+        // stays 12 so tile height is identical across breakpoints.
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppTheme.spacingSm,
+          vertical: AppTheme.spacingMd,
+        ),
         decoration: BoxDecoration(
           color: isActive ? AppTheme.primary : AppTheme.secondary,
-          borderRadius: BorderRadius.circular(10), // rounded-lg
-          boxShadow: isActive
-              ? [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.1),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ]
-              : null,
+          borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+          boxShadow: isActive ? AppTheme.cardShadow : null,
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            // Icon (top)
             Icon(
               profile.icon,
-              size: 20, // w-5 h-5
-              color: isActive
-                  ? AppTheme.primaryForeground
-                  : AppTheme.secondaryForeground,
+              size: 20,
+              color: isActive ? activeFg : AppTheme.foreground,
             ),
-            const SizedBox(height: 6), // mb-1.5
-
-            // Label (bottom)
+            const SizedBox(height: 6),
             Text(
               profile.displayName,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
-                fontSize: 12, // text-xs
-                fontWeight: FontWeight.w500, // font-medium
-                color: isActive
-                    ? AppTheme.primaryForeground // text-white
-                    : const Color(0xFF374151), // text-gray-700
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                color: isActive ? activeFg : AppTheme.foreground,
               ),
             ),
           ],

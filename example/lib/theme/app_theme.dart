@@ -1,34 +1,53 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class AppTheme {
-  // Brand Colors
-  static const Color primary = Color(0xFF5B6FEE);
-  static const Color primaryForeground = Color(0xFFFFFFFF);
+  // Brand typography — Space Grotesk. For monospace-like contexts (coords,
+  // IDs, timestamps), pass `fontFeatures: [FontFeature.tabularFigures()]`
+  // to brandTextStyle — Space Grotesk ships an OpenType `tnum` feature
+  // that locks digit widths without switching fonts.
+  static TextStyle brandTextStyle({
+    double? fontSize,
+    FontWeight? fontWeight,
+    Color? color,
+    double? height,
+    double? letterSpacing,
+    FontStyle? fontStyle,
+    List<FontFeature>? fontFeatures,
+  }) {
+    return GoogleFonts.spaceGrotesk(
+      fontSize: fontSize,
+      fontWeight: fontWeight,
+      color: color,
+      height: height,
+      letterSpacing: letterSpacing,
+      fontStyle: fontStyle,
+      fontFeatures: fontFeatures,
+    );
+  }
 
-  // Lavender (Status Card)
-  static const Color lavenderBackground = Color(0xFFF5F5FF);
-  static const Color lavenderBorder = Color(0xFFE5E5FF);
+  // Brand Colors — Polyfence
+  static const Color primary = Color(0xFF00C2FF); // CYAN
+  static const Color primaryForeground = Color(0xFF0A0E1A); // DARK_ON_CYAN
 
   // Light Theme Colors
-  static const Color background = Color(0xFFF9FAFB); // bg-gray-50 - subtle gray for card contrast
-  static const Color foreground = Color(0xFF252525);
-  static const Color card = Color(0xFFFFFFFF); // white cards float on gray background
-  static const Color cardForeground = Color(0xFF252525);
+  static const Color background = Color(0xFFFAFBFC); // SURFACE
+  static const Color foreground = Color(0xFF111111); // INK
+  static const Color card = Color(0xFFFFFFFF);
 
-  static const Color secondary = Color(0xFFF0F0F3);
-  static const Color secondaryForeground = Color(0xFF030213);
+  static const Color secondary = Color(0xFFF3F4F6); // gray-100
+  static const Color secondaryForeground = Color(0xFF111111);
 
-  static const Color muted = Color(0xFFECECF0);
-  static const Color mutedForeground = Color(0xFF717182);
-
-  static const Color accent = Color(0xFFE9EBEF);
-  static const Color accentForeground = Color(0xFF030213);
+  static const Color mutedForeground = Color(0xFF6B7280); // TEXT_SECONDARY
+  static const Color textTertiary = Color(0xFF9CA3AF); // TEXT_TERTIARY
 
   static const Color destructive = Color(0xFFEF4444);
   static const Color destructiveForeground = Color(0xFFFFFFFF);
+  static const Color destructiveHover = Color(0xFFDC2626);
 
-  static const Color border = Color(0x1A000000); // rgba(0, 0, 0, 0.1)
-  static const Color inputBackground = Color(0xFFF3F3F5);
+  static const Color border = Color(0xFFE5E7EB); // BORDER (solid light gray)
+  // Lighter divider used between rows INSIDE list cards.
+  static const Color borderMuted = Color(0xFFF3F4F6);
 
   // Status Colors
   static const Color success = Color(0xFF22C55E);
@@ -36,16 +55,16 @@ class AppTheme {
   static const Color error = Color(0xFFEF4444);
   static const Color info = Color(0xFF3B82F6);
 
-  // Zone Type Colors
-  static const Color circleZoneBg = Color(0xFFDBEAFE);
-  static const Color circleZoneIcon = Color(0xFF2563EB);
-  static const Color polygonZoneBg = Color(0xFFF3E8FF);
-  static const Color polygonZoneIcon = Color(0xFF9333EA);
+  // Zone Type Colors — pastel fill (-100) + darker icon (-600).
+  static const Color circleZoneBg = Color(0xFFDBEAFE); // blue-100
+  static const Color circleZoneIcon = Color(0xFF2563EB); // blue-600
+  static const Color polygonZoneBg = Color(0xFFF3E8FF); // purple-100
+  static const Color polygonZoneIcon = Color(0xFF9333EA); // purple-600
 
   // Border Radius
   static const double radiusSm = 6.0;
-  static const double radiusMd = 8.0;  // rounded-lg (0.5rem = 8px) per spec
-  static const double radiusLg = 8.0;  // rounded-lg (0.5rem = 8px) per spec - cards use this
+  static const double radiusMd = 8.0;
+  static const double radiusLg = 8.0; // cards
   static const double radiusXl = 14.0;
 
   // Spacing
@@ -57,10 +76,41 @@ class AppTheme {
   static const double spacingXl2 = 24.0;
   static const double spacingXl3 = 32.0;
 
+  // Drop-shadow tokens. Use getter form because BoxShadow.color uses
+  // `withValues(alpha:)` which isn't const-constructable.
+  static List<BoxShadow> get cardShadow => [
+        BoxShadow(
+          color: Colors.black.withValues(alpha: 0.08),
+          blurRadius: 6,
+          offset: const Offset(0, 4),
+        ),
+      ];
+
+  static List<BoxShadow> get overlayShadow => [
+        BoxShadow(
+          color: Colors.black.withValues(alpha: 0.1),
+          blurRadius: 3,
+          offset: const Offset(0, 1),
+        ),
+      ];
+
+  static List<BoxShadow> get fabShadow => [
+        BoxShadow(
+          color: Colors.black.withValues(alpha: 0.1),
+          blurRadius: 15,
+          spreadRadius: -3,
+          offset: const Offset(0, 10),
+        ),
+      ];
+
   static ThemeData get lightTheme {
+    final brandTextTheme = GoogleFonts.spaceGroteskTextTheme(_baseTextTheme);
     return ThemeData(
       useMaterial3: true,
+      visualDensity: VisualDensity.adaptivePlatformDensity,
       brightness: Brightness.light,
+      textTheme: brandTextTheme,
+      primaryTextTheme: brandTextTheme,
       colorScheme: const ColorScheme(
         brightness: Brightness.light,
         primary: primary,
@@ -105,75 +155,63 @@ class AppTheme {
           foregroundColor: mutedForeground,
         ),
       ),
-      dividerTheme: const DividerThemeData(
-        color: border,
-        thickness: 1,
-        space: 0,
-      ),
-      textTheme: const TextTheme(
-        displayLarge: TextStyle(
-          fontSize: 24,
-          fontWeight: FontWeight.w500,
-          height: 1.5,
-          color: foreground,
-        ),
-        displayMedium: TextStyle(
-          fontSize: 20,
-          fontWeight: FontWeight.w500,
-          height: 1.5,
-          color: foreground,
-        ),
-        displaySmall: TextStyle(
-          fontSize: 18,
-          fontWeight: FontWeight.w500,
-          height: 1.5,
-          color: foreground,
-        ),
-        bodyLarge: TextStyle(
-          fontSize: 16,
-          fontWeight: FontWeight.w400,
-          height: 1.5,
-          color: foreground,
-        ),
-        bodyMedium: TextStyle(
-          fontSize: 16,
-          fontWeight: FontWeight.w500,
-          height: 1.5,
-          color: foreground,
-        ),
-        bodySmall: TextStyle(
-          fontSize: 14,
-          fontWeight: FontWeight.w400,
-          height: 1.5,
-          color: foreground,
-        ),
-        labelLarge: TextStyle(
-          fontSize: 14,
-          fontWeight: FontWeight.w500,
-          height: 1.5,
-          color: foreground,
-        ),
-        labelMedium: TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.w400,
-          height: 1.5,
-          color: foreground,
-        ),
-        labelSmall: TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.w500,
-          height: 1.5,
-          color: foreground,
-        ),
-      ),
     );
   }
 
-  static ThemeData get darkTheme {
-    // Similar structure for dark theme
-    return lightTheme.copyWith(
-      brightness: Brightness.dark,
-      scaffoldBackgroundColor: const Color(0xFF252525),
-    );
-  }
+  static const TextTheme _baseTextTheme = TextTheme(
+    displayLarge: TextStyle(
+      fontSize: 24,
+      fontWeight: FontWeight.w500,
+      height: 1.5,
+      color: foreground,
+    ),
+    displayMedium: TextStyle(
+      fontSize: 20,
+      fontWeight: FontWeight.w500,
+      height: 1.5,
+      color: foreground,
+    ),
+    displaySmall: TextStyle(
+      fontSize: 18,
+      fontWeight: FontWeight.w500,
+      height: 1.5,
+      color: foreground,
+    ),
+    bodyLarge: TextStyle(
+      fontSize: 16,
+      fontWeight: FontWeight.w400,
+      height: 1.5,
+      color: foreground,
+    ),
+    bodyMedium: TextStyle(
+      fontSize: 16,
+      fontWeight: FontWeight.w500,
+      height: 1.5,
+      color: foreground,
+    ),
+    bodySmall: TextStyle(
+      fontSize: 14,
+      fontWeight: FontWeight.w400,
+      height: 1.5,
+      color: foreground,
+    ),
+    labelLarge: TextStyle(
+      fontSize: 14,
+      fontWeight: FontWeight.w500,
+      height: 1.5,
+      color: foreground,
+    ),
+    labelMedium: TextStyle(
+      fontSize: 12,
+      fontWeight: FontWeight.w400,
+      height: 1.5,
+      color: foreground,
+    ),
+    labelSmall: TextStyle(
+      fontSize: 12,
+      fontWeight: FontWeight.w500,
+      height: 1.5,
+      color: foreground,
+    ),
+  );
 }

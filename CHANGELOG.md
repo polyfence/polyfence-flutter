@@ -7,7 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.14.3] - 2026-05-30
+
 ### Changed
+- Bump `polyfence-core` from 1.0.8 to **1.0.9**. v1.0.9 adds the cold-start empty-baseline guard in `GeofenceEngine.reconcileZoneStates` (see polyfence-core CHANGELOG) — fresh-install installs with no persisted zone state no longer lock in a `0 zones, inside=0` baseline when the engine receives its first GPS fix before bridge-driven `addZone()` calls land. iOS doesn't reproduce in practice (CLLocationManager's synchronous `requestLocation` returns fast enough that zones are present by first fix), but the guard lands symmetrically on the Swift side via the core update for platform parity.
 - **Example app replaced with the ratified Polyfence QA Flutter implementation.** The previous demo (a single Dashboard screen with hardcoded London zones in `demo_data.dart` and a `demoMode`/`apiKey` toggle in `config.dart`) is gone. The new example ships with no preconfigured zones, a Dashboard + Map two-tab layout, brand typography (Space Grotesk via `google_fonts`), and live zone sync from the user's Polyfence account.
 - **Example identifiers renamed.** Display name → "Polyfence Flutter Example", iOS bundle id + Android applicationId/namespace → `io.polyfence.example.flutter`, `MainActivity` moved to `io/polyfence/example/flutter/`. The Dart pubspec package name stays `polyfence_example`.
 - **Example API-key flow.** Users sign up for a free key at polyfence.io and pass it at build time via `--dart-define=POLYFENCE_API_KEY=...`. This is a dev-facing example run from an IDE or shell, so the key belongs in the build invocation — there is no in-app paste field. When the define is missing the Dashboard renders an empty-state card surfacing the exact `flutter run` command; the Map tab continues to render the user's position with zero zones.

@@ -44,8 +44,6 @@ INDEX.md
 # Ignore everything in doc/ except hand-written files
 doc/*
 !doc/TELEMETRY.md
-!doc/API_SURFACE.md
-!doc/PLATFORM_CHANNEL_SPEC.md
 !doc/ARCHITECTURE.md
 !doc/CONSISTENCY_CHECKS.md
 

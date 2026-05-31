@@ -56,7 +56,7 @@ The Flutter plugin communicates with native code through platform channels:
 | `polyfence/error` | EventChannel | Structured error event stream |
 | `polyfence/performance` | EventChannel | Runtime status and performance metrics stream |
 
-For the full channel specification, see [PLATFORM_CHANNEL_SPEC.md](PLATFORM_CHANNEL_SPEC.md).
+The channel contract is defined by the native bridge implementations: `android/src/main/kotlin/io/polyfence/polyfence/flutter/PolyfencePlugin.kt` and `ios/Classes/PolyfencePlugin.swift`.
 
 ## Data Flow
 

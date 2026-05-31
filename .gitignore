@@ -45,7 +45,6 @@ INDEX.md
 doc/*
 !doc/TELEMETRY.md
 !doc/ARCHITECTURE.md
-!doc/CONSISTENCY_CHECKS.md
 
 # Security - Never commit API keys or secrets
 ADMIN_API_KEYS

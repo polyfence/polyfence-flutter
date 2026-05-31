@@ -22,6 +22,8 @@ jobs:
       - run: flutter pub get
       - run: flutter analyze --no-fatal-infos
       - run: flutter test
+      - name: Consistency checks
+        run: bash scripts/consistency-check.sh --local-only
 
   android-tests:
     name: Android Native Tests

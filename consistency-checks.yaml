@@ -12,6 +12,12 @@ checks:
     runs: bash scripts/consistency-pubspec-readme-version.sh
     fix: Bump the README sentinels and doc/TELEMETRY.md whenever pubspec.yaml version changes.
 
+  - id: android-gradle-version-sync
+    description: android/build.gradle plugin version matches pubspec.yaml version (AAR metadata stays consistent across releases)
+    type: subprocess
+    runs: bash scripts/consistency-android-gradle-version.sh
+    fix: Run scripts/sync_version.sh to propagate pubspec.yaml version to android/build.gradle.
+
   - id: dart-analyze-clean
     description: Flutter analyzer reports zero errors on plugin surfaces (infos tolerated via project precedent)
     type: subprocess

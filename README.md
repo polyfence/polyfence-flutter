@@ -59,10 +59,10 @@ All three zone-sourcing approaches use the **same plugin API** — switch anytim
 ```yaml
 # pubspec.yaml
 dependencies:
-  polyfence: <!-- pf:version -->^0.14.3<!-- /pf:version -->
+  polyfence: <!-- pf:version -->^1.0.0<!-- /pf:version -->
 ```
 
-**Current version:** <!-- pf:version-plain -->0.14.3<!-- /pf:version-plain -->
+**Current version:** <!-- pf:version-plain -->1.0.0<!-- /pf:version-plain -->
 
 > **Native dependency:** Polyfence uses [polyfence-core](https://github.com/polyfence/polyfence-core) for native geofencing engines. It's included automatically — Maven for Android, CocoaPods for iOS. On iOS, run `cd ios && pod install` after adding the dependency.
 

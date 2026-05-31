@@ -1,6 +1,6 @@
 name: polyfence
 description: "Privacy-first polygon and circle geofencing for Flutter. On-device processing, unlimited zones, activity-aware tracking."
-version: 0.14.3
+version: 1.0.0
 homepage: https://polyfence.io
 repository: https://github.com/polyfence/polyfence-flutter
 issue_tracker: https://github.com/polyfence/polyfence-flutter/issues

@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-05-31
+
+### Changed
+- **Semver commitment.** First 1.x release. The Dart public surface (`PolyfenceService`, the configuration types, the event streams, the typed errors) has been stable across the 0.14.x line; this bump formalises that. From this point on, breaking changes to the public API require a MAJOR bump (2.0.0); backwards-compatible additions are MINOR (1.1.0); fixes are PATCH (1.0.1).
+- **Supported-versions policy updated.** `SECURITY.md` now declares 1.0.x as the supported line; security fixes will not be backported to 0.x.
+
+### Notes
+- Tag `v1.0.0` will point at the synced state on `main` after this release lands.
+- `pubspec.yaml`, `android/build.gradle`, `ios/polyfence.podspec`, `lib/src/version.dart`, `example/pubspec.yaml`, `README.md`, and `doc/TELEMETRY.md` all carry the 1.0.0 sentinel (propagated by `scripts/sync_version.sh`; verified by the `pubspec-readme-version-sync` and `android-gradle-version-sync` consistency checks).
+
 ## [0.14.3] - 2026-05-30
 
 ### Changed

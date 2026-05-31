@@ -1,5 +1,5 @@
 group 'io.polyfence.polyfence'
-version '0.14.0'
+version '0.14.3'
 
 buildscript {
     ext.kotlin_version = '1.8.22'

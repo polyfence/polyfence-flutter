@@ -88,7 +88,7 @@ flutter pub get
 
 - **minSdk**: 24+ (Android 7.0)
 - **tested**: up to API 35 (Android 15)
-- **dependency**: [polyfence-core](https://github.com/polyfence/polyfence-core) 1.0.5 (native engine, pulled transitively via Maven)
+- **dependency**: [polyfence-core](https://github.com/polyfence/polyfence-core) (native engine, pulled transitively via Maven — see CHANGELOG.md for the current pinned version)
 
 Ensure your `android/app/build.gradle` has the correct minimum SDK version:
 ```groovy

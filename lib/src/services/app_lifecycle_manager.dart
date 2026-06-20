@@ -5,7 +5,7 @@ import 'analytics_service.dart';
 /// Manages app lifecycle events for analytics session tracking.
 ///
 /// Triggers telemetry upload when the app transitions to background/detached.
-/// Session aggregation is handled entirely by native polyfence-core (D016).
+/// Session aggregation is handled entirely by native polyfence-core.
 /// Initialized internally by [PolyfenceService] during plugin initialization.
 class AppLifecycleManager {
   static AppLifecycleManager? _instance;

@@ -21,7 +21,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 class AnalyticsConfig {
   /// Set to `true` to disable all anonymous telemetry.
   ///
-  /// Defaults to `false` — telemetry is on by default (opt-out, D008).
+  /// Defaults to `false` — telemetry is on by default (opt-out).
   final bool disableTelemetry;
 
   /// Optional industry category for benchmarking.
@@ -53,8 +53,8 @@ class AnalyticsConfig {
 
 /// Singleton analytics service for collecting and sending plugin telemetry.
 ///
-/// Session telemetry aggregation is handled entirely by native polyfence-core
-/// (D016). This service fetches the aggregated payload via platform channel
+/// Session telemetry aggregation is handled entirely by native polyfence-core.
+/// This service fetches the aggregated payload via platform channel
 /// and POSTs it to the analytics endpoint.
 class PolyfenceAnalytics {
   static PolyfenceAnalytics? _instance;

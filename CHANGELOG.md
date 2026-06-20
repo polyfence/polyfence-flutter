@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+_Nothing yet._
+
 ## [1.0.1] - 2026-06-01
 
 ### Changed
@@ -95,7 +97,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Native core extracted to polyfence-core** — All native geofencing logic (25 files)
   extracted to a separate `polyfence-core` library, consumed as a CocoaPod (iOS) and
   Maven dependency (Android). The plugin is now a thin Flutter bridge over the core.
-- **Telemetry aggregation moved to native (D016)** — Session telemetry is now aggregated
+- **Telemetry aggregation moved to native** — Session telemetry is now aggregated
   on the native side. Dart `AnalyticsService` simplified from 592 to 231 lines and now
   handles HTTP POST only.
 - **Telemetry remains opt-out** — Enabled by default; disable with

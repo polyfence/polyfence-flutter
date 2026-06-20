@@ -77,7 +77,7 @@ dependencies:
 flutter pub get
 ```
 
-> **New to Polyfence?** Try the example app first: `cd example && flutter run` (works immediately, no setup needed)
+> **New to Polyfence?** Try the example app first: `cd example && flutter run --dart-define=POLYFENCE_API_KEY=pf_live_xxx` (the Map tab also works without a key)
 
 ## Platform Setup
 
@@ -674,24 +674,30 @@ When opening a GitHub issue, include: output of `Polyfence.instance.debugInfo()`
 
 ## Example App
 
-A complete example app is included in the `example/` directory.
+A complete example app is included in the `example/` directory, demonstrating
+the SDK end-to-end: zone sync, real-time geofence events, background tracking,
+GPS accuracy profiles, and live position on a map.
 
-**Standalone mode** (works immediately, no setup):
+The API key is supplied at build/run time via `--dart-define` — there is no
+in-app paste field, and the app ships with **zero zones**:
+
 ```bash
 cd example
-flutter run
+flutter pub get
+flutter run --dart-define=POLYFENCE_API_KEY=pf_live_xxx
 ```
 
-The app starts with 3 hardcoded zones. This is a valid production pattern — many apps have static zones.
+The example renders whichever zones are active on your Polyfence account; define
+them in the [Polyfence dashboard](https://polyfence.io) first. Without the
+`--dart-define`, the **Dashboard** tab shows an empty-state card surfacing the
+exact command to re-run. The **Map** tab still works without a key (shows your
+position with zero zones), so you can sanity-check location permissions.
 
-**To use zones from Polyfence SaaS instead:**
+**What the example demonstrates:** zone delta sync, zone entry/exit/dwell event
+handling, background tracking across app states, GPS profile switching,
+permission request flow, and error stream handling.
 
-1. Set `demoMode = false` in `example/lib/config.dart`
-2. Get your free API key from [polyfence.io](https://polyfence.io)
-3. Add the key to `example/lib/config.dart`: `static const String? apiKey = 'your-key';`
-4. Restart the app
-
-**What the example demonstrates:** standalone zone management, API integration patterns, delta-based sync, zone entry/exit event handling, background tracking across app states, GPS profile switching, permission request flow, and error stream handling.
+See [`example/README.md`](example/README.md) for the full walkthrough.
 
 ---
 
@@ -798,4 +804,4 @@ Contributions are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for developmen
 
 MIT — see [LICENSE](LICENSE)
 
-Copyright (c) 2025–2026 Polyfence
+Copyright (c) 2025-2026 Polyfence

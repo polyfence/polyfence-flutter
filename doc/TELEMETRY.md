@@ -1,6 +1,6 @@
 # Polyfence Telemetry Reference
 
-**Last updated:** 2026-05-14
+**Last updated:** 2026-06-20
 **Plugin version:** 1.0.1
 
 This is the field-by-field technical reference for Polyfence's anonymous telemetry. For the privacy policy (opt-out instructions, legal basis, data retention, your rights), see [PRIVACY.md](../PRIVACY.md).
@@ -16,7 +16,7 @@ Here's exactly what gets sent to our analytics endpoint when a session ends:
   "app_identifier": "com.example.logistics",
   "platform": "android",
   "plugin_version": "1.0.1",
-  "core_version": "1.0.4",
+  "core_version": "1.0.9",
 
   "industry_category": null,
   "use_case": null,
@@ -84,7 +84,7 @@ Here's exactly what gets sent to our analytics endpoint when a session ends:
 | `platform` | string | `"android"` | Operating system |
 | `plugin_version` | string | `"1.0.1"` | Plugin version |
 | `bridge_platform` | string | `"flutter"` | Bridge layer (e.g. `flutter`, `react-native`). Set automatically. |
-| `core_version` | string | `"1.0.4"` | Native engine version from polyfence-core. Stamped automatically by TelemetryAggregator. |
+| `core_version` | string | `"1.0.9"` | Native engine version from polyfence-core. Stamped automatically by TelemetryAggregator. |
 
 ### Performance Metrics
 
@@ -205,7 +205,7 @@ The plugin is open source. Verify the telemetry implementation directly:
 ## Changelog
 
 ### 2026-04-03
-- Added `core_version` field — native engine version from polyfence-core, stamped automatically by TelemetryAggregator (D043). Not a user identifier.
+- Added `core_version` field — native engine version from polyfence-core, stamped automatically by TelemetryAggregator. Not a user identifier.
 
 ### 2026-03-27 (added in v0.13)
 - Added `bridge_platform` field — identifies which bridge layer produced the session (e.g. `flutter`, `react-native`). Set automatically by the plugin during initialization. Not a user identifier.
@@ -215,7 +215,7 @@ The plugin is open source. Verify the telemetry implementation directly:
 - No new fields contain GPS coordinates, zone definitions, or user identifiers
 
 ### 2026-03-18 (v0.12.4)
-- Reverted telemetry to opt-out (enabled by default) per D008
+- Reverted telemetry to opt-out (enabled by default)
 
 ### 2025-12-29 (v0.3.0)
 - Added `disableTelemetry` parameter

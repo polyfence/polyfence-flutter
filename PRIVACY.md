@@ -64,7 +64,7 @@ Different defaults for different data — control on every axis, no privacy thea
 ## Honest qualifiers
 
 - **`device_id` is pseudonymous** (hashed identifier). Not PII per se. If you correlate it against your own user database, it becomes identifiable on **your** side — never on ours. GDPR-clean pseudonymisation.
-- **`display_name`** is user-typed and could contain PII ("John's truck"). Our `firmware_visible_name` flag defaults FALSE (D074), so the name stays on the SaaS DB only and never reaches the firmware unless you explicitly turn it on. The customer chose to type it.
+- **`display_name`** is user-typed and could contain PII ("John's truck"). Our `firmware_visible_name` flag defaults FALSE, so the name stays on the SaaS DB only and never reaches the firmware unless you explicitly turn it on. The customer chose to type it.
 - **Customer account PII** (email, billing) is unavoidable for a paid SaaS. We don't pretend otherwise — neither does Stripe.
 
 ---

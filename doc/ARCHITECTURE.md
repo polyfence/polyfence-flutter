@@ -39,7 +39,7 @@ polyfence (this repo)                 ← Flutter plugin bridge
 The native engines (Kotlin + Swift) are framework-agnostic. By separating them into polyfence-core:
 
 - **polyfence-flutter** depends on polyfence-core via CocoaPods (iOS) and Maven (Android)
-- **polyfence-react-native** (planned) will depend on the same polyfence-core
+- **[polyfence-react-native](https://github.com/polyfence/polyfence-react-native)** (shipped) depends on the same polyfence-core
 - **polyfence-swift** and **polyfence-kotlin** (future) will expose polyfence-core directly
 
 One set of algorithms, multiple framework bridges.
@@ -205,4 +205,4 @@ cd polyfence-core/ios && pod lib lint
 |---|---|
 | [polyfence-flutter](https://github.com/polyfence/polyfence-flutter) | Flutter plugin (this repo) |
 | [polyfence-core](https://github.com/polyfence/polyfence-core) | Shared native engine (Kotlin + Swift) |
-| polyfence-react-native | React Native bridge (planned) |
+| [polyfence-react-native](https://github.com/polyfence/polyfence-react-native) | React Native bridge (shipped) |

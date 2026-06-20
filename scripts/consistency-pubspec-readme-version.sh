@@ -11,3 +11,4 @@ fi
 
 grep -qF "$ver" README.md || { echo "pubspec version ${ver} not found in README.md"; exit 1; }
 grep -qF "$ver" doc/TELEMETRY.md || { echo "pubspec version ${ver} not found in doc/TELEMETRY.md"; exit 1; }
+grep -qF "polyfencePluginVersion = '$ver'" lib/src/version.dart || { echo "lib/src/version.dart polyfencePluginVersion out of sync with pubspec ${ver} (it is stamped into plugin_version telemetry)"; exit 1; }

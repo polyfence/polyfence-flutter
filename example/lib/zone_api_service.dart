@@ -101,6 +101,7 @@ class ZoneApiService {
   static Future<List<dynamic>> _fetchAllZonePages(String apiKey) async {
     final List<dynamic> all = [];
     String? cursor;
+    bool reachedEnd = false;
 
     for (int page = 0; page < _maxPages; page++) {
       final sep = baseUrl.contains('?') ? '&' : '?';
@@ -145,6 +146,7 @@ class ZoneApiService {
       //   2. Wrapped: { data: [...], pagination: { hasMore, nextCursor } }.
       if (responseBody is List) {
         all.addAll(responseBody);
+        reachedEnd = true;
         break;
       }
       if (responseBody is Map && responseBody['data'] is List) {
@@ -156,9 +158,19 @@ class ZoneApiService {
           cursor = pagination['nextCursor'].toString();
           continue;
         }
+        reachedEnd = true;
         break;
       }
       throw Exception('Unexpected API response format');
+    }
+
+    if (!reachedEnd) {
+      // Hit the safety cap with more pages still available. Raise _maxPages
+      // (or switch to incremental sync) for accounts above ~5,000 zones.
+      debugPrint(
+        'ZoneApiService: stopped at the $_maxPages-page safety cap '
+        '(${all.length} zones loaded); the account may have more.',
+      );
     }
 
     return all;

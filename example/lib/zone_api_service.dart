@@ -38,15 +38,76 @@ class ZoneApiService {
     }
 
     try {
-      // The Polyfence list endpoint paginates with a default page size of
-      // 50. Without `limit=`, accounts with > 50 zones silently lose
-      // everything past page 1 — including zones that are active and
-      // visible in the dashboard. `limit=200` covers the example app's
-      // foreseeable zone count; users with larger accounts should add
-      // proper pagination.
-      final url = baseUrl.contains('?')
-          ? '$baseUrl&limit=200'
-          : '$baseUrl?limit=200';
+      // Page through EVERY zone, following pagination.nextCursor until
+      // hasMore=false. The list endpoint caps each page at 100, so a single
+      // GET only returns the first page — accounts with more zones silently
+      // lose the rest (the "dashboard shows 177 but only 100 reach the device"
+      // bug). Pagination is the correct way to fetch a full account; do this
+      // in your own app too, not just here.
+      final List<dynamic> zonesJson = await _fetchAllZonePages(apiKey);
+
+      final List<Zone> zones = [];
+
+      for (final zoneData in zonesJson) {
+        try {
+          // Only process active zones
+          if (zoneData['is_active'] == true) {
+            final zone = _convertApiZoneToPolyfenceZone(zoneData);
+            if (zone != null) {
+              zones.add(zone);
+            }
+          } else {
+            debugPrint(
+              'ZoneApiService: skipping inactive zone '
+              "${zoneData['name']}",
+            );
+          }
+        } catch (e) {
+          debugPrint(
+            'ZoneApiService: failed to process zone '
+            "${zoneData['name']}: $e",
+          );
+        }
+      }
+
+      return zones;
+    } on TimeoutException catch (e) {
+      debugPrint('ZoneApiService: request timeout — $e');
+      throw Exception(
+        'Request timed out. The server may be slow or unreachable. '
+        'Please try again.',
+      );
+    } on SocketException {
+      throw Exception('No internet connection');
+    } on http.ClientException {
+      throw Exception('Network error occurred');
+    } catch (e) {
+      debugPrint('ZoneApiService: unexpected error — $e');
+      throw Exception('Error fetching zones: $e');
+    }
+  }
+
+  /// API page size. The list endpoint caps each page at 100; we follow the
+  /// pagination token until the server reports no more results.
+  static const int _pageSize = 100;
+
+  /// Safety cap so a buggy server response can never loop forever
+  /// (50 pages * 100 = 5,000 zones).
+  static const int _maxPages = 50;
+
+  /// Fetch every zone by following the cursor-based pagination contract
+  /// (`{ data: [...], pagination: { hasMore, nextCursor } }`), returning the
+  /// raw zone maps across all pages. The caller filters/converts.
+  static Future<List<dynamic>> _fetchAllZonePages(String apiKey) async {
+    final List<dynamic> all = [];
+    String? cursor;
+
+    for (int page = 0; page < _maxPages; page++) {
+      final sep = baseUrl.contains('?') ? '&' : '?';
+      final cursorParam =
+          cursor != null ? '&cursor=${Uri.encodeComponent(cursor)}' : '';
+      final url = '$baseUrl${sep}limit=$_pageSize$cursorParam';
+
       final response = await http
           .get(
             Uri.parse(url),
@@ -66,47 +127,7 @@ class ZoneApiService {
             },
           );
 
-      if (response.statusCode == 200) {
-        final dynamic responseBody = json.decode(response.body);
-
-        // Handle both response shapes:
-        //   1. Direct array: [...]
-        //   2. Wrapped object: {success: true, data: [...]}
-        final List<dynamic> zonesJson;
-        if (responseBody is List) {
-          zonesJson = responseBody;
-        } else if (responseBody is Map && responseBody.containsKey('data')) {
-          zonesJson = responseBody['data'] as List<dynamic>;
-        } else {
-          throw Exception('Unexpected API response format');
-        }
-
-        final List<Zone> zones = [];
-
-        for (final zoneData in zonesJson) {
-          try {
-            // Only process active zones
-            if (zoneData['is_active'] == true) {
-              final zone = _convertApiZoneToPolyfenceZone(zoneData);
-              if (zone != null) {
-                zones.add(zone);
-              }
-            } else {
-              debugPrint(
-                'ZoneApiService: skipping inactive zone '
-                "${zoneData['name']}",
-              );
-            }
-          } catch (e) {
-            debugPrint(
-              'ZoneApiService: failed to process zone '
-              "${zoneData['name']}: $e",
-            );
-          }
-        }
-
-        return zones;
-      } else {
+      if (response.statusCode != 200) {
         final errorBody = response.body;
         debugPrint(
           'ZoneApiService: API error — status ${response.statusCode}, '
@@ -116,20 +137,31 @@ class ZoneApiService {
           'Failed to load zones. Status: ${response.statusCode}. $errorBody',
         );
       }
-    } on TimeoutException catch (e) {
-      debugPrint('ZoneApiService: request timeout — $e');
-      throw Exception(
-        'Request timed out. The server may be slow or unreachable. '
-        'Please try again.',
-      );
-    } on SocketException {
-      throw Exception('No internet connection');
-    } on http.ClientException {
-      throw Exception('Network error occurred');
-    } catch (e) {
-      debugPrint('ZoneApiService: unexpected error — $e');
-      throw Exception('Error fetching zones: $e');
+
+      final dynamic responseBody = json.decode(response.body);
+
+      // Two response shapes:
+      //   1. Direct array (legacy / unpaginated): [...] → it's the whole set.
+      //   2. Wrapped: { data: [...], pagination: { hasMore, nextCursor } }.
+      if (responseBody is List) {
+        all.addAll(responseBody);
+        break;
+      }
+      if (responseBody is Map && responseBody['data'] is List) {
+        all.addAll(responseBody['data'] as List);
+        final dynamic pagination = responseBody['pagination'];
+        if (pagination is Map &&
+            pagination['hasMore'] == true &&
+            pagination['nextCursor'] != null) {
+          cursor = pagination['nextCursor'].toString();
+          continue;
+        }
+        break;
+      }
+      throw Exception('Unexpected API response format');
     }
+
+    return all;
   }
 
   /// Convert an API zone payload to a Polyfence [Zone].

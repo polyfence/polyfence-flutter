@@ -163,6 +163,24 @@ When reporting a vulnerability, please include:
 
 ---
 
+## iOS Deployment Notes
+
+### Time-Critical Alerts (Optional, Downstream)
+
+If your app needs zone events to break through Do Not Disturb / Silent mode / Focus — for example perimeter security, anti-theft, child safety, fall detection, or medication adherence — you'll want Apple's [Critical Alerts entitlement](https://developer.apple.com/contact/request/notifications-critical-alerts-entitlement/). Polyfence fires events to your code; surfacing them with `.criticalAlert` is your app's responsibility and requires this entitlement, applied for via the form linked above.
+
+This is **not** required for normal use cases — standard "you arrived at the office" notifications work fine without it. The entitlement is specifically for time-critical safety / security scenarios where breaking through DND is essential.
+
+### App Store Submission — Background Location Review
+
+Apple reviewers scrutinize apps that declare `UIBackgroundModes: location` and request Always permission. To smooth review:
+
+- **Justify Always permission in plain language.** Reviewers want to understand the user-visible benefit, not just the technical capability ("we need Always to fire reminders when you arrive at a saved location, even when the app is closed").
+- **Include a brief screen recording** in your TestFlight build showing the location-driven feature working. Helps avoid a reject + resubmit cycle.
+- **Link your privacy policy from the app's settings screen**, not just from the App Store listing — reviewers check both.
+
+---
+
 ## Privacy Policy Guidance
 
 Telemetry fields, legal basis, retention, and opt-out are documented in **[PRIVACY.md](./PRIVACY.md)** and the technical payload reference **[doc/TELEMETRY.md](./doc/TELEMETRY.md)**. Use those sources as the source of truth so your public policy stays aligned with what the plugin actually sends.

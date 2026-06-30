@@ -653,12 +653,13 @@ void main() {
 
     test('all public methods throw StateError after dispose (BUG-002 parity)',
         () async {
-      // Pre-fix: only addZone/removeZone/clearAllZones/startTracking/
-      // stopTracking + initialize had the disposal guard. The other ~12
-      // public methods only checked _isInitialized, so a post-dispose
-      // call threw the misleading PolyfenceNotInitializedException
-      // instead of StateError. Regression coverage for the uniform
-      // guard application.
+      // Pre-fix: only initialize/addZone/removeZone/startTracking/
+      // stopTracking had the disposal guard. The other ~15 public
+      // methods (including clearAllZones, the 14 enumerated below)
+      // only checked _isInitialized, so a post-dispose call threw the
+      // misleading PolyfenceNotInitializedException instead of
+      // StateError. Regression coverage for the uniform guard
+      // application.
       expect(() => PolyfenceService.instance.clearAllZones(),
           throwsA(isA<StateError>()));
       expect(() => PolyfenceService.instance.getZoneStates(),

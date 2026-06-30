@@ -650,6 +650,48 @@ void main() {
       );
     });
 
+    test('all public methods throw StateError after dispose (BUG-002 parity)',
+        () async {
+      // Pre-fix: only addZone/removeZone/clearAllZones/startTracking/
+      // stopTracking + initialize had the disposal guard. The other ~12
+      // public methods only checked _isInitialized, so a post-dispose
+      // call threw the misleading PolyfenceNotInitializedException
+      // instead of StateError. Regression coverage for the uniform
+      // guard application.
+      expect(() => PolyfenceService.instance.clearAllZones(),
+          throwsA(isA<StateError>()));
+      expect(() => PolyfenceService.instance.getZoneStates(),
+          throwsA(isA<StateError>()));
+      expect(() => PolyfenceService.instance.getConfiguration(),
+          throwsA(isA<StateError>()));
+      expect(() => PolyfenceService.instance.updateConfiguration(
+              PolyfenceConfiguration()),
+          throwsA(isA<StateError>()));
+      expect(() => PolyfenceService.instance.resetConfiguration(),
+          throwsA(isA<StateError>()));
+      expect(() => PolyfenceService.instance.requestPermissions(),
+          throwsA(isA<StateError>()));
+      expect(() => PolyfenceService.instance.isLocationServiceEnabled(),
+          throwsA(isA<StateError>()));
+      expect(() => PolyfenceService.instance.batteryOptimizationStatus(),
+          throwsA(isA<StateError>()));
+      expect(() => PolyfenceService.instance.requestBatteryOptimizationExemption(),
+          throwsA(isA<StateError>()));
+      expect(() => PolyfenceService.instance.debugInfo(),
+          throwsA(isA<StateError>()));
+      expect(() => PolyfenceService.instance.errorHistory(),
+          throwsA(isA<StateError>()));
+      expect(() => PolyfenceService.instance.setAccuracyProfile(
+              PolyfenceAccuracyProfile.balanced),
+          throwsA(isA<StateError>()));
+      expect(() => PolyfenceService.instance.enableProximityOptimization(),
+          throwsA(isA<StateError>()));
+      expect(() => PolyfenceService.instance.enableMovementOptimization(),
+          throwsA(isA<StateError>()));
+      expect(() => PolyfenceService.instance.enableIntelligentOptimization(),
+          throwsA(isA<StateError>()));
+    });
+
     test('initialize throws StateError after dispose', () {
       expect(
         () => PolyfenceService.instance.initialize(),

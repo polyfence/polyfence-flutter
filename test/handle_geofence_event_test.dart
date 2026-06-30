@@ -588,6 +588,45 @@ void main() {
       await sub.cancel();
     });
 
+    test('ENTER event without dwellDurationMs has null dwellDurationMs',
+        () async {
+      // Regression for BUG-009: polyfence-core only includes
+      // dwellDurationMs in the event map for DWELL events. The bridge
+      // must normalise its absence to null on every other event type.
+      final events = <GeofenceEvent>[];
+      final sub = PolyfenceService.instance.onGeofenceEvent.listen(events.add);
+
+      mockPlatform.geofenceController.add(validEvent(eventType: 'ENTER'));
+      await Future.delayed(Duration.zero);
+
+      expect(events, hasLength(1));
+      expect(events.first.type, GeofenceEventType.enter);
+      expect(events.first.dwellDurationMs, isNull);
+
+      await sub.cancel();
+    });
+
+    test('gpsAccuracy wins when both keys present with different values',
+        () async {
+      // iOS sends both gpsAccuracy and accuracy (as a duplicate). If
+      // the values ever diverge, gpsAccuracy is the canonical key on
+      // both platforms and must take precedence over the iOS-only
+      // fallback.
+      final events = <GeofenceEvent>[];
+      final sub = PolyfenceService.instance.onGeofenceEvent.listen(events.add);
+
+      final event = validEvent();
+      event['gpsAccuracy'] = 7.5;
+      event['accuracy'] = 99.0;
+      mockPlatform.geofenceController.add(event);
+      await Future.delayed(Duration.zero);
+
+      expect(events, hasLength(1));
+      expect(events.first.location.accuracy, 7.5);
+
+      await sub.cancel();
+    });
+
     test('reads gpsAccuracy when accuracy is absent (Android shape)',
         () async {
       final events = <GeofenceEvent>[];

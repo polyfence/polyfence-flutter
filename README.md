@@ -363,7 +363,8 @@ Dwell events fire when a device remains inside a zone for a configurable duratio
 // Listen for dwell events
 Polyfence.instance.onGeofenceEvent.listen((event) {
   if (event.type == GeofenceEventType.dwell) {
-    print('User confirmed in ${event.zoneId}');
+    final mins = (event.dwellDurationMs ?? 0) ~/ 60000;
+    print('User confirmed in ${event.zoneId} after $mins min');
   }
 });
 

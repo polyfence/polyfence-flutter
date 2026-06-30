@@ -116,6 +116,11 @@ public class PolyfencePlugin: NSObject, FlutterPlugin {
             getCurrentZoneStates(result: result)
         case "getSessionTelemetry":
             getSessionTelemetry(result: result)
+        case "requestBatteryOptimization":
+            // iOS does not have a battery-optimization-exemption dialog —
+            // the concept is Android-only. No-op so the cross-platform
+            // contract resolves cleanly on both platforms.
+            result(nil)
         default:
             result(FlutterMethodNotImplemented)
         }

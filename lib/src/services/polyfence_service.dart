@@ -969,35 +969,39 @@ class PolyfenceService {
     }
   }
 
-  /// Requests exemption from battery optimization (Android only).
+  /// Launches the Android system dialog asking the user to disable battery
+  /// optimization for your app. Recommended for reliable background
+  /// geofencing.
   ///
-  /// Opens a system dialog asking the user to disable battery optimization
-  /// for your app. This is recommended for reliable background geofencing.
+  /// **Fire-and-forget.** Returns as soon as the system dialog has been
+  /// requested. The user's actual response cannot be observed
+  /// synchronously — Android's `startActivity()` does not surface
+  /// whether the user tapped Allow or Deny. To detect the outcome,
+  /// re-poll [batteryOptimizationStatus] after your app resumes
+  /// (e.g. listen for `AppLifecycleState.resumed`).
+  ///
+  /// **iOS:** no-op (battery optimization is Android-only).
   ///
   /// **Example:**
   /// ```dart
   /// final status = await Polyfence.instance.batteryOptimizationStatus();
   /// if (status['isOptimized'] == true && status['canRequest'] == true) {
-  ///   final exempted = await Polyfence.instance.requestBatteryOptimizationExemption();
-  ///   if (exempted) {
-  ///     print('Battery optimization disabled - background tracking will be reliable');
+  ///   await Polyfence.instance.requestBatteryOptimizationExemption();
+  ///   // After your app resumes:
+  ///   final post = await Polyfence.instance.batteryOptimizationStatus();
+  ///   if (post['isOptimized'] == false) {
+  ///     // User granted the exemption.
   ///   }
   /// }
   /// ```
   ///
-  /// Returns `true` if user granted exemption, `false` if denied.
-  ///
-  /// **Note:** iOS doesn't have battery optimization, so this always returns
-  /// `true` on iOS (no-op).
-  ///
   /// Throws [PolyfenceNotInitializedException] if not initialized.
   /// Throws [PlatformOperationException] if platform error occurs.
-  Future<bool> requestBatteryOptimizationExemption() async {
+  Future<void> requestBatteryOptimizationExemption() async {
     if (!_isInitialized) throw PolyfenceNotInitializedException();
 
     try {
-      final result = await _platform.requestBatteryOptimizationExemption();
-      return result;
+      await _platform.requestBatteryOptimizationExemption();
     } on PlatformException catch (e, stackTrace) {
       throw PlatformOperationException(
         'requestBatteryOptimizationExemption',

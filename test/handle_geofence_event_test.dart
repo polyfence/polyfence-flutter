@@ -56,7 +56,7 @@ class MockPolyfencePlatform extends PolyfencePlatform
   Future<Map<String, dynamic>> checkBatteryOptimization() async =>
       {'isOptimized': false};
   @override
-  Future<bool> requestBatteryOptimizationExemption() async => true;
+  Future<void> requestBatteryOptimizationExemption() async {}
   @override
   Future<Map<String, dynamic>> getConfiguration() async => {};
   @override

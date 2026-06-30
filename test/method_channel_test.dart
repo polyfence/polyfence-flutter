@@ -188,12 +188,17 @@ void main() {
       expect(result, isA<Map<String, dynamic>>());
     });
 
-    test('requestBatteryOptimizationExemption returns bool', () async {
-      final result = await platform.requestBatteryOptimizationExemption();
+    test('requestBatteryOptimizationExemption is fire-and-forget (returns void)',
+        () async {
+      // startActivity on Android is fire-and-forget — the user's
+      // response to the system dialog can't be observed synchronously.
+      // Method returns void; consumers re-poll batteryOptimizationStatus
+      // after AppLifecycleState.resumed. BUG-012 parity with
+      // polyfence-react-native#74.
+      await platform.requestBatteryOptimizationExemption();
 
       expect(log, hasLength(1));
       expect(log[0].method, 'requestBatteryOptimization');
-      expect(result, true);
     });
 
     test('getConfiguration returns map', () async {

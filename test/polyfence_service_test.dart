@@ -105,9 +105,8 @@ class MockPolyfencePlatform extends PolyfencePlatform
   }
 
   @override
-  Future<bool> requestBatteryOptimizationExemption() async {
+  Future<void> requestBatteryOptimizationExemption() async {
     calls.add('requestBatteryOptimizationExemption');
-    return true;
   }
 
   @override

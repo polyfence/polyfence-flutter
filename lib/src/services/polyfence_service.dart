@@ -47,6 +47,26 @@ class PolyfenceService {
     }
   }
 
+  /// Internal stopTracking variant used by [dispose].
+  ///
+  /// Bypasses [_assertNotDisposed] on the public [stopTracking]
+  /// because [dispose] sets `_isDisposed = true` before its internal
+  /// cleanup runs (to race-protect parallel dispose() callers).
+  /// Calling the public method from there would throw StateError
+  /// immediately and the surrounding catch would silently swallow it
+  /// — leaving the native foreground service running on Android
+  /// until the OS eventually killed the process.
+  ///
+  /// Best-effort: any platform error is swallowed since disposal must
+  /// never fail.
+  Future<void> _stopTrackingDuringDispose() async {
+    try {
+      await _platform.stopTracking();
+    } catch (_) {
+      // Disposal is a one-way street — swallow any platform error.
+    }
+  }
+
   // Analytics availability flag — false if analytics initialization failed.
   // When false, all analytics calls are silently skipped so analytics
   // can never take down core geofencing functionality.
@@ -1334,18 +1354,24 @@ class PolyfenceService {
   ///
   /// After disposal, the service cannot be reused. Any calls to public methods
   /// will throw [StateError].
+  ///
+  /// Stops native tracking via [_stopTrackingDuringDispose] before tearing
+  /// down streams so the Android foreground service is released cleanly.
   Future<void> dispose() async {
     if (_isDisposed) return; // Prevent double-disposal
     _isDisposed = true;
 
     try {
-      // 1. Stop tracking if active (graceful shutdown)
+      // 1. Stop tracking if active (graceful shutdown).
+      // Must bypass the public stopTracking()'s disposal guard — we
+      // already flipped _isDisposed=true above (race protection
+      // against parallel dispose() callers), so calling the public
+      // method would throw StateError immediately and the surrounding
+      // catch would silently swallow it, leaving the native foreground
+      // service running until OS cleanup. Route through the platform
+      // directly instead.
       if (_isInitialized) {
-        try {
-          await stopTracking();
-        } catch (_) {
-          // Ignore errors during disposal
-        }
+        await _stopTrackingDuringDispose();
       }
 
       // 2. Cancel all stream subscriptions

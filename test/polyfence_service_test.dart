@@ -613,11 +613,29 @@ void main() {
     // dispose() tests MUST run last because the singleton is permanently
     // unusable after disposal (_isDisposed = true with no reset method).
 
-    test('dispose calls platform.dispose', () async {
+    test('dispose calls platform.dispose AND platform.stopTracking', () async {
+      // Regression for the dispose-swallows-stopTracking bug found
+      // during BUG-002 review. dispose() sets _isDisposed=true at the
+      // top (for race protection against parallel dispose() callers),
+      // so the previous implementation calling the PUBLIC
+      // stopTracking() from inside dispose threw StateError via the
+      // disposal guard. The surrounding catch (_) swallowed the
+      // error, so platform.stopTracking() was never actually invoked
+      // — leaving the Android foreground service running until OS
+      // cleanup. Fix routes through _stopTrackingDuringDispose() which
+      // calls _platform.stopTracking() directly, bypassing the guard.
       mockPlatform.calls.clear();
 
+      // Make tracking "active" so the dispose stopTracking branch runs.
+      await PolyfenceService.instance.startTracking();
+      expect(mockPlatform.calls, contains('startTracking'));
+
+      mockPlatform.calls.clear();
       await PolyfenceService.instance.dispose();
 
+      expect(mockPlatform.calls, contains('stopTracking'),
+          reason:
+              'dispose() must actually invoke platform.stopTracking, not silently swallow the call');
       expect(mockPlatform.calls, contains('dispose'));
     });
 

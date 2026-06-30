@@ -72,12 +72,18 @@ class PolyfencePlugin: FlutterPlugin, MethodCallHandler, ActivityAware {
                 val persistence = ZonePersistence(context)
                 persistence.getZoneCount()
             } catch (e: Exception) { 0 }
+            // BUG-013a: populate profile + lastAccuracy from polyfence-core
+            // instead of the previous "filled in future phases" stubs.
+            // Pre-fix the two fields were always null — dead values that
+            // suggested data was available when it wasn't.
+            val profile = LocationTracker.getCurrentSmartConfiguration().accuracyProfile.name
+            val lastAccuracy = LocationTracker.getLastKnownAccuracy()?.toDouble()
             return mapOf(
                 "type" to "status",
                 "trackingEnabled" to tracking,
                 "zonesCount" to zonesCount,
-                "profile" to null, // optional, filled in future phases
-                "lastAccuracy" to null,
+                "profile" to profile,
+                "lastAccuracy" to lastAccuracy, // null until first GPS fix
                 "timestamp" to System.currentTimeMillis()
             )
         }

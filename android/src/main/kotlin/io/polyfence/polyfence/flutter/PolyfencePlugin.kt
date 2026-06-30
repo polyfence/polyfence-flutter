@@ -162,6 +162,16 @@ class PolyfencePlugin: FlutterPlugin, MethodCallHandler, ActivityAware {
     override fun onMethodCall(@NonNull call: MethodCall, @NonNull result: Result) {
         when (call.method) {
             "initialize" -> {
+                // Reset the persisted tracking_enabled SharedPref on every
+                // fresh initialize() to defeat upgrade-poisoning. A previous
+                // install that was tracking when the app was killed leaves
+                // tracking_enabled=true in prefs; without this reset the
+                // new install would silently resume tracking on next boot
+                // without the consumer calling startTracking(). Consumers
+                // must explicitly call startTracking() to set it back to
+                // true.
+                setTrackingEnabled(context, false)
+
                 // Extract arguments from Flutter
                 val args = call.arguments<Map<String, Any>>()
                 val configDict = args?.get("config") as? Map<String, Any>

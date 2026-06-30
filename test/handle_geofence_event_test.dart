@@ -533,7 +533,11 @@ void main() {
       final errorSub = PolyfenceService.instance.onError.listen(errors.add);
 
       final event = validEvent();
+      // Native sends accuracy under the canonical `gpsAccuracy` key
+      // (iOS also sends a duplicate `accuracy` key — Android does not).
+      // To exercise the "neither present" case, drop both.
       event.remove('accuracy');
+      event.remove('gpsAccuracy');
 
       mockPlatform.geofenceController.add(event);
       await Future.delayed(Duration.zero);
@@ -547,6 +551,59 @@ void main() {
 
       await eventSub.cancel();
       await errorSub.cancel();
+    });
+
+    test('forwards all polyfence-core enrichment fields (BUG-009)', () async {
+      final events = <GeofenceEvent>[];
+      final sub = PolyfenceService.instance.onGeofenceEvent.listen(events.add);
+
+      mockPlatform.geofenceController.add({
+        'zoneId': 'zone-9',
+        'zoneName': 'Office',
+        'eventType': 'DWELL',
+        'timestamp': fixedTimestamp,
+        'latitude': 37.422,
+        'longitude': -122.084,
+        'gpsAccuracy': 8.5,
+        'speedMps': 1.2,
+        'activityAtEvent': 'walking',
+        'detectionTimeMs': 45.0,
+        'distanceToBoundaryM': 12.3,
+        'dwellDurationMs': 60000.0,
+      });
+      await Future.delayed(Duration.zero);
+
+      expect(events, hasLength(1));
+      final e = events.first;
+      expect(e.zoneId, 'zone-9');
+      expect(e.zoneName, 'Office');
+      expect(e.type, GeofenceEventType.dwell);
+      expect(e.location.accuracy, 8.5);
+      expect(e.location.speed, 1.2);
+      expect(e.location.activity, 'walking');
+      expect(e.detectionTimeMs, 45.0);
+      expect(e.distanceToBoundaryM, 12.3);
+      expect(e.dwellDurationMs, 60000.0);
+
+      await sub.cancel();
+    });
+
+    test('reads gpsAccuracy when accuracy is absent (Android shape)',
+        () async {
+      final events = <GeofenceEvent>[];
+      final sub = PolyfenceService.instance.onGeofenceEvent.listen(events.add);
+
+      final event = validEvent();
+      event.remove('accuracy');
+      // Android only sends gpsAccuracy — verify it lands in
+      // location.accuracy.
+      mockPlatform.geofenceController.add(event);
+      await Future.delayed(Duration.zero);
+
+      expect(events, hasLength(1));
+      expect(events.first.location.accuracy, 10.0);
+
+      await sub.cancel();
     });
   });
 

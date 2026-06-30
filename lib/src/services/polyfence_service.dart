@@ -673,11 +673,30 @@ class PolyfenceService {
 
       // Get zone from cache
       final zone = _zones[zoneId];
+      final zoneName = (eventData['zoneName'] as String?) ?? '';
 
-      // Extract optional coordinates if provided by platform
+      // Extract optional coordinates if provided by platform.
+      // Read gpsAccuracy (the canonical key both platforms send) with
+      // accuracy as a fallback (iOS emits both as a duplicate; Android
+      // sends only gpsAccuracy — pre-fix the bridge read only
+      // `accuracy` and lost the value on Android entirely). BUG-009
+      // bridge gap, same shape.
       final lat = (eventData['latitude'] as num?)?.toDouble();
       final lng = (eventData['longitude'] as num?)?.toDouble();
-      final acc = (eventData['accuracy'] as num?)?.toDouble();
+      final acc = (eventData['gpsAccuracy'] as num?)?.toDouble() ??
+          (eventData['accuracy'] as num?)?.toDouble();
+      final speed = (eventData['speedMps'] as num?)?.toDouble();
+      final activity = eventData['activityAtEvent'] as String?;
+
+      // polyfence-core enrichment that pre-fix was dropped entirely:
+      final detectionTimeMs =
+          (eventData['detectionTimeMs'] as num?)?.toDouble();
+      final distanceToBoundaryM =
+          (eventData['distanceToBoundaryM'] as num?)?.toDouble();
+      // Populated only on DWELL events (polyfence-core sends the key
+      // only in that case; otherwise absent → null here).
+      final dwellDurationMs =
+          (eventData['dwellDurationMs'] as num?)?.toDouble();
 
       // Warn if coordinates are missing (0.0/0.0 is Null Island - unlikely to be intentional)
       if (lat == null || lng == null) {
@@ -697,14 +716,20 @@ class PolyfenceService {
 
       final event = GeofenceEvent(
         zoneId: zoneId,
+        zoneName: zoneName,
         type: geofenceEventType,
         location: PolyfenceLocation(
           latitude: lat ?? 0.0,
           longitude: lng ?? 0.0,
           accuracy: acc,
+          speed: speed,
           timestamp: DateTime.fromMillisecondsSinceEpoch(timestamp),
+          activity: activity,
         ),
         timestamp: DateTime.fromMillisecondsSinceEpoch(timestamp),
+        detectionTimeMs: detectionTimeMs,
+        distanceToBoundaryM: distanceToBoundaryM,
+        dwellDurationMs: dwellDurationMs,
         zone: zone,
       );
 

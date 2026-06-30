@@ -175,6 +175,26 @@ void main() {
       expect(json['type'], 'dwell');
     });
 
+    test('round-trips polyfence-core enrichment fields (BUG-009)', () {
+      final event = GeofenceEvent(
+        zoneId: 'zone-9',
+        zoneName: 'Office',
+        type: GeofenceEventType.dwell,
+        location: testLocation,
+        timestamp: testTimestamp,
+        detectionTimeMs: 45.0,
+        distanceToBoundaryM: 12.3,
+        dwellDurationMs: 60000.0,
+      );
+
+      final restored = GeofenceEvent.fromJson(event.toJson());
+      expect(restored.zoneName, 'Office');
+      expect(restored.detectionTimeMs, 45.0);
+      expect(restored.distanceToBoundaryM, 12.3);
+      expect(restored.dwellDurationMs, 60000.0);
+      expect(restored, event);
+    });
+
     test('all GeofenceEventType values exist', () {
       expect(
           GeofenceEventType.values,

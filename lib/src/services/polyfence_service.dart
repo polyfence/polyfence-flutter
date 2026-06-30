@@ -105,16 +105,29 @@ class PolyfenceService {
   /// ```
   Stream<PolyfenceLocation> get onLocationUpdate => _locationController.stream;
 
-  /// Stream of errors from the plugin.
+  /// Stream of all SDK errors — the central error channel for the
+  /// plugin.
   ///
-  /// Emits [PolyfenceError] whenever an error occurs (GPS failures, permission
-  /// issues, platform errors, etc.).
+  /// Several methods — including [initialize], [addZone],
+  /// [requestPermissions], and [requestBatteryOptimizationExemption] —
+  /// emit errors here as a side effect rather than throwing or
+  /// rejecting their own Future. If no listener is attached when those
+  /// side-effect errors fire, the error is silently dropped: no
+  /// retry, no replay, no warning in the method's return value.
+  ///
+  /// **Subscribe to `onError` before calling any other SDK method.**
+  ///
+  /// Emits [PolyfenceError] for GPS failures, permission revocations,
+  /// service issues, battery warnings, zone validation errors, and
+  /// the side-effect errors listed above.
   ///
   /// **Example:**
   /// ```dart
+  /// // Subscribe FIRST, before initialize() and any other call.
   /// Polyfence.instance.onError.listen((error) {
   ///   print('Error: ${error.type} - ${error.message}');
   /// });
+  /// await Polyfence.instance.initialize();
   /// ```
   Stream<PolyfenceError> get onError => _errorController.stream;
 

@@ -165,8 +165,16 @@ if (granted) {
 
 ### Step 1: Initialize the Plugin
 
+> **Subscribe to `onError` BEFORE calling `initialize()` — see Step 6 for why.** Several methods (including `initialize` itself, `addZone`, `requestPermissions`, and `requestBatteryOptimizationExemption`) emit errors through `onError` as a side effect. Without a listener attached at the time, those errors are silently dropped.
+
 ```dart
 import 'package:polyfence/polyfence.dart';
+
+// Subscribe FIRST so the listener catches any side-effect errors
+// from initialize() itself.
+Polyfence.instance.onError.listen((error) {
+  print('Polyfence error: ${error.type} - ${error.message}');
+});
 
 await Polyfence.instance.initialize();
 ```
@@ -236,7 +244,9 @@ Polyfence.instance.onGeofenceEvent.listen((event) {
 await Polyfence.instance.startTracking();
 ```
 
-### Step 6: Handle Errors (Optional)
+### Step 6: Handle Errors
+
+`onError` is the SDK's **central error channel** — and the only place several methods report failure. `initialize`, `addZone`, `requestPermissions`, and `requestBatteryOptimizationExemption` emit errors here rather than rejecting their own Future, so if you don't have a listener attached when one of those calls runs, the error vanishes silently. Subscribe before any other SDK call (Step 1 shows the recommended ordering).
 
 ```dart
 Polyfence.instance.onError.listen((error) {

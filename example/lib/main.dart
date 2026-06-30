@@ -154,6 +154,18 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _initializePolyfence() async {
     try {
+      // Plugin error stream — subscribe FIRST. onError is the SDK's
+      // central error channel; initialize(), addZone(),
+      // requestPermissions(), and requestBatteryOptimizationExemption()
+      // all emit errors here as a side effect rather than rejecting
+      // their own Future. If we subscribed after initialize() (the
+      // pre-fix ordering) any early-init error would be silently
+      // dropped. BUG-011 parity with polyfence-react-native#73.
+      polyfence.Polyfence.instance.onError.listen((error) {
+        if (!mounted) return;
+        _addErrorEvent(error.message);
+      });
+
       // Check permissions first (Android only)
       if (Platform.isAndroid) {
         final hasPermissions = await ensureAndroidTrackingPermissions();
@@ -216,12 +228,8 @@ class _HomeScreenState extends State<HomeScreen> {
         });
       });
 
-      // Plugin error stream — GPS drops, stream health, geofence engine
-      // faults. Surfaces in the error banner.
-      polyfence.Polyfence.instance.onError.listen((error) {
-        if (!mounted) return;
-        _addErrorEvent(error.message);
-      });
+      // onError is already wired at the top of init — see the BUG-011
+      // comment there for the reasoning.
     } catch (e) {
       _addErrorEvent('Failed to initialize Polyfence: $e');
     }

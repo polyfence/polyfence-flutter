@@ -31,6 +31,22 @@ class PolyfenceService {
   // Disposal guard to prevent use-after-disposal
   bool _isDisposed = false;
 
+  /// Throws [StateError] if [dispose] has already been called.
+  ///
+  /// Every public method calls this before any other work so a
+  /// post-dispose call produces the correct error
+  /// ("PolyfenceService has been disposed") rather than the
+  /// misleading [PolyfenceNotInitializedException] consumers
+  /// previously got from 12 of the ~17 public methods (parity with
+  /// polyfence-react-native#51 — RN's bug was the inverse shape, this
+  /// repo's was that the guard was applied inconsistently).
+  void _assertNotDisposed() {
+    if (_isDisposed) {
+      throw StateError(
+          'PolyfenceService has been disposed and cannot be reused');
+    }
+  }
+
   // Analytics availability flag — false if analytics initialization failed.
   // When false, all analytics calls are silently skipped so analytics
   // can never take down core geofencing functionality.
@@ -186,10 +202,7 @@ class PolyfenceService {
     PolyfenceConfiguration? config,
     AnalyticsConfig? analyticsConfig,
   }) async {
-    if (_isDisposed) {
-      throw StateError(
-          'PolyfenceService has been disposed and cannot be reused');
-    }
+    _assertNotDisposed();
 
     if (_isInitialized) {
       return;
@@ -370,10 +383,7 @@ class PolyfenceService {
   /// Throws [PolyfenceNotInitializedException] if not initialized.
   /// Throws [PlatformOperationException] if platform error occurs.
   Future<void> addZone(Zone zone) async {
-    if (_isDisposed) {
-      throw StateError(
-          'PolyfenceService has been disposed and cannot be reused');
-    }
+    _assertNotDisposed();
     if (!_isInitialized) throw PolyfenceNotInitializedException();
 
     try {
@@ -406,10 +416,7 @@ class PolyfenceService {
   /// Throws [PolyfenceNotInitializedException] if not initialized.
   /// Throws [PlatformOperationException] if platform error occurs.
   Future<void> removeZone(String zoneId) async {
-    if (_isDisposed) {
-      throw StateError(
-          'PolyfenceService has been disposed and cannot be reused');
-    }
+    _assertNotDisposed();
     if (!_isInitialized) throw PolyfenceNotInitializedException();
 
     // Remove from cache
@@ -442,6 +449,7 @@ class PolyfenceService {
   /// Throws [PolyfenceNotInitializedException] if not initialized.
   /// Throws [PlatformOperationException] if platform error occurs.
   Future<void> clearAllZones() async {
+    _assertNotDisposed();
     if (!_isInitialized) throw PolyfenceNotInitializedException();
 
     // Clear cache
@@ -500,6 +508,7 @@ class PolyfenceService {
   /// Throws [PolyfenceNotInitializedException] if not initialized.
   /// Throws [PlatformOperationException] if platform error occurs.
   Future<Map<String, bool>> getZoneStates() async {
+    _assertNotDisposed();
     if (!_isInitialized) throw PolyfenceNotInitializedException();
 
     try {
@@ -544,10 +553,7 @@ class PolyfenceService {
   /// Throws [PolyfenceNotInitializedException] if not initialized.
   /// Throws [PlatformOperationException] if location services disabled or permissions denied.
   Future<void> startTracking() async {
-    if (_isDisposed) {
-      throw StateError(
-          'PolyfenceService has been disposed and cannot be reused');
-    }
+    _assertNotDisposed();
     if (!_isInitialized) throw PolyfenceNotInitializedException();
 
     // Check if location services are enabled
@@ -591,10 +597,7 @@ class PolyfenceService {
   /// Throws [PolyfenceNotInitializedException] if not initialized.
   /// Throws [PlatformOperationException] if platform error occurs.
   Future<void> stopTracking() async {
-    if (_isDisposed) {
-      throw StateError(
-          'PolyfenceService has been disposed and cannot be reused');
-    }
+    _assertNotDisposed();
     if (!_isInitialized) throw PolyfenceNotInitializedException();
 
     try {
@@ -767,6 +770,7 @@ class PolyfenceService {
   /// Throws [PolyfenceNotInitializedException] if not initialized.
   /// Throws [PlatformOperationException] if platform error occurs.
   Future<PolyfenceConfiguration> getConfiguration() async {
+    _assertNotDisposed();
     if (!_isInitialized) throw PolyfenceNotInitializedException();
 
     try {
@@ -808,6 +812,7 @@ class PolyfenceService {
   /// Throws [PolyfenceNotInitializedException] if not initialized.
   /// Throws [PlatformOperationException] if platform error occurs.
   Future<void> updateConfiguration(PolyfenceConfiguration config) async {
+    _assertNotDisposed();
     if (!_isInitialized) throw PolyfenceNotInitializedException();
 
     try {
@@ -841,6 +846,7 @@ class PolyfenceService {
   /// Throws [PolyfenceNotInitializedException] if not initialized.
   /// Throws [PlatformOperationException] if platform error occurs.
   Future<void> resetConfiguration() async {
+    _assertNotDisposed();
     if (!_isInitialized) throw PolyfenceNotInitializedException();
 
     try {
@@ -881,6 +887,7 @@ class PolyfenceService {
   /// Throws [PolyfenceNotInitializedException] if not initialized.
   /// Throws [PlatformOperationException] if platform error occurs.
   Future<bool> requestPermissions({bool always = false}) async {
+    _assertNotDisposed();
     if (!_isInitialized) throw PolyfenceNotInitializedException();
 
     try {
@@ -913,6 +920,7 @@ class PolyfenceService {
   /// Throws [PolyfenceNotInitializedException] if not initialized.
   /// Throws [PlatformOperationException] if platform error occurs.
   Future<bool> isLocationServiceEnabled() async {
+    _assertNotDisposed();
     if (!_isInitialized) throw PolyfenceNotInitializedException();
 
     try {
@@ -953,6 +961,7 @@ class PolyfenceService {
   /// Throws [PolyfenceNotInitializedException] if not initialized.
   /// Throws [PlatformOperationException] if platform error occurs.
   Future<Map<String, dynamic>> batteryOptimizationStatus() async {
+    _assertNotDisposed();
     if (!_isInitialized) throw PolyfenceNotInitializedException();
 
     try {
@@ -993,6 +1002,7 @@ class PolyfenceService {
   /// Throws [PolyfenceNotInitializedException] if not initialized.
   /// Throws [PlatformOperationException] if platform error occurs.
   Future<bool> requestBatteryOptimizationExemption() async {
+    _assertNotDisposed();
     if (!_isInitialized) throw PolyfenceNotInitializedException();
 
     try {
@@ -1029,6 +1039,7 @@ class PolyfenceService {
   /// Throws [PolyfenceNotInitializedException] if not initialized.
   /// Throws [PlatformOperationException] if platform error occurs.
   Future<PolyfenceDebugInfo> debugInfo() async {
+    _assertNotDisposed();
     if (!_isInitialized) throw PolyfenceNotInitializedException();
 
     try {
@@ -1106,6 +1117,7 @@ class PolyfenceService {
     Duration? timeRange,
     List<PolyfenceErrorType>? errorTypes,
   }) async {
+    _assertNotDisposed();
     if (!_isInitialized) throw PolyfenceNotInitializedException();
 
     final params = {
@@ -1154,6 +1166,7 @@ class PolyfenceService {
   /// Throws [PolyfenceNotInitializedException] if not initialized.
   /// Throws [PlatformOperationException] if platform error occurs.
   Future<void> setAccuracyProfile(PolyfenceAccuracyProfile profile) async {
+    _assertNotDisposed();
     if (!_isInitialized) throw PolyfenceNotInitializedException();
 
     final profileKey = EnumUtils.toChannelFormat(profile.name);
@@ -1185,6 +1198,7 @@ class PolyfenceService {
     double nearThreshold = 500.0,
     double farThreshold = 2000.0,
   }) async {
+    _assertNotDisposed();
     final config = PolyfenceConfiguration(
       updateStrategy: PolyfenceUpdateStrategy.proximityBased,
       proximitySettings: ProximitySettings(
@@ -1217,6 +1231,7 @@ class PolyfenceService {
     Duration stationaryThreshold = const Duration(minutes: 5),
     Duration stationaryUpdateInterval = const Duration(minutes: 2),
   }) async {
+    _assertNotDisposed();
     final config = PolyfenceConfiguration(
       updateStrategy: PolyfenceUpdateStrategy.movementBased,
       movementSettings: MovementSettings(
@@ -1244,6 +1259,7 @@ class PolyfenceService {
   /// Throws [PolyfenceNotInitializedException] if not initialized.
   /// Throws [PlatformOperationException] if platform error occurs.
   Future<void> enableIntelligentOptimization() async {
+    _assertNotDisposed();
     final config = PolyfenceConfiguration(
       accuracyProfile: PolyfenceAccuracyProfile.adaptive,
       updateStrategy: PolyfenceUpdateStrategy.intelligent,

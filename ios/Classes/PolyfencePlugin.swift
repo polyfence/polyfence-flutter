@@ -279,9 +279,13 @@ public class PolyfencePlugin: NSObject, FlutterPlugin {
         }
 
         do {
-            let smartConfig = SmartGpsConfigFactory.fromMap(configMap)
+            // BUG-015: route through the merge-aware core method so
+            // partial updates preserve unspecified fields instead of
+            // resetting them to SmartGpsConfig data-class defaults.
+            // Android's map handler already merges internally; this is
+            // the iOS-side companion.
             config?.updateFromMap(configMap)
-            locationTracker?.updateSmartConfiguration(smartConfig)
+            locationTracker?.updateSmartConfigurationFromMap(configMap)
 
             // Update GPS accuracy threshold in GeofenceEngine if provided
             if let gpsAccuracyThreshold = configMap["gpsAccuracyThreshold"] as? Double {

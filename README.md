@@ -234,7 +234,16 @@ Polyfence.instance.onGeofenceEvent.listen((event) {
     case GeofenceEventType.dwell:
       print('Stayed in ${event.zoneId} for 5+ minutes');
       break;
-    default:
+    // Recovery events fire when the SDK reconciles zone state after
+    // a GPS gap (airplane mode, tunnel, background restart, etc.).
+    // Treat them like enter/exit unless you specifically want to
+    // distinguish "just crossed the boundary" from "was already
+    // inside/outside when tracking resumed."
+    case GeofenceEventType.recoveryEnter:
+      print('Confirmed inside (post-recovery): ${event.zoneId}');
+      break;
+    case GeofenceEventType.recoveryExit:
+      print('Confirmed outside (post-recovery): ${event.zoneId}');
       break;
   }
 });

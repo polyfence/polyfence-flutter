@@ -250,7 +250,7 @@ Polyfence.instance.onGeofenceEvent.listen((event) {
 ```
 
 <p align="center">
-  <img alt="ENTER, EXIT and DWELL events as your device moves" src="assets/screenshots/events.png" width="280" />
+  <img alt="ENTER, EXIT, DWELL and RECOVERY events as your device moves" src="assets/screenshots/events.png" width="280" />
 </p>
 
 ### Step 5: Start Tracking

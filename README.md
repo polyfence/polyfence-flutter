@@ -181,10 +181,24 @@ await Polyfence.instance.initialize();
 
 ### Step 2: Request Permissions
 
+**iOS:** `requestPermissions(always: true)` triggers the system permission dialog.
+
+**Android:** `requestPermissions()` **does not show a dialog** — it only reads the current permission state and returns a boolean. To trigger the OS dialog on Android, use a package like [`permission_handler`](https://pub.dev/packages/permission_handler) first, then call `requestPermissions()` to verify the result.
+
 ```dart
+import 'dart:io' show Platform;
+// Android only — trigger the OS permission dialog.
+// import 'package:permission_handler/permission_handler.dart';
+// if (Platform.isAndroid) {
+//   await Permission.location.request();
+//   await Permission.locationAlways.request();
+// }
+
+// Both platforms — verify the result. On iOS this ALSO shows the
+// system dialog on first call.
 final hasPermission = await Polyfence.instance.requestPermissions(always: true);
 if (!hasPermission) {
-  // Handle permission denied
+  // Handle permission denied — e.g. guide the user to Settings.
   return;
 }
 ```
@@ -228,14 +242,23 @@ Polyfence.instance.onGeofenceEvent.listen((event) {
     case GeofenceEventType.dwell:
       print('Stayed in ${event.zoneId} for 5+ minutes');
       break;
-    default:
+    // Recovery events fire when the SDK reconciles zone state after
+    // a GPS gap (airplane mode, tunnel, background restart, etc.).
+    // Treat them like enter/exit unless you specifically want to
+    // distinguish "just crossed the boundary" from "was already
+    // inside/outside when tracking resumed."
+    case GeofenceEventType.recoveryEnter:
+      print('Confirmed inside (post-recovery): ${event.zoneId}');
+      break;
+    case GeofenceEventType.recoveryExit:
+      print('Confirmed outside (post-recovery): ${event.zoneId}');
       break;
   }
 });
 ```
 
 <p align="center">
-  <img alt="ENTER, EXIT and DWELL events as your device moves" src="assets/screenshots/events.png" width="280" />
+  <img alt="ENTER, EXIT, DWELL and RECOVERY events as your device moves" src="assets/screenshots/events.png" width="280" />
 </p>
 
 ### Step 5: Start Tracking

@@ -1,6 +1,7 @@
 package io.polyfence.polyfence.flutter
 
 import android.content.Context
+import android.content.SharedPreferences
 import io.flutter.embedding.engine.plugins.FlutterPlugin
 import io.flutter.plugin.common.BinaryMessenger
 import io.flutter.plugin.common.MethodCall
@@ -35,6 +36,22 @@ class PolyfencePluginTest {
     fun setUp() {
         plugin = PolyfencePlugin()
         result = mock(MethodChannel.Result::class.java)
+
+        // BUG-001 added `setTrackingEnabled(context, false)` at the top of
+        // the "initialize" method-channel handler, which requires the
+        // plugin's lateinit `context` to be set. Inject a mock context
+        // with a mock SharedPreferences chain via reflection so the
+        // initialize tests can run without a real Flutter attachment.
+        val mockContext = mock(Context::class.java)
+        val mockPrefs = mock(SharedPreferences::class.java)
+        val mockEditor = mock(SharedPreferences.Editor::class.java)
+        `when`(mockContext.getSharedPreferences(anyString(), anyInt())).thenReturn(mockPrefs)
+        `when`(mockPrefs.edit()).thenReturn(mockEditor)
+        `when`(mockEditor.putBoolean(anyString(), anyBoolean())).thenReturn(mockEditor)
+
+        val contextField = PolyfencePlugin::class.java.getDeclaredField("context")
+        contextField.isAccessible = true
+        contextField.set(plugin, mockContext)
     }
 
     // ==================== Unknown Method Routing ====================

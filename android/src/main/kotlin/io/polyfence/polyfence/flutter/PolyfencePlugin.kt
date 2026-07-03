@@ -521,9 +521,16 @@ class PolyfencePlugin: FlutterPlugin, MethodCallHandler, ActivityAware {
                 data = Uri.parse("package:${context.packageName}")
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK
             }
-            
+
+            // startActivity is fire-and-forget. There is no synchronous
+            // mechanism on Android to observe whether the user tapped
+            // Allow or Deny in the system dialog — the prior
+            // result.success(true) was a lie that masked the real
+            // outcome. Consumers must re-poll batteryOptimizationStatus()
+            // after AppLifecycleState.resumed to detect what the user
+            // actually did. BUG-012 (parity with polyfence-react-native#74).
             context.startActivity(intent)
-            result.success(true)
+            result.success(null)
         } catch (e: Exception) {
             Log.e("PolyfencePlugin", "Failed to request battery optimization exemption: ${e.message}")
             result.error("BATTERY_REQUEST_FAILED", e.message, null)

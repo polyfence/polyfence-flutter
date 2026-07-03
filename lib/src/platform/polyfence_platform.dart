@@ -41,8 +41,11 @@ abstract class PolyfencePlatform extends PlatformInterface {
   /// Check battery optimization status (Android only)
   Future<Map<String, dynamic>> checkBatteryOptimization();
 
-  /// Request battery optimization exemption (Android only)
-  Future<bool> requestBatteryOptimizationExemption();
+  /// Launch the Android system battery-optimization-exemption dialog
+  /// (fire-and-forget — the user's response cannot be observed
+  /// synchronously). Re-poll [checkBatteryOptimization] after your app
+  /// resumes to detect the outcome.
+  Future<void> requestBatteryOptimizationExemption();
 
   /// Returns the current GPS configuration as a raw map from the platform.
   Future<Map<String, dynamic>> getConfiguration();
@@ -195,10 +198,8 @@ class MethodChannelPolyfence extends PolyfencePlatform {
   }
 
   @override
-  Future<bool> requestBatteryOptimizationExemption() async {
-    final result =
-        await _channel.invokeMethod<bool>('requestBatteryOptimization');
-    return result ?? false;
+  Future<void> requestBatteryOptimizationExemption() async {
+    await _channel.invokeMethod<void>('requestBatteryOptimization');
   }
 
   @override

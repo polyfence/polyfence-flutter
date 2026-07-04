@@ -11,7 +11,7 @@ Privacy-first polygon and circle geofencing for Flutter. True background trackin
   s.source           = { :path => '.' }
   s.source_files = 'Classes/**/*'
   s.dependency 'Flutter'
-  s.dependency 'PolyfenceCore', '~> 1.0.0'
+  s.dependency 'PolyfenceCore', '~> 1.0.10'
   s.platform = :ios, '14.0'
   s.swift_version = '5.0'
   

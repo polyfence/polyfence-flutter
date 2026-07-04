@@ -242,16 +242,21 @@ Polyfence.instance.onGeofenceEvent.listen((event) {
     case GeofenceEventType.dwell:
       print('Stayed in ${event.zoneId} for 5+ minutes');
       break;
-    // Recovery events fire when the SDK reconciles zone state after
-    // a GPS gap (airplane mode, tunnel, background restart, etc.).
-    // Treat them like enter/exit unless you specifically want to
-    // distinguish "just crossed the boundary" from "was already
-    // inside/outside when tracking resumed."
+    // Recovery events fire ONLY when the tracking service was killed
+    // and restarted (Doze kill / OOM / force-stop / phone reboot). On
+    // the first GPS fix after restart, the SDK reconciles persisted
+    // zone state against the actual location and emits recoveryEnter /
+    // recoveryExit for any mismatch. They do NOT fire on GPS signal
+    // loss (airplane mode, tunnel) during active tracking — a regular
+    // enter/exit fires for those. Treat recovery events like enter/exit
+    // unless you specifically want to distinguish "user just crossed
+    // the boundary" from "user was already inside/outside when the
+    // tracking process resumed after being killed."
     case GeofenceEventType.recoveryEnter:
-      print('Confirmed inside (post-recovery): ${event.zoneId}');
+      print('Confirmed inside (post-restart): ${event.zoneId}');
       break;
     case GeofenceEventType.recoveryExit:
-      print('Confirmed outside (post-recovery): ${event.zoneId}');
+      print('Confirmed outside (post-restart): ${event.zoneId}');
       break;
   }
 });

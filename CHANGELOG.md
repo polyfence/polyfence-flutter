@@ -9,6 +9,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 _Nothing yet._
 
+## [1.0.2] - 2026-07-04
+
+> **Version-label note:** Same pragmatic-patch approach as polyfence-core 1.0.10 — this release contains a return-type change plus downstream-inherited breaking behaviors that would warrant a major bump under strict semver, but ships as a patch because Polyfence is pre-open-source Early Access with no external consumers at cut time. Breaking changes are called out in **Changed (BREAKING)** with per-item migration guidance.
+
+### Changed (BREAKING)
+
+- **polyfence-core bumped 1.0.9 → 1.0.10 — inherits core's breaking behaviors.** See polyfence-core CHANGELOG for the full details:
+  - **BUG-015** — `updateConfiguration` now MERGES over current state instead of REPLACING. Consumers that relied on partial updates resetting unspecified fields to defaults must now pass every field explicitly, or call `resetConfiguration()` first.
+  - **BUG-010** — Android `emitHealthScore` callback delivered on a background thread. UI or non-thread-safe work inside `onHealthScore` must be re-dispatched.
+  - **BUG-013b** — `runtime_status` map returns a stable key set with `null` for unknown fields instead of omitting keys. Callers using `.containsKey()` presence checks must switch to null-checks.
+
+- **`requestBatteryOptimizationExemption()` now returns `Future<void>` (BUG-012 parity).** Previously returned `Future<bool>`. Same reasoning as polyfence-react-native#74: Android's `startActivity` is fire-and-forget and can't observe the user's response to the system dialog synchronously. **Migration:** stop awaiting a bool. Poll `batteryOptimizationStatus` after `AppLifecycleState.resumed` to check whether the user granted the exemption.
+
+- **`GeofenceEvent` payload no longer includes never-populated fields (BUG-009 bridge companion, #48).** Dropped fields the native engine never emitted (parity with polyfence-react-native#77). Consumers reading those fields see `null`. **Migration:** remove references to the dropped fields; the ones still emitted (`zoneName`, `dwellDurationMs`, `detectionTimeMs`, `distanceToBoundaryM`) are typed and populated.
+
+### Fixed
+
+- **BUG-001 Android upgrade poison — `tracking_enabled` SharedPref now cleared on `initialize()`.** Consumers upgrading from a release that already flipped the flag `true` get a clean slate on the first `initialize()`, since `startTracking()` re-arms the flag immediately. Matches polyfence-react-native#49. Regression coverage in `PolyfencePluginTest`.
+- **BUG-002 — `_isDisposed` guard applied uniformly across `PolyfenceService`.** Every public method now consistently rejects post-dispose calls with a clear exception, matching the polyfence-react-native BUG-002 pattern.
+- **BUG-004 example app — pagination on zone fetch.** The example dashboard was pulling only the first 100 zones then silently stopping. Now paginates via the SaaS `/api/zones` cursor so accounts with >100 zones see everything. Example-app-only — no library change.
+- **BUG-013a — status payload includes real `profile` and `lastAccuracy` from polyfence-core.** Previously `getStatus()` returned `profile: null` and `lastAccuracy: null` even while tracking. Now reads `runtime_status.profile` and calls the new `getLastKnownAccuracy()` core accessor (added in polyfence-core 1.0.10 alongside the BUG-013b shape stabilization).
+- **BUG-015 iOS parity — `updateConfiguration` on iOS routes through polyfence-core's merge-aware method.** The Swift bridge was still calling the old replace-semantics path even after core 1.0.10 added the merge method. Now uses the same code path as Android for cross-platform consistency.
+- **`dispose()` now actually stops native tracking (re-open of #57 as #61).** Previously `dispose()` silently swallowed the native `stopTracking` failure and continued teardown, so the foreground service kept running after the Dart layer thought it was gone. Now awaits stop and propagates errors correctly.
+
+### Documented
+
+- **BUG-019 — RECOVERY_ENTER / RECOVERY_EXIT event semantics** clarified in Quick Start Step 4. The comment originally added in BUG-018 parity attributed recovery events to "GPS gaps (airplane mode, tunnel, background restart, etc.)" — that's wrong. Recovery events fire ONLY on tracking-process restart (Doze kill / OOM / force-stop / phone reboot), not on GPS signal recovery during an active session. Comment now says this exactly; console prints changed from "post-recovery" to "post-restart" for the same reason.
+- **BUG-011 — `onError` is the SDK's central error channel.** README + example app reordered so `onError` is set up before the first native call. Parity with polyfence-react-native#73.
+- **BUG-017 + BUG-018 combined docs** — Android permission flow (Step 2) and `recoveryEnter` / `recoveryExit` handling (Step 4) added to Quick Start, matching the RN companion PRs.
+- **iOS Critical Alerts entitlement + App Store review guidance** added to SECURITY.md.
+
 ## [1.0.1] - 2026-06-01
 
 ### Changed

@@ -713,10 +713,9 @@ class PolyfenceService {
 
       // Extract optional coordinates if provided by platform.
       // Read gpsAccuracy (the canonical key both platforms send) with
-      // accuracy as a fallback (iOS emits both as a duplicate; Android
-      // sends only gpsAccuracy — pre-fix the bridge read only
-      // `accuracy` and lost the value on Android entirely). BUG-009
-      // bridge gap, same shape.
+      // accuracy as a fallback — iOS emits both as a duplicate, but
+      // Android sends only gpsAccuracy, so reading only `accuracy`
+      // would lose the value on Android entirely.
       final lat = (eventData['latitude'] as num?)?.toDouble();
       final lng = (eventData['longitude'] as num?)?.toDouble();
       final acc = (eventData['gpsAccuracy'] as num?)?.toDouble() ??
@@ -724,7 +723,7 @@ class PolyfenceService {
       final speed = (eventData['speedMps'] as num?)?.toDouble();
       final activity = eventData['activityAtEvent'] as String?;
 
-      // polyfence-core enrichment that pre-fix was dropped entirely:
+      // polyfence-core enrichment fields, forwarded on every event:
       final detectionTimeMs =
           (eventData['detectionTimeMs'] as num?)?.toDouble();
       final distanceToBoundaryM =
@@ -1182,10 +1181,29 @@ class PolyfenceService {
     _assertNotDisposed();
     if (!_isInitialized) throw PolyfenceNotInitializedException();
 
+    // The native errorHistory filter compares each stored error's
+    // snake_case `type` string (e.g. "battery_optimization_required")
+    // against the incoming `errorTypes` array. Dart enum names come
+    // out camelCase from `e.toString().split('.').last` (e.g.
+    // "batteryOptimizationRequired"), so without conversion the
+    // filter matches nothing. Convert to snake_case before handing
+    // off to the platform channel.
+    //
+    // An explicit empty `errorTypes: []` short-circuits: the native
+    // `isNotEmpty()` guard would otherwise treat it as "no filter —
+    // return everything", which is user-hostile for callers who
+    // computed an empty filter and expected an empty result.
+    // Short-circuit here so the semantic matches the list literal
+    // on either end.
+    if (errorTypes != null && errorTypes.isEmpty) {
+      return <PolyfenceErrorSummary>[];
+    }
     final params = {
       'timeRangeMs': timeRange?.inMilliseconds,
-      'errorTypes':
-          errorTypes?.map((e) => e.toString().split('.').last).toList(),
+      'errorTypes': errorTypes
+          ?.map(PolyfenceError.polyfenceErrorTypeToNativeCode)
+          .expand((codes) => codes)
+          .toList(),
     };
 
     try {

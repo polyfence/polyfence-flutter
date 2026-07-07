@@ -72,10 +72,11 @@ class PolyfencePlugin: FlutterPlugin, MethodCallHandler, ActivityAware {
                 val persistence = ZonePersistence(context)
                 persistence.getZoneCount()
             } catch (e: Exception) { 0 }
-            // BUG-013a: populate profile + lastAccuracy from polyfence-core
-            // instead of the previous "filled in future phases" stubs.
-            // Pre-fix the two fields were always null — dead values that
-            // suggested data was available when it wasn't.
+            // Populate profile + lastAccuracy from polyfence-core rather
+            // than hardcoding null — otherwise consumers reading
+            // status.profile and status.lastAccuracy see null regardless
+            // of runtime state, which suggests data is unavailable when
+            // it isn't.
             val profile = LocationTracker.getCurrentSmartConfiguration().accuracyProfile.name
             val lastAccuracy = LocationTracker.getLastKnownAccuracy()?.toDouble()
             return mapOf(
@@ -267,8 +268,20 @@ class PolyfencePlugin: FlutterPlugin, MethodCallHandler, ActivityAware {
             }
             
             "resetConfiguration" -> {
-                resetConfiguration()
-                result.success(null)
+                // resetConfiguration routes through
+                // updateConfiguration()'s Intent path, which bubbles
+                // Android 8+ background-restriction
+                // IllegalStateException. Without a try/catch the
+                // exception unwinds through the MethodChannel handler
+                // and leaves the Dart Future hanging. Match the RN
+                // Android CONFIG_RESET_FAILED contract.
+                try {
+                    resetConfiguration()
+                    result.success(null)
+                } catch (e: Exception) {
+                    Log.e("PolyfencePlugin", "Failed to reset configuration: ${e.message}")
+                    result.error("CONFIG_RESET_FAILED", e.message, null)
+                }
             }
             
             "checkBatteryOptimization" -> {
@@ -305,8 +318,22 @@ class PolyfencePlugin: FlutterPlugin, MethodCallHandler, ActivityAware {
                 try {
                     val configMap = call.arguments as? Map<String, Any>
                     if (configMap != null) {
-                        val smartConfig = SmartGpsConfigFactory.fromMap(configMap)
-                        LocationTracker.updateSmartConfiguration(smartConfig)
+                        // Route only through the merge-aware Intent
+                        // path. Do NOT pre-derive a SmartGpsConfig from
+                        // the partial incoming map and push it via
+                        // updateSmartConfiguration in parallel —
+                        // SmartGpsConfigFactory.fromMap on a partial
+                        // map has no way to distinguish "caller omitted
+                        // this key" from "caller wants the default",
+                        // so it silently resets every unspecified
+                        // field (BALANCED / CONTINUOUS / null nested
+                        // settings). The Intent handler in
+                        // LocationTracker.updateConfigurationFromMap
+                        // reads the current smartConfig, merges the
+                        // incoming partial over it, then applies. iOS
+                        // uses the same core merge method — cross-
+                        // platform parity, no per-bridge extras
+                        // cascade.
                         updateConfiguration(configMap)
                         result.success(null)
                     } else {
@@ -448,36 +475,55 @@ class PolyfencePlugin: FlutterPlugin, MethodCallHandler, ActivityAware {
     }
 
     private fun updateConfiguration(configMap: Map<String, Any>) {
-        // Store activity settings for when tracking starts (avoids background service start restriction)
+        // Store activity settings ahead of the Intent so they still
+        // land even if startService fails — pendingActivitySettings
+        // is a companion static that survives service lifecycle.
         val activitySettingsMap = configMap["activitySettings"] as? Map<String, Any>
         if (activitySettingsMap != null) {
             val activitySettings = ActivitySettings.fromMap(activitySettingsMap)
             LocationTracker.setPendingActivitySettings(activitySettings)
         }
 
-        // Try to send config update to service if running
-        try {
-            val intent = Intent(context, LocationTracker::class.java).apply {
-                action = LocationTracker.ACTION_UPDATE_CONFIG
-                putExtra("config", HashMap(configMap))
-            }
-            context.startService(intent)
-        } catch (e: Exception) {
-            // Service not running yet - that's OK, settings will be applied when tracking starts
-            Log.d("PolyfencePlugin", "Config stored for when tracking starts: ${e.message}")
+        val intent = Intent(context, LocationTracker::class.java).apply {
+            action = LocationTracker.ACTION_UPDATE_CONFIG
+            putExtra("config", HashMap(configMap))
         }
+        // Do NOT swallow startService failures. Only
+        // pendingActivitySettings survives when the Intent path
+        // fails — every other subsystem write goes through
+        // startService. On Android 8+ background restrictions (Doze /
+        // app-standby / battery saver) startService throws
+        // IllegalStateException; since this is the only write path
+        // (no direct `updateSmartConfiguration` fallback), swallowing
+        // would let the MethodChannel resolve as success while
+        // nothing was applied. Bubble instead so
+        // `updateConfiguration.catchError(...)` on the Dart side
+        // fires and the caller can retry when the app foregrounds.
+        context.startService(intent)
     }
 
     private fun getConfiguration(): Map<String, Any> {
-        val config = LocationTracker.getCurrentSmartConfiguration()
-        return SmartGpsConfigFactory.toMap(config)
+        // Use the composed 12-key shape from
+        // LocationTracker.getCurrentConfigurationMap rather than the
+        // 6-key SmartGpsConfig.toMap shape — the five extra fields
+        // (gpsAccuracyThreshold, dwellSettings, clusterSettings,
+        // scheduleSettings, activitySettings) live on GeofenceEngine /
+        // TrackingScheduler / the running instance and can only be
+        // assembled at the LocationTracker level. Pass the plugin's
+        // context so the scheduler can rehydrate its on-disk snapshot
+        // when the service hasn't started yet.
+        return LocationTracker.getCurrentConfigurationMap(context)
     }
 
     private fun resetConfiguration() {
-        val intent = Intent(context, LocationTracker::class.java).apply {
-            action = "RESET_CONFIG"
-        }
-        context.startService(intent)
+        // Route through the same UPDATE_CONFIG + full-default-map
+        // path RN Android uses so every subsystem (SmartGpsConfig +
+        // dwell / cluster / schedule / activity + alert flag)
+        // actually resets. LocationTracker never handled a bespoke
+        // RESET_CONFIG Intent action — sending one would make
+        // resetConfiguration() a silent no-op.
+        val configMap = LocationTracker.buildDefaultConfigurationMap()
+        updateConfiguration(configMap)
     }
 
     private fun setAccuracyProfile(profileName: String) {
@@ -540,11 +586,10 @@ class PolyfencePlugin: FlutterPlugin, MethodCallHandler, ActivityAware {
 
             // startActivity is fire-and-forget. There is no synchronous
             // mechanism on Android to observe whether the user tapped
-            // Allow or Deny in the system dialog — the prior
-            // result.success(true) was a lie that masked the real
-            // outcome. Consumers must re-poll batteryOptimizationStatus()
-            // after AppLifecycleState.resumed to detect what the user
-            // actually did. BUG-012 (parity with polyfence-react-native#74).
+            // Allow or Deny in the system dialog, so returning a
+            // boolean outcome would be misleading. Consumers must
+            // re-poll batteryOptimizationStatus() after
+            // AppLifecycleState.resumed to detect what the user chose.
             context.startActivity(intent)
             result.success(null)
         } catch (e: Exception) {

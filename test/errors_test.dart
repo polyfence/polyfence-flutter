@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:polyfence/polyfence.dart';
+import 'package:polyfence/src/errors/polyfence_error.dart';
 
 void main() {
   group('PolyfenceException hierarchy', () {
@@ -181,6 +182,80 @@ void main() {
         expect(restored.type, errorType,
             reason: 'Round-trip failed for $errorType');
       }
+    });
+  });
+
+  // The native errorHistory filter runs against stored snake_case
+  // type strings, so PolyfenceErrorType filter values have to be
+  // converted before crossing the platform channel. A pure
+  // algorithmic camelCase → snake_case converter would miss legacy
+  // aliases (permission_denied, tracking_error) and the
+  // wake_lock_timeout → unknown mapping.
+  group('polyfenceErrorTypeToNativeCode', () {
+    test('returns the canonical snake_case for a simple enum value', () {
+      expect(
+        PolyfenceError.polyfenceErrorTypeToNativeCode(
+          PolyfenceErrorType.batteryOptimizationRequired,
+        ),
+        contains('battery_optimization_required'),
+      );
+    });
+
+    test('expands gpsPermissionDenied to include the permission_denied legacy alias', () {
+      // Both `permission_denied` (legacy) and `gps_permission_denied`
+      // (canonical) are stored by different LocationTracker paths;
+      // filtering by the public enum has to match both.
+      final codes = PolyfenceError.polyfenceErrorTypeToNativeCode(
+        PolyfenceErrorType.gpsPermissionDenied,
+      );
+      expect(codes, containsAll(['gps_permission_denied', 'permission_denied']));
+    });
+
+    test('expands serviceStartFailed to include the tracking_error legacy alias', () {
+      final codes = PolyfenceError.polyfenceErrorTypeToNativeCode(
+        PolyfenceErrorType.serviceStartFailed,
+      );
+      expect(codes, containsAll(['service_start_failed', 'tracking_error']));
+    });
+
+    test('expands unknown to include wake_lock_timeout so real unknown errors surface', () {
+      final codes = PolyfenceError.polyfenceErrorTypeToNativeCode(
+        PolyfenceErrorType.unknown,
+      );
+      // Without the wake_lock_timeout override the filter would
+      // match nothing — the algorithmic converter yields just
+      // `['unknown']`, which is not a real native code.
+      expect(codes, contains('wake_lock_timeout'));
+    });
+
+    test('canonical code is always first (stable ordering for logs)', () {
+      final codes = PolyfenceError.polyfenceErrorTypeToNativeCode(
+        PolyfenceErrorType.gpsPermissionDenied,
+      );
+      expect(codes.first, 'gps_permission_denied');
+    });
+
+    test('every PolyfenceErrorType value yields at least one native code', () {
+      // Anti-regression: someone adds a new PolyfenceErrorType and
+      // forgets to wire it up; the algorithmic converter should
+      // still yield the canonical snake_case even without an
+      // explicit entry in the override map.
+      for (final type in PolyfenceErrorType.values) {
+        final codes = PolyfenceError.polyfenceErrorTypeToNativeCode(type);
+        expect(codes.isNotEmpty, isTrue,
+            reason: '$type yielded no native codes');
+      }
+    });
+
+    test('errorTypeEnumNameToNativeCode remains stable for callers relying on the pure algorithmic form', () {
+      // The legacy single-string helper is kept as a thin wrapper.
+      // Confirm the direct conversion still holds for callers that
+      // haven't migrated to the list-returning variant.
+      expect(
+        PolyfenceError.errorTypeEnumNameToNativeCode('batteryOptimizationRequired'),
+        'battery_optimization_required',
+      );
+      expect(PolyfenceError.errorTypeEnumNameToNativeCode(''), '');
     });
   });
 }

@@ -154,6 +154,102 @@ class PolyfenceError {
     return buffer.toString();
   }
 
+  /// Converts a camelCase string to snake_case. Inverse of [_snakeToCamel]
+  /// for well-behaved camelCase input. Returns the input unchanged if it
+  /// contains no uppercase letters.
+  ///
+  /// Prefer [polyfenceErrorTypeToNativeCode] over calling this directly
+  /// when handling `PolyfenceErrorType` filter values — the enum-driven
+  /// helper also covers legacy native aliases (e.g. `permission_denied`
+  /// as an alias for `gpsPermissionDenied`) and the `wake_lock_timeout`
+  /// → `unknown` mapping that a pure algorithmic conversion misses.
+  static String _camelToSnake(String camelCase) {
+    if (camelCase.isEmpty) return camelCase;
+    final buffer = StringBuffer();
+    for (var i = 0; i < camelCase.length; i++) {
+      final char = camelCase[i];
+      final lower = char.toLowerCase();
+      if (i > 0 && char != lower) {
+        buffer.write('_');
+      }
+      buffer.write(lower);
+    }
+    return buffer.toString();
+  }
+
+  /// Legacy or non-obvious native `type` strings that map to a
+  /// `PolyfenceErrorType` value where a pure camel↔snake conversion
+  /// would miss the code. Mirrors RN's `NATIVE_CODE_TO_TYPE` overrides
+  /// so both bridges recognise the same set of emitted codes.
+  ///
+  /// Keys are `PolyfenceErrorType` enum names (as returned by
+  /// `type.toString().split('.').last`); values are the extra native
+  /// codes the filter must also match beyond the canonical
+  /// snake_case conversion.
+  static const Map<String, List<String>> _extraNativeCodesForType = {
+    'gpsPermissionDenied': ['permission_denied'],
+    'gpsServiceDisabled': ['location_disabled'],
+    'serviceStartFailed': ['tracking_error'],
+    'networkTimeout': ['network_error'],
+    'zoneValidationFailed': ['zone_error'],
+    // `unknown` covers every native code the type system doesn't
+    // otherwise account for. The engine emits `wake_lock_timeout`
+    // as a raw native code and PolyfenceError.fromMap falls back to
+    // `PolyfenceErrorType.unknown` when parsing it. Without this
+    // list, filtering by `unknown` would send `['unknown']` to
+    // native and match nothing stored.
+    //
+    // `polygon_self_intersecting` is a NON-FATAL warning the engine
+    // fires when it accepts a self-intersecting polygon (ray-casting
+    // handles the even-odd interior correctly). Consumers filter
+    // real errors from warnings via
+    // `error.context['severity'] == 'warning'`.
+    'unknown': [
+      'wake_lock_timeout',
+      'activity_recognition_unavailable',
+      'configuration_error',
+      'battery_check_failed',
+      'polygon_self_intersecting',
+    ],
+  };
+
+  /// Maps a public [PolyfenceErrorType] value to the full set of
+  /// snake_case native codes the engine may have stored under that
+  /// type. Used by `PolyfenceService.errorHistory` to expand filter
+  /// arguments before crossing the platform channel — the native
+  /// side compares raw stored codes and would otherwise miss both
+  /// (a) the canonical snake_case form and (b) any legacy aliases
+  /// that predate the current NATIVE_CODE_TO_TYPE table.
+  ///
+  /// The returned list always includes the canonical snake_case
+  /// (`camelToSnake(enumName)`) so consumers filtering by newly
+  /// added enum values still work without touching this table.
+  static List<String> polyfenceErrorTypeToNativeCode(PolyfenceErrorType type) {
+    final enumName = type.toString().split('.').last;
+    final canonical = _camelToSnake(enumName);
+    final extras = _extraNativeCodesForType[enumName] ?? const [];
+    // Preserve order (canonical first) so debugging logs read
+    // sensibly, but dedup in case a caller ever adds the canonical
+    // to the extras list.
+    final seen = <String>{};
+    final result = <String>[];
+    for (final code in [canonical, ...extras]) {
+      if (seen.add(code)) result.add(code);
+    }
+    return result;
+  }
+
+  /// @deprecated Use [polyfenceErrorTypeToNativeCode] instead — the
+  /// list-returning variant handles legacy aliases and the `unknown`
+  /// fallback that a pure algorithmic conversion misses.
+  ///
+  /// Kept as a thin wrapper because this name is documented in
+  /// existing consumer code; can be removed once nothing external
+  /// depends on it.
+  static String errorTypeEnumNameToNativeCode(String camelCase) {
+    return _camelToSnake(camelCase);
+  }
+
   /// Converts this error to a map for serialization.
   Map<String, dynamic> toMap() {
     return {

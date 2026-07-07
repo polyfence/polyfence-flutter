@@ -138,10 +138,15 @@ class MockPolyfencePlatform extends PolyfencePlatform
     return debugInfoResponse;
   }
 
+  /// Captures the last params passed to `getErrorHistory` so tests
+  /// can assert what the bridge actually sends to native.
+  Map<String, dynamic>? lastErrorHistoryParams;
+
   @override
   Future<List<Map<String, dynamic>>> getErrorHistory(
       Map<String, dynamic> params) async {
     calls.add('getErrorHistory');
+    lastErrorHistoryParams = Map<String, dynamic>.from(params);
     return errorHistoryResponse;
   }
 
@@ -609,21 +614,80 @@ void main() {
     });
   });
 
+  // The Dart bridge must convert PolyfenceErrorType enum values to
+  // snake_case (and expand legacy aliases) before sending across the
+  // MethodChannel, or the native filter matches nothing.
+  //
+  // MUST run before the `PolyfenceService — dispose` group: the
+  // singleton is permanently unusable after disposal (initialize
+  // can't reset _isDisposed), and every test here reuses the
+  // singleton.
+  group('errorHistory — errorTypes filter marshaling', () {
+    setUp(() async {
+      try {
+        await PolyfenceService.instance.initialize();
+      } catch (_) {
+        // Already initialised by an earlier group is fine; re-init
+        // is idempotent for our purposes here (we only need the
+        // service in a usable state to call errorHistory).
+      }
+      mockPlatform.calls.clear();
+      mockPlatform.lastErrorHistoryParams = null;
+    });
+
+    test('sends canonical snake_case for a simple 1:1 enum value', () async {
+      await PolyfenceService.instance.errorHistory(
+        errorTypes: [PolyfenceErrorType.batteryOptimizationRequired],
+      );
+      final sent = mockPlatform.lastErrorHistoryParams?['errorTypes'] as List?;
+      expect(sent, contains('battery_optimization_required'));
+    });
+
+    test('expands serviceStartFailed to include both canonical and legacy alias', () async {
+      await PolyfenceService.instance.errorHistory(
+        errorTypes: [PolyfenceErrorType.serviceStartFailed],
+      );
+      final sent = mockPlatform.lastErrorHistoryParams?['errorTypes'] as List?;
+      expect(
+        sent,
+        containsAll(<String>['service_start_failed', 'tracking_error']),
+      );
+    });
+
+    test('expands unknown to include wake_lock_timeout', () async {
+      await PolyfenceService.instance.errorHistory(
+        errorTypes: [PolyfenceErrorType.unknown],
+      );
+      final sent = mockPlatform.lastErrorHistoryParams?['errorTypes'] as List?;
+      expect(sent, contains('wake_lock_timeout'));
+    });
+
+    test('short-circuits an explicit empty errorTypes to an empty result without a native call', () async {
+      final result = await PolyfenceService.instance
+          .errorHistory(errorTypes: <PolyfenceErrorType>[]);
+      expect(result, isEmpty);
+      expect(mockPlatform.calls.contains('getErrorHistory'), isFalse);
+    });
+
+    test('sends null errorTypes when the filter is omitted', () async {
+      await PolyfenceService.instance.errorHistory();
+      expect(mockPlatform.lastErrorHistoryParams?['errorTypes'], isNull);
+    });
+  });
+
   group('PolyfenceService — dispose', () {
     // dispose() tests MUST run last because the singleton is permanently
     // unusable after disposal (_isDisposed = true with no reset method).
 
     test('dispose calls platform.dispose AND platform.stopTracking', () async {
-      // Regression for the dispose-swallows-stopTracking bug found
-      // during BUG-002 review. dispose() sets _isDisposed=true at the
-      // top (for race protection against parallel dispose() callers),
-      // so the previous implementation calling the PUBLIC
-      // stopTracking() from inside dispose threw StateError via the
-      // disposal guard. The surrounding catch (_) swallowed the
-      // error, so platform.stopTracking() was never actually invoked
-      // — leaving the Android foreground service running until OS
-      // cleanup. Fix routes through _stopTrackingDuringDispose() which
-      // calls _platform.stopTracking() directly, bypassing the guard.
+      // dispose() sets _isDisposed=true at the top (for race
+      // protection against parallel dispose() callers). Calling the
+      // PUBLIC stopTracking() from inside dispose would then throw
+      // StateError via the disposal guard, and a catch (_) around it
+      // would swallow the error — the Android foreground service
+      // would keep running until OS cleanup. dispose() must route
+      // through an internal helper that calls _platform.stopTracking()
+      // directly, bypassing the guard.
       mockPlatform.calls.clear();
 
       // Make tracking "active" so the dispose stopTracking branch runs.
@@ -668,15 +732,14 @@ void main() {
       );
     });
 
-    test('all public methods throw StateError after dispose (BUG-002 parity)',
+    test('all public methods throw StateError after dispose',
         () async {
-      // Pre-fix: only initialize/addZone/removeZone/startTracking/
-      // stopTracking had the disposal guard. The other ~15 public
-      // methods (including clearAllZones, the 14 enumerated below)
-      // only checked _isInitialized, so a post-dispose call threw the
+      // Every public method must apply the disposal guard uniformly.
+      // A method that only checks _isInitialized will throw the
       // misleading PolyfenceNotInitializedException instead of
-      // StateError. Regression coverage for the uniform guard
-      // application.
+      // StateError when called after dispose. The 14 methods below
+      // are the ones that require explicit coverage beyond the core
+      // initialize/addZone/removeZone/startTracking/stopTracking set.
       expect(() => PolyfenceService.instance.clearAllZones(),
           throwsA(isA<StateError>()));
       expect(() => PolyfenceService.instance.getZoneStates(),

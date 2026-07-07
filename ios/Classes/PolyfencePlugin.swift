@@ -12,7 +12,11 @@ public class PolyfencePlugin: NSObject, FlutterPlugin {
     // MARK: - Properties
     private var locationTracker: LocationTracker?
     private var zonePersistence: ZonePersistence?
-    private var config: PolyfenceConfig?
+    // No cached `PolyfenceConfig` field: getConfiguration reads
+    // exclusively from locationTracker.getCurrentConfigurationMap()
+    // and updateConfiguration routes through the core method, so an
+    // instance field would be orphan scaffolding whose only cost is
+    // wasted startup work (NSUserDefaults read).
     
     // Event channels
     private var locationChannel: FlutterEventChannel?
@@ -67,10 +71,11 @@ public class PolyfencePlugin: NSObject, FlutterPlugin {
         // to querying the real state instead of reporting false.
         // Matches RN parity (polyfence-react-native/ios/PolyfenceModule.swift).
         let tracking = trackingEnabled ?? (locationTracker?.isTracking() ?? false)
-        // BUG-013a: populate profile + lastAccuracy from polyfence-core
-        // instead of nil stubs. Pre-fix the two fields were always
-        // null — dead values that suggested data was available when
-        // it wasn't.
+        // Populate profile + lastAccuracy from polyfence-core rather
+        // than hardcoding nil — otherwise consumers reading
+        // status.profile and status.lastAccuracy see null regardless
+        // of runtime state, which suggests data is unavailable when
+        // it isn't.
         let profile: Any = locationTracker?.getCurrentSmartConfiguration().accuracyProfile.rawValue ?? NSNull()
         let lastAccuracy: Any = locationTracker?.getLastKnownAccuracy() ?? NSNull()
         let payload: [String: Any] = [
@@ -147,9 +152,6 @@ public class PolyfencePlugin: NSObject, FlutterPlugin {
                let version = configDict["pluginVersion"] as? String {
                 PolyfenceDebugCollector.shared.setPluginVersion(version)
             }
-
-            // Initialize configuration
-            config = PolyfenceConfig()
 
             // Initialize persistence
             zonePersistence = ZonePersistence()
@@ -278,8 +280,14 @@ public class PolyfencePlugin: NSObject, FlutterPlugin {
             return
         }
 
-        let smartConfig = locationTracker.getCurrentSmartConfiguration()
-        let configMap = SmartGpsConfigFactory.toMap(smartConfig)
+        // Use the composed 12-key shape from
+        // LocationTracker.getCurrentConfigurationMap rather than the
+        // 6-key SmartGpsConfig.toMap shape — the five extra fields
+        // (gpsAccuracyThreshold, dwellSettings, clusterSettings,
+        // scheduleSettings, activitySettings) live on GeofenceEngine /
+        // TrackingScheduler.shared / the tracker instance and can only
+        // be assembled at the LocationTracker level.
+        let configMap = locationTracker.getCurrentConfigurationMap()
         result(configMap)
     }
     
@@ -289,59 +297,45 @@ public class PolyfencePlugin: NSObject, FlutterPlugin {
             return
         }
 
-        do {
-            // BUG-015: route through the merge-aware core method so
-            // partial updates preserve unspecified fields instead of
-            // resetting them to SmartGpsConfig data-class defaults.
-            // Android's map handler already merges internally; this is
-            // the iOS-side companion.
-            config?.updateFromMap(configMap)
-            locationTracker?.updateSmartConfigurationFromMap(configMap)
-
-            // Update GPS accuracy threshold in GeofenceEngine if provided
-            if let gpsAccuracyThreshold = configMap["gpsAccuracyThreshold"] as? Double {
-                locationTracker?.setGpsAccuracyThreshold(gpsAccuracyThreshold)
-                config?.gpsAccuracyThreshold = gpsAccuracyThreshold
-            }
-
-            // Update dwell detection settings if provided
-            if let dwellSettings = configMap["dwellSettings"] as? [String: Any] {
-                let dwellEnabled = dwellSettings["enabled"] as? Bool ?? true
-                let dwellThresholdMs = dwellSettings["dwellThresholdMs"] as? Int ?? 300000
-                locationTracker?.setDwellConfig(enabled: dwellEnabled, thresholdMs: dwellThresholdMs)
-            }
-
-            // Update cluster settings if provided
-            if let clusterSettings = configMap["clusterSettings"] as? [String: Any] {
-                let clusterEnabled = clusterSettings["enabled"] as? Bool ?? false
-                let activeRadiusMeters = clusterSettings["activeRadiusMeters"] as? Double ?? 5000.0
-                let refreshDistanceMeters = clusterSettings["refreshDistanceMeters"] as? Double ?? 1000.0
-                locationTracker?.setClusterConfig(enabled: clusterEnabled, activeRadiusMeters: activeRadiusMeters, refreshDistanceMeters: refreshDistanceMeters)
-            }
-
-            // Update schedule settings if provided
-            if let scheduleSettings = configMap["scheduleSettings"] as? [String: Any] {
-                locationTracker?.setScheduleConfig(scheduleSettings)
-            }
-
-            // Update activity recognition settings if provided
-            if let activitySettings = configMap["activitySettings"] as? [String: Any] {
-                locationTracker?.setActivityConfig(activitySettings)
-            }
-
-            result(nil)
-        } catch {
-            result(FlutterError(code: "CONFIG_UPDATE_FAILED", message: "Failed to update smart GPS configuration: \(error.localizedDescription)", details: nil))
+        // Guard the tracker explicitly to match RN iOS and every
+        // other config method in this plugin — optional chaining
+        // would silently succeed when a caller invokes
+        // updateConfiguration before initialize().
+        guard let locationTracker = locationTracker else {
+            result(FlutterError(
+                code: "NO_LOCATION_TRACKER",
+                message: "Location tracker not initialized",
+                details: nil
+            ))
+            return
         }
+
+        // Delegate to the core's single-source
+        // updateConfigurationFromMap, which merges the SmartGpsConfig
+        // portion, applies the six extras subsystems
+        // (gpsAccuracyThreshold, dwell, cluster, schedule, activity,
+        // disableAlertNotifications), and keeps the field coverage in
+        // lockstep with Kotlin's identically-named method. No
+        // surrounding do/catch — the core method doesn't throw.
+        locationTracker.updateConfigurationFromMap(configMap)
+        result(nil)
     }
     
     private func resetConfiguration(result: @escaping FlutterResult) {
-        guard let config = config else {
-            result(FlutterError(code: "NO_CONFIG", message: "Configuration not initialized", details: nil))
+        // Route through the core `LocationTracker.resetSmartConfiguration()`
+        // which resets the full 12-field surface (SmartGpsConfig +
+        // dwell / cluster / gpsAccuracyThreshold + TrackingScheduler +
+        // activitySettings + alertNotifications). Anything less (e.g.
+        // clearing NSUserDefaults keys directly) would leave subsystems
+        // that live outside NSUserDefaults at whatever the caller had
+        // configured — inconsistent with RN iOS and both Android
+        // bridges.
+        guard let locationTracker = locationTracker else {
+            result(FlutterError(code: "NO_LOCATION_TRACKER", message: "Location tracker not initialized", details: nil))
             return
         }
-        
-        config.resetToDefaults()
+
+        locationTracker.resetSmartConfiguration()
         result(nil)
     }
 

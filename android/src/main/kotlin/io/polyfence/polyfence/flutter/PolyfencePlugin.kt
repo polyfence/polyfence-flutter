@@ -268,13 +268,14 @@ class PolyfencePlugin: FlutterPlugin, MethodCallHandler, ActivityAware {
             }
             
             "resetConfiguration" -> {
-                // resetConfiguration routes through
-                // updateConfiguration()'s Intent path, which bubbles
-                // Android 8+ background-restriction
-                // IllegalStateException. Without a try/catch the
-                // exception unwinds through the MethodChannel handler
-                // and leaves the Dart Future hanging. Match the RN
-                // Android CONFIG_RESET_FAILED contract.
+                // resetConfiguration routes through updateConfiguration,
+                // which delegates to LocationTracker.applyConfigurationDirect.
+                // The service-not-running fallback there still uses
+                // startService and bubbles Android 8+ background-restriction
+                // IllegalStateException. Without a try/catch the exception
+                // unwinds through the MethodChannel handler and leaves the
+                // Dart Future hanging. Match the RN Android
+                // CONFIG_RESET_FAILED contract.
                 try {
                     resetConfiguration()
                     result.success(null)
@@ -476,12 +477,16 @@ class PolyfencePlugin: FlutterPlugin, MethodCallHandler, ActivityAware {
 
     /**
      * Apply a configuration update on the running LocationTracker
-     * Service. Uses core's applyConfigurationDirect helper so the
-     * MethodChannel result reaches Dart after the mutation lands —
+     * Service. Uses core's applyConfigurationDirect helper. When the
+     * Service is already running, apply is synchronous — the
+     * MethodChannel result reaches Dart after the mutation lands and
      * an immediately-following getConfiguration() call observes the
      * new state without an explicit wait. When no Service instance
      * is running, applyConfigurationDirect falls back to a
-     * startService Intent with the same transport as before.
+     * startService Intent with the same transport as before. Read
+     * after-write is NOT guaranteed on that fallback path; callers
+     * that depend on immediate observability must ensure the Service
+     * is running first (via initialize + startTracking).
      *
      * pendingActivitySettings is stamped up front so it survives the
      * companion static across service lifecycle in the not-running

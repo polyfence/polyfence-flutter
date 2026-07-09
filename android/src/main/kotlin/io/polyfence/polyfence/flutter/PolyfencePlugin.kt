@@ -474,32 +474,34 @@ class PolyfencePlugin: FlutterPlugin, MethodCallHandler, ActivityAware {
         context.startService(intent)
     }
 
+    /**
+     * Apply a configuration update on the running LocationTracker
+     * Service. Uses core's applyConfigurationDirect helper so the
+     * MethodChannel result reaches Dart after the mutation lands —
+     * an immediately-following getConfiguration() call observes the
+     * new state without an explicit wait. When no Service instance
+     * is running, applyConfigurationDirect falls back to a
+     * startService Intent with the same transport as before.
+     *
+     * pendingActivitySettings is stamped up front so it survives the
+     * companion static across service lifecycle in the not-running
+     * fallback path.
+     *
+     * startService failures propagate. On Android 8+ background
+     * restrictions (Doze / app-standby / battery saver) startService
+     * throws IllegalStateException; swallowing would let the
+     * MethodChannel resolve as success while nothing was applied.
+     * Bubble instead so updateConfiguration.catchError(...) on the
+     * Dart side fires.
+     */
     private fun updateConfiguration(configMap: Map<String, Any>) {
-        // Store activity settings ahead of the Intent so they still
-        // land even if startService fails — pendingActivitySettings
-        // is a companion static that survives service lifecycle.
         val activitySettingsMap = configMap["activitySettings"] as? Map<String, Any>
         if (activitySettingsMap != null) {
             val activitySettings = ActivitySettings.fromMap(activitySettingsMap)
             LocationTracker.setPendingActivitySettings(activitySettings)
         }
 
-        val intent = Intent(context, LocationTracker::class.java).apply {
-            action = LocationTracker.ACTION_UPDATE_CONFIG
-            putExtra("config", HashMap(configMap))
-        }
-        // Do NOT swallow startService failures. Only
-        // pendingActivitySettings survives when the Intent path
-        // fails — every other subsystem write goes through
-        // startService. On Android 8+ background restrictions (Doze /
-        // app-standby / battery saver) startService throws
-        // IllegalStateException; since this is the only write path
-        // (no direct `updateSmartConfiguration` fallback), swallowing
-        // would let the MethodChannel resolve as success while
-        // nothing was applied. Bubble instead so
-        // `updateConfiguration.catchError(...)` on the Dart side
-        // fires and the caller can retry when the app foregrounds.
-        context.startService(intent)
+        LocationTracker.applyConfigurationDirect(context, configMap)
     }
 
     private fun getConfiguration(): Map<String, Any> {

@@ -1,7 +1,6 @@
 # Polyfence Telemetry Reference
 
 **Last updated:** 2026-07-04
-**Plugin version:** 1.0.2
 
 This is the field-by-field technical reference for Polyfence's anonymous telemetry. For the privacy policy (opt-out instructions, legal basis, data retention, your rights), see [PRIVACY.md](../PRIVACY.md).
 

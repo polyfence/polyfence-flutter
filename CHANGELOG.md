@@ -7,7 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-_Nothing yet._
+## [2.0.0] - 2026-07-08
+
+### Changed
+
+- **polyfence-core bumped 1.0.10 → 1.0.11.** Picks up the new `applyConfigurationDirect` companion helper on the Android side.
+- **Android bridge switched to `LocationTracker.applyConfigurationDirect`.** Closes a read-after-write race where `await Polyfence.instance.updateConfiguration({...})` followed by an immediate `await Polyfence.instance.getConfiguration()` on the same thread could return pre-write state. Now returns after the mutation lands when the Service is already running; falls back to the previous `startService` Intent transport when the Service isn't running (read-after-write is only observable in the direct path). iOS bridges were never affected — they already call `updateConfigurationFromMap` directly.
+- **Version aligned with polyfence-react-native at 2.x.** Previous 1.0.2 already shipped a breaking-contract change (merge-aware `updateConfiguration`, inherited from polyfence-core 1.0.10). This release formalises the alignment: both bridges live on 2.x from here, with matching version trains going forward. No new breaking API changes in the Dart surface beyond what earlier entries documented.
 
 ## [1.0.2] - 2026-07-04
 

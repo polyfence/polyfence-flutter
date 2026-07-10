@@ -19,6 +19,13 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
+          # Pinned to a known-good Flutter release rather than tracking
+          # whatever stable happens to be at CI-run time. Prevents silent
+          # drift when a new stable ships a breaking change (e.g. Flutter
+          # 3.19 making IconData a `final class` broke any dep that
+          # extended it). Bump this deliberately together with a local
+          # verify pass; do not float.
+          flutter-version: '3.38.9'
       - run: flutter pub get
       - run: flutter analyze --no-fatal-infos
       - run: flutter test
@@ -39,6 +46,13 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
+          # Pinned to a known-good Flutter release rather than tracking
+          # whatever stable happens to be at CI-run time. Prevents silent
+          # drift when a new stable ships a breaking change (e.g. Flutter
+          # 3.19 making IconData a `final class` broke any dep that
+          # extended it). Bump this deliberately together with a local
+          # verify pass; do not float.
+          flutter-version: '3.38.9'
 
       - uses: gradle/actions/setup-gradle@v6
 

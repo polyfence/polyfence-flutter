@@ -15,7 +15,11 @@ dependencies:
   polyfence:
     path: ../
   cupertino_icons: ^1.0.2
-  lucide_icons: ^0.257.0
+  # lucide_icons (the original) has been unmaintained since 2023-06
+  # and does not build against Flutter versions where IconData is now a
+  # final class. lucide_icons_flutter is the actively-maintained fork
+  # with the same LucideIcons.<name> surface.
+  lucide_icons_flutter: ^3.1.15
   http: ^1.1.0
   shared_preferences: ^2.2.2
   permission_handler: ^11.3.1

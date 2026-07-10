@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:polyfence/polyfence.dart' as polyfence hide GeofenceEvent;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io' show Platform;

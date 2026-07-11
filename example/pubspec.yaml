@@ -28,7 +28,7 @@ dependencies:
   flutter_map: ^7.0.2
   latlong2: ^0.9.1
   # Space Grotesk (brand typography) loaded at runtime via google_fonts.
-  google_fonts: ^6.2.1
+  google_fonts: ^8.1.0
 
 dev_dependencies:
   flutter_test:

@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **`initialize(config)` now applies every field of `PolyfenceConfiguration`, not just `disableAlertNotifications` (Bug-020).** The native `initialize` handler on both platforms was reading `pluginVersion` + `disableAlertNotifications` from the config map and silently dropping every other field — `accuracyProfile`, `updateStrategy`, `gpsAccuracyThreshold`, and all nested settings. Native `LocationTracker` retained stale / default state; consumers who passed a full `PolyfenceConfiguration` saw only two of its fields applied. Bridge now forwards the remaining keys through the merge-aware `updateConfigurationFromMap` path already used by later `updateConfiguration` calls, so `initialize(config)` and `updateConfiguration(config)` produce identical state.
+
+### Changed
+- **Behavioural note (Android only):** `initialize(config)` with any tracking-config key now spins up the `LocationTracker` Service, where previously only `startTracking()` did. On Android 8+ from a backgrounded context, `context.startService` throws `IllegalStateException`, so the initialize promise now rejects where it previously silently dropped the config. Realistic apps call `initialize` on cold-start / foreground so this is not an incidental regression; call sites that init from a background service should catch and retry when the app foregrounds. iOS has no equivalent change — the tracker is a plain Swift instance created in `initialize` itself, no Service transport.
+
 ## [2.0.0] - 2026-07-08
 
 ### Changed

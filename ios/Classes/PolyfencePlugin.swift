@@ -168,7 +168,21 @@ public class PolyfencePlugin: NSObject, FlutterPlugin {
                let disableAlerts = configDict["disableAlertNotifications"] as? Bool {
                 locationTracker?.setAlertNotificationsEnabled(!disableAlerts)
             }
-            
+
+            // Apply all remaining tracking config fields (accuracyProfile,
+            // updateStrategy, gpsAccuracyThreshold, nested settings, etc.).
+            // Strip plugin-only keys that have dedicated handlers above so
+            // they are not double-processed by updateConfigurationFromMap.
+            if let args = arguments as? [String: Any],
+               let configDict = args["config"] as? [String: Any] {
+                var gpsConfig = configDict
+                gpsConfig.removeValue(forKey: "pluginVersion")
+                gpsConfig.removeValue(forKey: "disableAlertNotifications")
+                if !gpsConfig.isEmpty {
+                    locationTracker?.updateConfigurationFromMap(gpsConfig)
+                }
+            }
+
             // Setup callbacks
             locationTracker?.setLocationCallback { [weak self] locationData in
                 self?.locationSink?(locationData)

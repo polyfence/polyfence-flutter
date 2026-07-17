@@ -1174,6 +1174,49 @@ class PolyfenceService {
   ///
   /// Throws [PolyfenceNotInitializedException] if not initialized.
   /// Throws [PlatformOperationException] if platform error occurs.
+  /// Fetch the current session's aggregated telemetry snapshot.
+  ///
+  /// Returns the same payload the plugin sends to the anonymous
+  /// telemetry endpoint at session end — GPS statistics, zone
+  /// counts, event tallies, battery drain, activity distribution,
+  /// device category, and so on. The returned map keys are the
+  /// snake_case wire format (`session_duration_minutes`,
+  /// `zone_transition_count`, `bridge_platform`, etc.); the full
+  /// field-by-field reference is in [`doc/TELEMETRY.md`](https://github.com/polyfence/polyfence-flutter/blob/main/doc/TELEMETRY.md).
+  ///
+  /// This is a read-only pass-through to the native
+  /// `TelemetryAggregator` — invoking it does not itself trigger a
+  /// telemetry upload. The plugin's built-in analytics uploader (if
+  /// telemetry is enabled) calls the same method internally at
+  /// session-end.
+  ///
+  /// **Example:**
+  /// ```dart
+  /// final telemetry = await Polyfence.instance.getSessionTelemetry();
+  /// print('Session length: ${telemetry['session_duration_minutes']} min');
+  /// print('Zone transitions: ${telemetry['zone_transition_count']}');
+  /// ```
+  ///
+  /// Throws [PolyfenceNotInitializedException] if not initialized.
+  /// Throws [PlatformOperationException] if a platform error occurs.
+  Future<Map<String, dynamic>> getSessionTelemetry() async {
+    _assertNotDisposed();
+    if (!_isInitialized) throw PolyfenceNotInitializedException();
+
+    try {
+      final result = await _platform.getSessionTelemetry();
+      return Map<String, dynamic>.from(result);
+    } on PlatformException catch (e, stackTrace) {
+      throw PlatformOperationException(
+        'getSessionTelemetry',
+        e.message ?? 'Unknown error',
+        details: {'code': e.code, 'details': e.details},
+        innerException: e,
+        stackTrace: stackTrace,
+      );
+    }
+  }
+
   Future<List<PolyfenceErrorSummary>> errorHistory({
     Duration? timeRange,
     List<PolyfenceErrorType>? errorTypes,

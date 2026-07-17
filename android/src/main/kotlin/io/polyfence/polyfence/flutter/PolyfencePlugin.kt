@@ -8,6 +8,8 @@ import android.content.SharedPreferences
 import android.location.LocationManager
 import android.net.Uri
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.os.PowerManager
 import android.provider.Settings
 import androidx.annotation.NonNull
@@ -305,13 +307,26 @@ class PolyfencePlugin: FlutterPlugin, MethodCallHandler, ActivityAware {
             }
             
             "getDebugInfo" -> {
-                try {
-                    val debugInfo = PolyfenceDebugCollector.collectDebugInfo(context)
-                    result.success(debugInfo)
-                } catch (e: Exception) {
-                    Log.e("PolyfencePlugin", "Failed to get debug info: ${e.message}")
-                    result.error("DEBUG_INFO_FAILED", e.message, null)
-                }
+                // collectDebugInfo → collectPerformanceMetrics → getCpuUsage
+                // blocks ~360ms reading /proc/stat and MUST NOT run on the
+                // Flutter method-channel handler thread (main). If it does,
+                // Android's StrictMode or the ANR watchdog trips and Flutter
+                // surfaces a PLATFORM_ERROR back to Dart.
+                //
+                // Dispatch the whole collectDebugInfo call to a background
+                // thread, marshal the result back to main via the main-Looper
+                // Handler — Flutter's MethodChannel.Result requires the
+                // callback on the platform-message thread it was invoked on.
+                val mainHandler = Handler(Looper.getMainLooper())
+                Thread {
+                    try {
+                        val debugInfo = PolyfenceDebugCollector.collectDebugInfo(context)
+                        mainHandler.post { result.success(debugInfo) }
+                    } catch (e: Exception) {
+                        Log.e("PolyfencePlugin", "Failed to get debug info: ${e.message}")
+                        mainHandler.post { result.error("DEBUG_INFO_FAILED", e.message, null) }
+                    }
+                }.start()
             }
             
             "getErrorHistory" -> {

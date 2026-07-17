@@ -156,8 +156,14 @@ class MockPolyfencePlatform extends PolyfencePlatform
     return zoneStatesResponse;
   }
 
+  Map<String, dynamic> sessionTelemetryResponse = {};
+
   @override
-  Future<Map<String, dynamic>> getSessionTelemetry() async => {};
+  Future<Map<String, dynamic>> getSessionTelemetry() async {
+    calls.add('getSessionTelemetry');
+    if (errorToThrow != null) throw errorToThrow!;
+    return sessionTelemetryResponse;
+  }
 
   @override
   Future<void> dispose() async {
@@ -253,6 +259,15 @@ void main() {
         () {
       expect(
         () => PolyfenceService.instance.debugInfo(),
+        throwsA(isA<PolyfenceNotInitializedException>()),
+      );
+    });
+
+    test(
+        'getSessionTelemetry throws PolyfenceNotInitializedException before initialize',
+        () {
+      expect(
+        () => PolyfenceService.instance.getSessionTelemetry(),
         throwsA(isA<PolyfenceNotInitializedException>()),
       );
     });
@@ -530,6 +545,46 @@ void main() {
       expect(info.battery.batteryLevel, 0);
       expect(info.zones.activeZones, 0);
       expect(info.recentErrors, isEmpty);
+    });
+
+    test('getSessionTelemetry calls through to platform and returns raw map',
+        () async {
+      mockPlatform.sessionTelemetryResponse = {
+        'session_duration_minutes': 12,
+        'zone_transition_count': 4,
+        'bridge_platform': 'flutter',
+      };
+      mockPlatform.calls.clear();
+
+      final telemetry = await PolyfenceService.instance.getSessionTelemetry();
+
+      expect(mockPlatform.calls, contains('getSessionTelemetry'));
+      expect(telemetry, isA<Map<String, dynamic>>());
+      expect(telemetry['session_duration_minutes'], 12);
+      expect(telemetry['zone_transition_count'], 4);
+      expect(telemetry['bridge_platform'], 'flutter');
+    });
+
+    test(
+        'getSessionTelemetry translates PlatformException to PlatformOperationException',
+        () async {
+      mockPlatform.errorToThrow = PlatformException(
+        code: 'TELEMETRY_FAILED',
+        message: 'native rejected the read',
+        details: {'why': 'test'},
+      );
+
+      try {
+        await expectLater(
+          () => PolyfenceService.instance.getSessionTelemetry(),
+          throwsA(isA<PlatformOperationException>()
+              .having((e) => e.operation, 'operation', 'getSessionTelemetry')
+              .having((e) => e.message, 'message',
+                  contains('native rejected the read'))),
+        );
+      } finally {
+        mockPlatform.errorToThrow = null;
+      }
     });
 
     test('batteryOptimizationStatus calls platform', () async {

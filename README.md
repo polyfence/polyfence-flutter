@@ -297,7 +297,7 @@ Polyfence provides flexible configuration to balance accuracy, battery life, and
 
 ### Alert Notifications
 
-By default, Polyfence shows built-in "Entered Zone" / "Exited Zone" notifications. If your app implements custom notifications, you can disable these:
+By default, Polyfence shows a built-in notification on each zone transition, titled with the zone name (e.g. "Entered Nairobi National Park", "Dwelling in Nairobi National Park"). If your app implements custom notifications, you can disable these:
 
 ```dart
 await Polyfence.instance.initialize(

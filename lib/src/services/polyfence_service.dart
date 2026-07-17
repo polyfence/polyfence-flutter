@@ -7,6 +7,7 @@ import '../models/location.dart';
 import '../models/geofence_event.dart';
 import '../models/polyfence_runtime_status.dart';
 import '../models/health_score.dart';
+import '../models/session_telemetry.dart';
 import '../platform/polyfence_platform.dart';
 import '../errors/polyfence_error.dart';
 import '../errors/polyfence_exceptions.dart';
@@ -1227,10 +1228,16 @@ class PolyfenceService {
   /// Returns the same payload the plugin sends to the anonymous
   /// telemetry endpoint at session end — GPS statistics, zone
   /// counts, event tallies, battery drain, activity distribution,
-  /// device category, and so on. The returned map keys are the
-  /// snake_case wire format (`session_duration_minutes`,
-  /// `zone_transition_count`, `bridge_platform`, etc.); the full
-  /// field-by-field reference is in [`doc/TELEMETRY.md`](https://github.com/polyfence/polyfence-flutter/blob/main/doc/TELEMETRY.md).
+  /// device category, and so on.
+  ///
+  /// The returned [SessionTelemetry] exposes the commonly-used fields
+  /// as typed getters; [SessionTelemetry.raw] preserves the complete
+  /// map for fields not yet promoted to the typed surface. Runtime
+  /// keys are snake_case (`session_duration_minutes`,
+  /// `zone_transition_count`); bridge-added device-context fields
+  /// (`deviceCategory`, `osVersionMajor`) are camelCase. Full
+  /// field-by-field reference is in
+  /// [`doc/TELEMETRY.md`](https://github.com/polyfence/polyfence-flutter/blob/main/doc/TELEMETRY.md).
   ///
   /// This is a read-only pass-through to the native
   /// `TelemetryAggregator` — invoking it does not itself trigger a
@@ -1241,19 +1248,21 @@ class PolyfenceService {
   /// **Example:**
   /// ```dart
   /// final telemetry = await Polyfence.instance.getSessionTelemetry();
-  /// print('Session length: ${telemetry['session_duration_minutes']} min');
-  /// print('Zone transitions: ${telemetry['zone_transition_count']}');
+  /// print('Session length: ${telemetry.sessionDurationMinutes} min');
+  /// print('Zone transitions: ${telemetry.zoneTransitionCount}');
+  /// // Reach an un-typed field via raw:
+  /// print('Activity: ${telemetry.raw['activity_distribution']}');
   /// ```
   ///
   /// Throws [PolyfenceNotInitializedException] if not initialized.
   /// Throws [PlatformOperationException] if a platform error occurs.
-  Future<Map<String, dynamic>> getSessionTelemetry() async {
+  Future<SessionTelemetry> getSessionTelemetry() async {
     _assertNotDisposed();
     if (!_isInitialized) throw PolyfenceNotInitializedException();
 
     try {
       final result = await _platform.getSessionTelemetry();
-      return Map<String, dynamic>.from(result);
+      return SessionTelemetry.fromMap(Map<String, dynamic>.from(result));
     } on PlatformException catch (e, stackTrace) {
       throw PlatformOperationException(
         'getSessionTelemetry',

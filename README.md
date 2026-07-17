@@ -674,6 +674,28 @@ states.forEach((zoneId, isInside) {
 
 Useful for session management and state reconciliation after app restarts.
 
+### Session Telemetry
+
+Read the current session's aggregated performance snapshot — GPS
+statistics, zone counts, event tallies, and device context. This is the
+same payload the plugin sends to the anonymous telemetry endpoint at
+session end.
+
+```dart
+final telemetry = await Polyfence.instance.getSessionTelemetry();
+print('Session length: ${telemetry.sessionDurationMinutes} min');
+print('Zone transitions: ${telemetry.zoneTransitionCount}');
+print('Bridge: ${telemetry.bridgePlatform}, core: ${telemetry.coreVersion}');
+
+// Fields not yet promoted to typed getters (or future core additions)
+// are reachable via the preserved raw map:
+final activity = telemetry.raw['activity_distribution'];
+```
+
+Calling `getSessionTelemetry()` is read-only — it does not itself trigger
+a telemetry upload. See [`doc/TELEMETRY.md`](doc/TELEMETRY.md) for the
+full field reference.
+
 ## Common Gotchas
 
 ### Stream Subscription Management

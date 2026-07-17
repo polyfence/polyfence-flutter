@@ -308,10 +308,10 @@ class PolyfencePlugin: FlutterPlugin, MethodCallHandler, ActivityAware {
             
             "getDebugInfo" -> {
                 // collectDebugInfo → collectPerformanceMetrics → getCpuUsage
-                // blocks ~360ms reading /proc/stat and MUST NOT run on the
-                // Flutter method-channel handler thread (main). If it does,
-                // Android's StrictMode or the ANR watchdog trips and Flutter
-                // surfaces a PLATFORM_ERROR back to Dart.
+                // blocks ~360ms reading /proc/stat and require()s that it
+                // is NOT on the main looper — the Flutter method-channel
+                // handler runs on main, so calling inline throws
+                // IllegalArgumentException and Dart sees a PLATFORM_ERROR.
                 //
                 // Dispatch the whole collectDebugInfo call to a background
                 // thread, marshal the result back to main via the main-Looper

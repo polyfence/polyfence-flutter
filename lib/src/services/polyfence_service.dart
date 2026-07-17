@@ -405,9 +405,13 @@ class PolyfenceService {
   ///
   /// **Duplicate IDs.** Calling `addZone` with a [Zone.id] that is already
   /// being monitored silently overwrites the previous zone — no error is
-  /// thrown. This is the expected way to update a zone's shape or metadata
-  /// without an explicit remove-then-add. If your workflow requires unique
-  /// IDs across additions, check [getZoneStates] before calling.
+  /// thrown. Re-adding also **resets the persisted INSIDE/OUTSIDE state**
+  /// for that zone (and on iOS, its confidence state). If the device is
+  /// currently inside the zone, the next reconciliation may fire a fresh
+  /// [GeofenceEventType.enter] or [GeofenceEventType.recoveryEnter] event
+  /// — in-place metadata edits without a re-enter are a known limitation.
+  /// If your workflow requires unique IDs across additions, check the
+  /// synchronous [zones] getter before calling.
   ///
   /// **Example:**
   /// ```dart

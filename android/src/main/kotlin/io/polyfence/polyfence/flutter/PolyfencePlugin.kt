@@ -311,7 +311,8 @@ class PolyfencePlugin: FlutterPlugin, MethodCallHandler, ActivityAware {
                 // blocks ~360ms reading /proc/stat and require()s that it
                 // is NOT on the main looper — the Flutter method-channel
                 // handler runs on main, so calling inline throws
-                // IllegalArgumentException and Dart sees a PLATFORM_ERROR.
+                // IllegalArgumentException and Dart sees a
+                // DEBUG_INFO_FAILED platform error.
                 //
                 // Dispatch the whole collectDebugInfo call to a background
                 // thread, marshal the result back to main via the main-Looper

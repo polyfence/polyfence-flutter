@@ -705,7 +705,7 @@ Always cancel stream subscriptions in `dispose()` to prevent memory leaks. The p
 Zones are automatically persisted across app restarts — no manual persistence needed. Zone state persists through app kills, crashes, and restarts. When loading zones from an external source, consider implementing delta-based sync to avoid re-registering all zones on each load.
 
 ### Duplicate Zone IDs
-`addZone()` treats the [Zone.id] as the primary key. Calling it with an ID that is already being monitored silently overwrites the previous zone — no error is thrown. Use the same call to update a zone's shape or metadata without an explicit remove-then-add. If your workflow requires unique IDs across additions, check `getZoneStates()` before calling.
+`addZone()` treats the [Zone.id] as the primary key. Calling it with an ID that is already being monitored silently overwrites the previous zone — no error is thrown. **Re-adding also resets the persisted INSIDE/OUTSIDE state for that zone (and on iOS, its confidence state).** If the device is currently inside the zone, the next reconciliation may fire a fresh `enter` / `recoveryEnter` event. In-place metadata edits without a re-enter are a known limitation. If your workflow requires unique IDs across additions, check the synchronous `Polyfence.instance.zones` getter before calling (cheaper than the `getZoneStates()` MethodChannel round-trip).
 
 ### OEM Battery Restrictions (Android)
 

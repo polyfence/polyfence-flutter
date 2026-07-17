@@ -674,6 +674,28 @@ states.forEach((zoneId, isInside) {
 
 Useful for session management and state reconciliation after app restarts.
 
+### Session Telemetry
+
+Read the current session's aggregated performance snapshot — GPS
+statistics, zone counts, event tallies, and device context. This is the
+same payload the plugin sends to the anonymous telemetry endpoint at
+session end.
+
+```dart
+final telemetry = await Polyfence.instance.getSessionTelemetry();
+print('Session length: ${telemetry.sessionDurationMinutes} min');
+print('Zone transitions: ${telemetry.zoneTransitionCount}');
+print('Bridge: ${telemetry.bridgePlatform}, core: ${telemetry.coreVersion}');
+
+// Fields not yet promoted to typed getters (or future core additions)
+// are reachable via the preserved raw map:
+final activity = telemetry.raw['activity_distribution'];
+```
+
+Calling `getSessionTelemetry()` is read-only — it does not itself trigger
+a telemetry upload. See [`doc/TELEMETRY.md`](doc/TELEMETRY.md) for the
+full field reference.
+
 ## Common Gotchas
 
 ### Stream Subscription Management
@@ -681,6 +703,9 @@ Always cancel stream subscriptions in `dispose()` to prevent memory leaks. The p
 
 ### Zone Persistence
 Zones are automatically persisted across app restarts — no manual persistence needed. Zone state persists through app kills, crashes, and restarts. When loading zones from an external source, consider implementing delta-based sync to avoid re-registering all zones on each load.
+
+### Duplicate Zone IDs
+`addZone()` treats the [Zone.id] as the primary key. Calling it with an ID that is already being monitored silently overwrites the previous zone — no error is thrown. **Re-adding also resets the persisted INSIDE/OUTSIDE state for that zone (and on iOS, its confidence state).** If the device is currently inside the zone, the next reconciliation may fire a fresh `enter` / `recoveryEnter` event. In-place metadata edits without a re-enter are a known limitation. If your workflow requires unique IDs across additions, check the synchronous `Polyfence.instance.zones` getter before calling (cheaper than the `getZoneStates()` MethodChannel round-trip).
 
 ### OEM Battery Restrictions (Android)
 

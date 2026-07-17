@@ -8,6 +8,8 @@ import android.content.SharedPreferences
 import android.location.LocationManager
 import android.net.Uri
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.os.PowerManager
 import android.provider.Settings
 import androidx.annotation.NonNull
@@ -305,13 +307,27 @@ class PolyfencePlugin: FlutterPlugin, MethodCallHandler, ActivityAware {
             }
             
             "getDebugInfo" -> {
-                try {
-                    val debugInfo = PolyfenceDebugCollector.collectDebugInfo(context)
-                    result.success(debugInfo)
-                } catch (e: Exception) {
-                    Log.e("PolyfencePlugin", "Failed to get debug info: ${e.message}")
-                    result.error("DEBUG_INFO_FAILED", e.message, null)
-                }
+                // collectDebugInfo → collectPerformanceMetrics → getCpuUsage
+                // blocks ~360ms reading /proc/stat and require()s that it
+                // is NOT on the main looper — the Flutter method-channel
+                // handler runs on main, so calling inline throws
+                // IllegalArgumentException and Dart sees a
+                // DEBUG_INFO_FAILED platform error.
+                //
+                // Dispatch the whole collectDebugInfo call to a background
+                // thread, marshal the result back to main via the main-Looper
+                // Handler — Flutter's MethodChannel.Result requires the
+                // callback on the platform-message thread it was invoked on.
+                val mainHandler = Handler(Looper.getMainLooper())
+                Thread {
+                    try {
+                        val debugInfo = PolyfenceDebugCollector.collectDebugInfo(context)
+                        mainHandler.post { result.success(debugInfo) }
+                    } catch (e: Exception) {
+                        Log.e("PolyfencePlugin", "Failed to get debug info: ${e.message}")
+                        mainHandler.post { result.error("DEBUG_INFO_FAILED", e.message, null) }
+                    }
+                }.start()
             }
             
             "getErrorHistory" -> {

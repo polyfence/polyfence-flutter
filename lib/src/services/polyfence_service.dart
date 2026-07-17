@@ -7,6 +7,7 @@ import '../models/location.dart';
 import '../models/geofence_event.dart';
 import '../models/polyfence_runtime_status.dart';
 import '../models/health_score.dart';
+import '../models/session_telemetry.dart';
 import '../platform/polyfence_platform.dart';
 import '../errors/polyfence_error.dart';
 import '../errors/polyfence_exceptions.dart';
@@ -401,6 +402,16 @@ class PolyfenceService {
   ///
   /// The zone will be persisted and start generating entry/exit events once
   /// tracking is started. Both circle and polygon zones are supported.
+  ///
+  /// **Duplicate IDs.** Calling `addZone` with a [Zone.id] that is already
+  /// being monitored silently overwrites the previous zone — no error is
+  /// thrown. Re-adding also **resets the persisted INSIDE/OUTSIDE state**
+  /// for that zone (and on iOS, its confidence state). If the device is
+  /// currently inside the zone, the next reconciliation may fire a fresh
+  /// [GeofenceEventType.enter] or [GeofenceEventType.recoveryEnter] event
+  /// — in-place metadata edits without a re-enter are a known limitation.
+  /// If your workflow requires unique IDs across additions, check the
+  /// synchronous [zones] getter before calling.
   ///
   /// **Example:**
   /// ```dart
@@ -1214,6 +1225,57 @@ class PolyfenceService {
     } on PlatformException catch (e, stackTrace) {
       throw PlatformOperationException(
         'errorHistory',
+        e.message ?? 'Unknown error',
+        details: {'code': e.code, 'details': e.details},
+        innerException: e,
+        stackTrace: stackTrace,
+      );
+    }
+  }
+
+  /// Fetch the current session's aggregated telemetry snapshot.
+  ///
+  /// Returns the same payload the plugin sends to the anonymous
+  /// telemetry endpoint at session end — GPS statistics, zone
+  /// counts, event tallies, battery drain, activity distribution,
+  /// device category, and so on.
+  ///
+  /// The returned [SessionTelemetry] exposes the commonly-used fields
+  /// as typed getters; [SessionTelemetry.raw] preserves the complete
+  /// map for fields not yet promoted to the typed surface. Runtime
+  /// keys are snake_case (`session_duration_minutes`,
+  /// `zone_transition_count`); bridge-added device-context fields
+  /// (`deviceCategory`, `osVersionMajor`) are camelCase. Full
+  /// field-by-field reference is in
+  /// [`doc/TELEMETRY.md`](https://github.com/polyfence/polyfence-flutter/blob/main/doc/TELEMETRY.md).
+  ///
+  /// This is a read-only pass-through to the native
+  /// `TelemetryAggregator` — invoking it does not itself trigger a
+  /// telemetry upload. The plugin's built-in analytics uploader (if
+  /// telemetry is enabled) calls the same method internally at
+  /// session-end.
+  ///
+  /// **Example:**
+  /// ```dart
+  /// final telemetry = await Polyfence.instance.getSessionTelemetry();
+  /// print('Session length: ${telemetry.sessionDurationMinutes} min');
+  /// print('Zone transitions: ${telemetry.zoneTransitionCount}');
+  /// // Reach an un-typed field via raw:
+  /// print('Activity: ${telemetry.raw['activity_distribution']}');
+  /// ```
+  ///
+  /// Throws [PolyfenceNotInitializedException] if not initialized.
+  /// Throws [PlatformOperationException] if a platform error occurs.
+  Future<SessionTelemetry> getSessionTelemetry() async {
+    _assertNotDisposed();
+    if (!_isInitialized) throw PolyfenceNotInitializedException();
+
+    try {
+      final result = await _platform.getSessionTelemetry();
+      return SessionTelemetry.fromMap(Map<String, dynamic>.from(result));
+    } on PlatformException catch (e, stackTrace) {
+      throw PlatformOperationException(
+        'getSessionTelemetry',
         e.message ?? 'Unknown error',
         details: {'code': e.code, 'details': e.details},
         innerException: e,

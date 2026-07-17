@@ -156,8 +156,14 @@ class MockPolyfencePlatform extends PolyfencePlatform
     return zoneStatesResponse;
   }
 
+  Map<String, dynamic> sessionTelemetryResponse = {};
+
   @override
-  Future<Map<String, dynamic>> getSessionTelemetry() async => {};
+  Future<Map<String, dynamic>> getSessionTelemetry() async {
+    calls.add('getSessionTelemetry');
+    if (errorToThrow != null) throw errorToThrow!;
+    return sessionTelemetryResponse;
+  }
 
   @override
   Future<void> dispose() async {
@@ -253,6 +259,15 @@ void main() {
         () {
       expect(
         () => PolyfenceService.instance.debugInfo(),
+        throwsA(isA<PolyfenceNotInitializedException>()),
+      );
+    });
+
+    test(
+        'getSessionTelemetry throws PolyfenceNotInitializedException before initialize',
+        () {
+      expect(
+        () => PolyfenceService.instance.getSessionTelemetry(),
         throwsA(isA<PolyfenceNotInitializedException>()),
       );
     });
@@ -532,6 +547,95 @@ void main() {
       expect(info.recentErrors, isEmpty);
     });
 
+    test('getSessionTelemetry parses runtime keys into typed model',
+        () async {
+      mockPlatform.sessionTelemetryResponse = {
+        'session_duration_minutes': 12.5,
+        'avg_gps_interval_ms': 1500,
+        'zone_count': 3,
+        'false_event_count': 1,
+        'zone_transition_count': 4,
+        'accuracy_profile': 'balanced',
+        'update_strategy': 'continuous',
+        'device_category': 'phone',
+        'bridge_platform': 'flutter',
+        'core_version': '1.0.12',
+        'session_start_hour': 14,
+        // A field not yet typed — must survive on `.raw`.
+        'activity_distribution': {'walking': 0.6, 'stationary': 0.4},
+      };
+      mockPlatform.calls.clear();
+
+      final telemetry = await PolyfenceService.instance.getSessionTelemetry();
+
+      expect(mockPlatform.calls, contains('getSessionTelemetry'));
+      expect(telemetry, isA<SessionTelemetry>());
+      expect(telemetry.sessionDurationMinutes, 12.5);
+      expect(telemetry.avgGpsIntervalMs, 1500);
+      expect(telemetry.zoneCount, 3);
+      expect(telemetry.falseEventCount, 1);
+      expect(telemetry.zoneTransitionCount, 4);
+      expect(telemetry.accuracyProfile, 'balanced');
+      expect(telemetry.updateStrategy, 'continuous');
+      expect(telemetry.deviceCategory, 'phone');
+      expect(telemetry.bridgePlatform, 'flutter');
+      expect(telemetry.coreVersion, '1.0.12');
+      expect(telemetry.sessionStartHour, 14);
+      expect(telemetry.raw['activity_distribution'], isA<Map>());
+    });
+
+    test('getSessionTelemetry reads bridge-added camelCase device_category',
+        () async {
+      // The Flutter Android + iOS bridges overlay the camelCase
+      // `deviceCategory` key on top of the core's snake_case map.
+      // The typed model must accept either.
+      mockPlatform.sessionTelemetryResponse = {
+        'session_duration_minutes': 5.0,
+        'deviceCategory': 'tablet',
+      };
+      mockPlatform.calls.clear();
+
+      final telemetry = await PolyfenceService.instance.getSessionTelemetry();
+
+      expect(telemetry.deviceCategory, 'tablet');
+    });
+
+    test('getSessionTelemetry tolerates missing fields', () async {
+      // An empty response must produce a valid typed model with
+      // safe zero/null defaults — never a runtime cast error.
+      mockPlatform.sessionTelemetryResponse = <String, dynamic>{};
+      mockPlatform.calls.clear();
+
+      final telemetry = await PolyfenceService.instance.getSessionTelemetry();
+
+      expect(telemetry.sessionDurationMinutes, 0.0);
+      expect(telemetry.zoneCount, 0);
+      expect(telemetry.accuracyProfile, isNull);
+      expect(telemetry.bridgePlatform, isNull);
+    });
+
+    test(
+        'getSessionTelemetry translates PlatformException to PlatformOperationException',
+        () async {
+      mockPlatform.errorToThrow = PlatformException(
+        code: 'TELEMETRY_FAILED',
+        message: 'native rejected the read',
+        details: {'why': 'test'},
+      );
+
+      try {
+        await expectLater(
+          () => PolyfenceService.instance.getSessionTelemetry(),
+          throwsA(isA<PlatformOperationException>()
+              .having((e) => e.operation, 'operation', 'getSessionTelemetry')
+              .having((e) => e.message, 'message',
+                  contains('native rejected the read'))),
+        );
+      } finally {
+        mockPlatform.errorToThrow = null;
+      }
+    });
+
     test('batteryOptimizationStatus calls platform', () async {
       mockPlatform.calls.clear();
 
@@ -737,8 +841,8 @@ void main() {
       // Every public method must apply the disposal guard uniformly.
       // A method that only checks _isInitialized will throw the
       // misleading PolyfenceNotInitializedException instead of
-      // StateError when called after dispose. The 14 methods below
-      // are the ones that require explicit coverage beyond the core
+      // StateError when called after dispose. The methods below cover
+      // the surface beyond the core
       // initialize/addZone/removeZone/startTracking/stopTracking set.
       expect(() => PolyfenceService.instance.clearAllZones(),
           throwsA(isA<StateError>()));
@@ -762,6 +866,8 @@ void main() {
       expect(() => PolyfenceService.instance.debugInfo(),
           throwsA(isA<StateError>()));
       expect(() => PolyfenceService.instance.errorHistory(),
+          throwsA(isA<StateError>()));
+      expect(() => PolyfenceService.instance.getSessionTelemetry(),
           throwsA(isA<StateError>()));
       expect(() => PolyfenceService.instance.setAccuracyProfile(
               PolyfenceAccuracyProfile.balanced),

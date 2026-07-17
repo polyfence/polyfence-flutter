@@ -403,6 +403,12 @@ class PolyfenceService {
   /// The zone will be persisted and start generating entry/exit events once
   /// tracking is started. Both circle and polygon zones are supported.
   ///
+  /// **Duplicate IDs.** Calling `addZone` with a [Zone.id] that is already
+  /// being monitored silently overwrites the previous zone — no error is
+  /// thrown. This is the expected way to update a zone's shape or metadata
+  /// without an explicit remove-then-add. If your workflow requires unique
+  /// IDs across additions, check [getZoneStates] before calling.
+  ///
   /// **Example:**
   /// ```dart
   /// final zone = Zone.circle(

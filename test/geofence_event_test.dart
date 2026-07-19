@@ -204,7 +204,33 @@ void main() {
             GeofenceEventType.dwell,
             GeofenceEventType.recoveryEnter,
             GeofenceEventType.recoveryExit,
+            GeofenceEventType.signalLost,
+            GeofenceEventType.signalRestored,
           ]));
+      // Length assertion so a future enum addition can't slip past the
+      // subset check above unnoticed.
+      expect(GeofenceEventType.values, hasLength(7));
+    });
+
+    test('signalLost and signalRestored round-trip through toJson/fromJson', () {
+      for (final type in [
+        GeofenceEventType.signalLost,
+        GeofenceEventType.signalRestored,
+      ]) {
+        final event = GeofenceEvent(
+          zoneId: 'z1',
+          type: type,
+          location: PolyfenceLocation(
+            latitude: 1.0,
+            longitude: 1.0,
+            accuracy: 10.0,
+            timestamp: DateTime.fromMillisecondsSinceEpoch(1000),
+          ),
+          timestamp: DateTime.fromMillisecondsSinceEpoch(1000),
+        );
+        final restored = GeofenceEvent.fromJson(event.toJson());
+        expect(restored.type, type);
+      }
     });
   });
 }

@@ -17,6 +17,7 @@ void main() {
       expect(config.activitySettings, isNull);
       expect(config.disableAlertNotifications, false);
       expect(config.gpsAccuracyThreshold, 100.0);
+      expect(config.gpsStalenessTimeoutMs, 0);
       expect(config.enableDebugLogging, false);
     });
 
@@ -63,6 +64,7 @@ void main() {
         ),
         disableAlertNotifications: true,
         gpsAccuracyThreshold: 50.0,
+        gpsStalenessTimeoutMs: 30000,
         enableDebugLogging: true,
       );
 
@@ -73,6 +75,7 @@ void main() {
       expect(restored.updateStrategy, PolyfenceUpdateStrategy.intelligent);
       expect(restored.disableAlertNotifications, true);
       expect(restored.gpsAccuracyThreshold, 50.0);
+      expect(restored.gpsStalenessTimeoutMs, 30000);
       expect(restored.enableDebugLogging, true);
       expect(restored.proximitySettings, isNotNull);
       expect(restored.movementSettings, isNotNull);
@@ -90,10 +93,18 @@ void main() {
       expect(config.updateStrategy, PolyfenceUpdateStrategy.continuous);
       expect(config.disableAlertNotifications, false);
       expect(config.gpsAccuracyThreshold, 100.0);
+      expect(config.gpsStalenessTimeoutMs, 0);
       expect(config.enableDebugLogging, false);
       expect(config.proximitySettings, isNull);
       expect(config.movementSettings, isNull);
       expect(config.batterySettings, isNull);
+    });
+
+    test('gpsStalenessTimeoutMs rejects negative values', () {
+      expect(
+        () => PolyfenceConfiguration(gpsStalenessTimeoutMs: -1),
+        throwsArgumentError,
+      );
     });
 
     test('copyWith updates specified fields and preserves others', () {

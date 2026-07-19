@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Degraded-GPS handling — `signalLost` / `signalRestored` events + `PolyfenceConfiguration.gpsStalenessTimeoutMs`.** New `GeofenceEventType.signalLost` / `signalRestored` values, and a `gpsStalenessTimeoutMs` config field (milliseconds; `0` = off, the default) surfaced through `toMap` / `fromMap` / `copyWith`. When enabled, prolonged GPS loss while inside a zone reports `signalLost` (membership uncertain, not exited) and resolves with `signalRestored` — or a normal `exit` if the device left during the gap. Behaviour activates once the pinned `polyfence-core` version ships the feature; the version-pin bump lands separately.
 - **`Polyfence.instance.getSessionTelemetry()` — new public API (Bug-023).** Returns the same aggregated performance snapshot the plugin sends to the anonymous telemetry endpoint at session end (GPS statistics, zone counts, event tallies, device category, and so on). Every native platform already implemented the method; only the Dart surface was missing. Returns a typed `SessionTelemetry` model — field names mirror the polyfence-react-native `SessionTelemetry` interface for cross-bridge parity. Fields not yet promoted to typed getters, and future core additions, remain reachable via `telemetry.raw`.
 
 ### Documented

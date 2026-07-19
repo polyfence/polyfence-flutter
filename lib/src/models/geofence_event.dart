@@ -80,10 +80,8 @@ class GeofenceEvent {
 
   /// Milliseconds the device has been inside the zone at the moment of
   /// the event. Populated only on [GeofenceEventType.dwell] events —
-  /// `null` for enter / exit / recovery* events (those don't carry a
-  /// meaningful dwell duration). BUG-009 (pre-fix this was never
-  /// populated because polyfence-core didn't emit the field and the
-  /// bridge didn't read it).
+  /// `null` for all other types (enter / exit / recovery* / signalLost /
+  /// signalRestored don't carry a meaningful dwell duration).
   final double? dwellDurationMs;
 
   /// The full zone object, looked up from the local zone cache by

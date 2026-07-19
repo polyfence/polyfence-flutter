@@ -257,11 +257,16 @@ Polyfence.instance.onGeofenceEvent.listen((event) {
       print('Confirmed outside (post-restart): ${event.zoneId}');
       break;
     // Signal-lost / restored fire only when degraded-GPS handling is
-    // enabled (PolyfenceConfiguration.gpsStalenessTimeoutMs > 0). If GPS
-    // goes fully stale while you're inside a zone, the SDK reports
-    // signalLost — membership is now uncertain, NOT exited — then
-    // signalRestored once a valid fix confirms you're still inside (or a
-    // normal exit if you actually left).
+    // enabled (PolyfenceConfiguration.gpsStalenessTimeoutMs > 0), and are
+    // distinct from recovery events: recovery* fire when the tracking
+    // SERVICE was killed and restarted, whereas signalLost fires while the
+    // service is RUNNING but GPS has gone stale. If GPS goes fully stale
+    // while you're inside a zone, the SDK reports signalLost — membership
+    // is now uncertain, NOT exited — then signalRestored once a valid fix
+    // confirms you're still inside (or a normal exit if you actually left).
+    // NOTE: on signalLost, event.location is the LAST-KNOWN (stale /
+    // approximate) position, not a current fix — don't render it as the
+    // user's live location.
     case GeofenceEventType.signalLost:
       print('GPS lost, still assumed inside: ${event.zoneId}');
       break;

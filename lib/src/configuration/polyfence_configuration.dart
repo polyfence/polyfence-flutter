@@ -84,6 +84,12 @@ class PolyfenceConfiguration {
   /// Default: 100m (ensures platform parity between iOS and Android)
   final double gpsAccuracyThreshold;
 
+  /// Degraded-GPS staleness watchdog, in milliseconds. `0` (default) disables
+  /// it. When `> 0`, a low-accuracy fix may drive an exit for a zone you're
+  /// already inside, and after this long with no valid fix while inside a zone
+  /// a signal-lost event is emitted (resolved by signal-restored or exit).
+  final int gpsStalenessTimeoutMs;
+
   /// Enable debug logging for GPS configuration changes
   final bool enableDebugLogging;
 
@@ -102,6 +108,7 @@ class PolyfenceConfiguration {
     this.activitySettings,
     this.disableAlertNotifications = false,
     this.gpsAccuracyThreshold = 100.0,
+    this.gpsStalenessTimeoutMs = 0,
     this.enableDebugLogging = false,
   }) {
     if (gpsAccuracyThreshold <= 0) {
@@ -109,6 +116,13 @@ class PolyfenceConfiguration {
         gpsAccuracyThreshold,
         'gpsAccuracyThreshold',
         'must be positive',
+      );
+    }
+    if (gpsStalenessTimeoutMs < 0) {
+      throw ArgumentError.value(
+        gpsStalenessTimeoutMs,
+        'gpsStalenessTimeoutMs',
+        'must not be negative',
       );
     }
   }
@@ -126,6 +140,7 @@ class PolyfenceConfiguration {
     ActivitySettings? activitySettings,
     bool? disableAlertNotifications,
     double? gpsAccuracyThreshold,
+    int? gpsStalenessTimeoutMs,
     bool? enableDebugLogging,
   }) {
     return PolyfenceConfiguration(
@@ -140,6 +155,7 @@ class PolyfenceConfiguration {
       activitySettings: activitySettings ?? this.activitySettings,
       disableAlertNotifications: disableAlertNotifications ?? this.disableAlertNotifications,
       gpsAccuracyThreshold: gpsAccuracyThreshold ?? this.gpsAccuracyThreshold,
+      gpsStalenessTimeoutMs: gpsStalenessTimeoutMs ?? this.gpsStalenessTimeoutMs,
       enableDebugLogging: enableDebugLogging ?? this.enableDebugLogging,
     );
   }
@@ -162,6 +178,7 @@ class PolyfenceConfiguration {
       'activitySettings': activitySettings?.toMap(),
       'disableAlertNotifications': disableAlertNotifications,
       'gpsAccuracyThreshold': gpsAccuracyThreshold,
+      'gpsStalenessTimeoutMs': gpsStalenessTimeoutMs,
       'enableDebugLogging': enableDebugLogging,
     };
   }
@@ -203,6 +220,8 @@ class PolyfenceConfiguration {
       disableAlertNotifications: map['disableAlertNotifications'] ?? false,
       gpsAccuracyThreshold:
           (map['gpsAccuracyThreshold'] as num?)?.toDouble() ?? 100.0,
+      gpsStalenessTimeoutMs:
+          (map['gpsStalenessTimeoutMs'] as num?)?.toInt() ?? 0,
       enableDebugLogging: map['enableDebugLogging'] ?? false,
     );
   }
@@ -222,6 +241,7 @@ class PolyfenceConfiguration {
         other.activitySettings == activitySettings &&
         other.disableAlertNotifications == disableAlertNotifications &&
         other.gpsAccuracyThreshold == gpsAccuracyThreshold &&
+        other.gpsStalenessTimeoutMs == gpsStalenessTimeoutMs &&
         other.enableDebugLogging == enableDebugLogging;
   }
 
@@ -238,6 +258,7 @@ class PolyfenceConfiguration {
         activitySettings,
         disableAlertNotifications,
         gpsAccuracyThreshold,
+        gpsStalenessTimeoutMs,
         enableDebugLogging,
       );
 
@@ -255,6 +276,7 @@ class PolyfenceConfiguration {
         'activitySettings: $activitySettings, '
         'disableAlertNotifications: $disableAlertNotifications, '
         'gpsAccuracyThreshold: $gpsAccuracyThreshold, '
+        'gpsStalenessTimeoutMs: $gpsStalenessTimeoutMs, '
         'enableDebugLogging: $enableDebugLogging'
         ')';
   }

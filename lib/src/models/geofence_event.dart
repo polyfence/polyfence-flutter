@@ -23,6 +23,16 @@ enum GeofenceEventType {
   /// but is now outside according to current location.
   /// Fired after service restart when reconciling state.
   recoveryExit,
+
+  /// GPS signal was lost while the device was inside a zone: membership is now
+  /// uncertain. The zone session stays open (not exited); resolved on the next
+  /// valid fix by [signalRestored] or a normal [exit]. Only emitted when
+  /// degraded-GPS handling is enabled (gpsStalenessTimeoutMs > 0).
+  signalLost,
+
+  /// GPS signal returned and the device is confirmed still inside the zone,
+  /// clearing the uncertainty raised by a prior [signalLost].
+  signalRestored,
 }
 
 /// A geofence event triggered when a device enters or exits a zone.

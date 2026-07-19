@@ -681,6 +681,8 @@ class PolyfenceService {
         'DWELL' => GeofenceEventType.dwell,
         'RECOVERY_ENTER' => GeofenceEventType.recoveryEnter,
         'RECOVERY_EXIT' => GeofenceEventType.recoveryExit,
+        'SIGNAL_LOST' => GeofenceEventType.signalLost,
+        'SIGNAL_RESTORED' => GeofenceEventType.signalRestored,
         _ => null,
       };
 

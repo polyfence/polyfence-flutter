@@ -197,6 +197,33 @@ void main() {
       await sub.cancel();
     });
 
+    test('SIGNAL_LOST event emits correct type', () async {
+      final events = <GeofenceEvent>[];
+      final sub = PolyfenceService.instance.onGeofenceEvent.listen(events.add);
+
+      mockPlatform.geofenceController.add(validEvent(eventType: 'SIGNAL_LOST'));
+      await Future.delayed(Duration.zero);
+
+      expect(events, hasLength(1));
+      expect(events.first.type, GeofenceEventType.signalLost);
+
+      await sub.cancel();
+    });
+
+    test('SIGNAL_RESTORED event emits correct type', () async {
+      final events = <GeofenceEvent>[];
+      final sub = PolyfenceService.instance.onGeofenceEvent.listen(events.add);
+
+      mockPlatform.geofenceController
+          .add(validEvent(eventType: 'SIGNAL_RESTORED'));
+      await Future.delayed(Duration.zero);
+
+      expect(events, hasLength(1));
+      expect(events.first.type, GeofenceEventType.signalRestored);
+
+      await sub.cancel();
+    });
+
     test('lowercase eventType is handled (uppercased internally)', () async {
       final events = <GeofenceEvent>[];
       final sub = PolyfenceService.instance.onGeofenceEvent.listen(events.add);

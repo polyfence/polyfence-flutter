@@ -704,6 +704,9 @@ Always cancel stream subscriptions in `dispose()` to prevent memory leaks. The p
 ### Zone Persistence
 Zones are automatically persisted across app restarts — no manual persistence needed. Zone state persists through app kills, crashes, and restarts. When loading zones from an external source, consider implementing delta-based sync to avoid re-registering all zones on each load.
 
+### Zone removal is async on Android
+`removeZone()` and `clearAllZones()` dispatch to the `LocationTracker` foreground Service via a `startService` Intent on Android. The returned `Future` resolves when the Intent has been queued, NOT when the Service has finished the removal — so `getZoneStates()` immediately after may still show the zone(s). iOS is synchronous. If you need immediate read-after-write on Android, allow ~500ms before querying, or track the removal in application state.
+
 ### Duplicate Zone IDs
 `addZone()` treats the [Zone.id] as the primary key. Calling it with an ID that is already being monitored silently overwrites the previous zone — no error is thrown. **Re-adding also resets the persisted INSIDE/OUTSIDE state for that zone (and on iOS, its confidence state).** If the device is currently inside the zone, the next reconciliation may fire a fresh `enter` / `recoveryEnter` event. In-place metadata edits without a re-enter are a known limitation. If your workflow requires unique IDs across additions, check the synchronous `Polyfence.instance.zones` getter before calling (cheaper than the `getZoneStates()` MethodChannel round-trip).
 

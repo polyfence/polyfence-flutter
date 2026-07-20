@@ -488,18 +488,20 @@ class PolyfencePlugin: FlutterPlugin, MethodCallHandler, ActivityAware {
     }
     
     private fun removeZone(zoneId: String) {
-        val intent = Intent(context, LocationTracker::class.java).apply {
-            action = LocationTracker.ACTION_REMOVE_ZONE
-            putExtra("zoneId", zoneId)
-        }
-        context.startService(intent)
+        // applyRemoveZoneDirect calls the running Service instance
+        // directly and returns after engine + persistence are updated
+        // — the MethodChannel result reaches Dart after the mutation
+        // lands, so an immediately-following getZoneStates() call
+        // observes the removal without an explicit wait. When no
+        // Service instance is running, it falls back to the
+        // ACTION_REMOVE_ZONE Intent transport with the same async
+        // semantics as before.
+        LocationTracker.applyRemoveZoneDirect(context, zoneId)
     }
-    
+
     private fun clearAllZones() {
-        val intent = Intent(context, LocationTracker::class.java).apply {
-            action = LocationTracker.ACTION_CLEAR_ZONES
-        }
-        context.startService(intent)
+        // Same synchronous-when-running pattern as removeZone above.
+        LocationTracker.applyClearZonesDirect(context)
     }
 
     /**

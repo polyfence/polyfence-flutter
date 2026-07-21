@@ -55,6 +55,17 @@ class PolyfencePlugin: FlutterPlugin, MethodCallHandler, ActivityAware {
         private var performanceSink: EventChannel.EventSink? = null
         private var methodChannelRef: MethodChannel? = null
 
+        // Every Flutter EventChannel.EventSink and MethodChannel.Result
+        // method is @UiThread and throws IllegalStateException when
+        // called off the platform-message thread. Neither the
+        // PolyfenceCoreDelegate contract nor the
+        // PolyfenceErrorManager.initialize callback contract pins the
+        // caller's thread — core is free to invoke either from a
+        // background thread, and does so in practice for anything
+        // reached from an off-main dispatch inside the engine. Route
+        // every sink and Result delivery through this shared handler.
+        private val mainHandler = Handler(Looper.getMainLooper())
+
         fun getMethodChannel(): MethodChannel? = methodChannelRef
         
         // Tracking state management
@@ -94,7 +105,7 @@ class PolyfencePlugin: FlutterPlugin, MethodCallHandler, ActivityAware {
         /** Send status to performance channel */
         fun sendStatus(context: Context) {
             val payload = buildStatusPayload(context)
-            performanceSink?.success(payload)
+            mainHandler.post { performanceSink?.success(payload) }
         }
 
     }
@@ -116,7 +127,12 @@ class PolyfencePlugin: FlutterPlugin, MethodCallHandler, ActivityAware {
             override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
                 errorSink = events
                 PolyfenceErrorManager.initialize { errorMap ->
-                    events?.success(errorMap)
+                    // Go through the errorSink companion (which onCancel
+                    // nulls) rather than the captured `events` reference
+                    // — a runnable already queued on mainHandler when
+                    // onCancel fires must drop, not deliver to a stream
+                    // Flutter has already released.
+                    mainHandler.post { errorSink?.success(errorMap) }
                 }
                 Log.d("PolyfencePlugin", "Error stream listener connected")
             }
@@ -315,10 +331,9 @@ class PolyfencePlugin: FlutterPlugin, MethodCallHandler, ActivityAware {
                 // DEBUG_INFO_FAILED platform error.
                 //
                 // Dispatch the whole collectDebugInfo call to a background
-                // thread, marshal the result back to main via the main-Looper
-                // Handler — Flutter's MethodChannel.Result requires the
+                // thread, marshal the result back to main via the shared
+                // mainHandler — Flutter's MethodChannel.Result requires the
                 // callback on the platform-message thread it was invoked on.
-                val mainHandler = Handler(Looper.getMainLooper())
                 Thread {
                     try {
                         val debugInfo = PolyfenceDebugCollector.collectDebugInfo(context)
@@ -652,19 +667,12 @@ class PolyfencePlugin: FlutterPlugin, MethodCallHandler, ActivityAware {
     }
     
     // PolyfenceCoreDelegate — bridges core events to Flutter EventChannel sinks
-    // Flutter's EventChannel.EventSink methods are @UiThread — callers
-    // must dispatch success/error/endOfStream on the platform-message
-    // (main) thread or the call throws. Core does not guarantee its
-    // event callbacks land on any particular thread; emitHealthScore in
-    // particular runs on a dedicated background Thread since polyfence-
-    // core 1.0.11 (Bug-010 fix), so a direct EventSink.success from
-    // that callback throws an IllegalStateException which is caught +
-    // silently logged by core's try/catch, and the corresponding stream
-    // never emits (see Bug-025). Marshal all four sink deliveries
-    // through the main Looper to make the bridge robust to whichever
-    // thread core happens to call us on, current or future.
-    private val mainHandler = Handler(Looper.getMainLooper())
-
+    // Every delegate callback marshals to the platform-message
+    // (main) thread before touching an EventChannel.EventSink — those
+    // methods are @UiThread and throw IllegalStateException when
+    // called from any other thread. Core does not contract a
+    // callback thread and reaches these paths from background
+    // dispatches in practice.
     private val coreDelegate = object : PolyfenceCoreDelegate {
         override fun onLocationUpdate(locationData: Map<String, Any>) {
             mainHandler.post { locationSink?.success(locationData) }

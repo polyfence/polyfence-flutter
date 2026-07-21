@@ -1,6 +1,6 @@
 # Polyfence Telemetry Reference
 
-**Last updated:** 2026-07-04
+**Last updated:** 2026-07-21
 
 This is the field-by-field technical reference for Polyfence's anonymous telemetry. For the privacy policy (opt-out instructions, legal basis, data retention, your rights), see [PRIVACY.md](../PRIVACY.md).
 
@@ -14,8 +14,8 @@ Here's exactly what gets sent to our analytics endpoint when a session ends:
 {
   "app_identifier": "com.example.logistics",
   "platform": "android",
-  "plugin_version": "2.0.0",
-  "core_version": "1.0.10",
+  "plugin_version": "2.1.0",
+  "core_version": "1.0.14",
 
   "industry_category": null,
   "use_case": null,
@@ -81,9 +81,9 @@ Here's exactly what gets sent to our analytics endpoint when a session ends:
 |-------|------|---------|-------------|
 | `app_identifier` | string | `"com.example.logistics"` | App package name (not a user identifier) |
 | `platform` | string | `"android"` | Operating system |
-| `plugin_version` | string | `"2.0.0"` | Plugin version |
+| `plugin_version` | string | `"2.1.0"` | Plugin version |
 | `bridge_platform` | string | `"flutter"` | Bridge layer (e.g. `flutter`, `react-native`). Set automatically. |
-| `core_version` | string | `"1.0.10"` | Native engine version from polyfence-core. Stamped automatically by TelemetryAggregator. |
+| `core_version` | string | `"1.0.14"` | Native engine version from polyfence-core. Stamped automatically by TelemetryAggregator. |
 
 ### Performance Metrics
 
@@ -202,6 +202,9 @@ The plugin is open source. Verify the telemetry implementation directly:
 ---
 
 ## Changelog
+
+### 2026-07-21 (plugin 2.1.0)
+- Sample payload and field-reference tables refreshed to reflect plugin `2.1.0` and native `core_version` `1.0.14`. No new telemetry fields; version identifiers only.
 
 ### 2026-04-03
 - Added `core_version` field — native engine version from polyfence-core, stamped automatically by TelemetryAggregator. Not a user identifier.

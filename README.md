@@ -730,6 +730,19 @@ Calling `getSessionTelemetry()` is read-only — it does not itself trigger
 a telemetry upload. See [`doc/TELEMETRY.md`](doc/TELEMETRY.md) for the
 full field reference.
 
+## Upgrading
+
+### From `2.0.x` to `2.1.0`
+
+Additive release — no public API removed. New surfaces:
+
+- `GeofenceEventType.signalLost` / `.signalRestored` — reported when GPS goes stale while a device is inside a zone. Opt-in via `PolyfenceConfiguration.gpsStalenessTimeoutMs` (`0` = off, the default).
+- `Polyfence.instance.getSessionTelemetry()` — returns the same aggregated session snapshot the plugin sends to the anonymous telemetry endpoint.
+
+**Behavioural change on Android — `initialize(config)`.** If you pass any tracking-config key to `initialize`, the `LocationTracker` foreground Service now starts as part of `initialize` rather than being deferred until `startTracking()`. On Android 8+, `context.startService` from a backgrounded context throws `IllegalStateException` — so `initialize` will now REJECT where it previously silently dropped the config. This is a bug fix (the old behaviour hid misconfigured init calls), but callers that init from a background service must catch the rejection and retry once the app foregrounds. Apps that call `initialize` on cold-start or from the foreground see no change. iOS is unaffected.
+
+For the full change list, see [CHANGELOG.md](./CHANGELOG.md).
+
 ## Common Gotchas
 
 ### Stream Subscription Management

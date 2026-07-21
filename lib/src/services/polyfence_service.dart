@@ -449,8 +449,11 @@ class PolyfenceService {
 
   /// Removes a zone from monitoring.
   ///
-  /// The zone will no longer trigger entry/exit events. The zone is also
-  /// removed from persistent storage.
+  /// The zone will no longer trigger entry/exit events and is removed
+  /// from persistent storage. The returned `Future` resolves after the
+  /// engine and persistence are both updated on both platforms — a
+  /// `getZoneStates()` call immediately after `removeZone()` reflects
+  /// the removal without needing an explicit wait.
   ///
   /// **Example:**
   /// ```dart
@@ -483,7 +486,10 @@ class PolyfenceService {
   /// Removes all zones from monitoring.
   ///
   /// All zones are cleared from memory and persistent storage. No more
-  /// geofence events will be triggered until new zones are added.
+  /// geofence events will be triggered until new zones are added. Same
+  /// read-after-write semantics as [removeZone] — a `getZoneStates()`
+  /// call immediately after `clearAllZones()` returns empty on both
+  /// platforms.
   ///
   /// **Example:**
   /// ```dart

@@ -277,6 +277,25 @@ Polyfence.instance.onGeofenceEvent.listen((event) {
 });
 ```
 
+**Convenience streams — filter for one event type without the switch:**
+
+```dart
+// Fires only for enter events (equivalent to onGeofenceEvent
+// filtered where event.type == GeofenceEventType.enter).
+Polyfence.instance.onZoneEnter.listen((event) {
+  print('Entered: ${event.zoneId}');
+});
+
+// Fires only for exit events.
+Polyfence.instance.onZoneExit.listen((event) {
+  print('Exited: ${event.zoneId}');
+});
+```
+
+Use these when you only care about plain enter/exit transitions and want the shorter form. Both streams are **strict** — `onZoneEnter` fires only for `GeofenceEventType.enter`, `onZoneExit` fires only for `.exit`. `recoveryEnter` / `recoveryExit` / `dwell` / `signalLost` / `signalRestored` still need `onGeofenceEvent` (see the switch example above).
+
+They share the same names as the polyfence-react-native bridge's `onZoneEnter` / `onZoneExit`, but RN's variants include `recoveryEnter` / `recoveryExit` too — if you're porting from RN and rely on receiving recovery events through these streams, use `onGeofenceEvent` here instead.
+
 <p align="center">
   <img alt="ENTER, EXIT, DWELL and RECOVERY events as your device moves" src="assets/screenshots/events.png" width="280" />
 </p>

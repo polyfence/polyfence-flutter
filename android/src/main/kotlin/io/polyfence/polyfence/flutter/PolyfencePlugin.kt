@@ -652,21 +652,34 @@ class PolyfencePlugin: FlutterPlugin, MethodCallHandler, ActivityAware {
     }
     
     // PolyfenceCoreDelegate — bridges core events to Flutter EventChannel sinks
+    // Flutter's EventChannel.EventSink methods are @UiThread — callers
+    // must dispatch success/error/endOfStream on the platform-message
+    // (main) thread or the call throws. Core does not guarantee its
+    // event callbacks land on any particular thread; emitHealthScore in
+    // particular runs on a dedicated background Thread since polyfence-
+    // core 1.0.11 (Bug-010 fix), so a direct EventSink.success from
+    // that callback throws an IllegalStateException which is caught +
+    // silently logged by core's try/catch, and the corresponding stream
+    // never emits (see Bug-025). Marshal all four sink deliveries
+    // through the main Looper to make the bridge robust to whichever
+    // thread core happens to call us on, current or future.
+    private val mainHandler = Handler(Looper.getMainLooper())
+
     private val coreDelegate = object : PolyfenceCoreDelegate {
         override fun onLocationUpdate(locationData: Map<String, Any>) {
-            locationSink?.success(locationData)
+            mainHandler.post { locationSink?.success(locationData) }
         }
 
         override fun onGeofenceEvent(eventData: Map<String, Any>) {
-            geofenceSink?.success(eventData)
+            mainHandler.post { geofenceSink?.success(eventData) }
         }
 
         override fun onPerformanceEvent(performanceData: Map<String, Any>) {
-            performanceSink?.success(performanceData)
+            mainHandler.post { performanceSink?.success(performanceData) }
         }
 
         override fun onError(errorData: Map<String, Any>) {
-            errorSink?.success(errorData)
+            mainHandler.post { errorSink?.success(errorData) }
         }
 
         override fun isTrackingEnabled(): Boolean {

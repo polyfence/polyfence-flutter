@@ -1,5 +1,6 @@
 import XCTest
 import Flutter
+import PolyfenceCore
 @testable import polyfence
 
 class PolyfencePluginTests: XCTestCase {
@@ -144,6 +145,35 @@ class PolyfencePluginTests: XCTestCase {
         plugin.handle(call, result: result)
         XCTAssertNotNil(receivedResult, "Result should not be nil")
         XCTAssertTrue(receivedResult is [[String: Any]], "Result should be a list of dictionaries")
+    }
+
+    func testGetErrorHistoryReturnsSeededEntryWithinTimeRange() {
+        // End-to-end wiring test: seed via PolyfenceErrorManager (the
+        // same path core uses at runtime), then query through the
+        // plugin's getErrorHistory handler with a non-nil timeRangeMs
+        // that covers the entry. Asserts the returned list contains
+        // the seeded marker — the bridge must call
+        // PolyfenceDebugCollector.shared.getErrorHistory AND core's
+        // filter must include entries within the window.
+        let marker = "flutter_bridge_seed_\(Int(Date().timeIntervalSince1970 * 1_000_000))"
+        PolyfenceErrorManager.shared.reportError(type: marker, message: "seeded from plugin test")
+
+        let arguments: [String: Any] = [
+            "timeRangeMs": 60 * 60 * 1000 as NSNumber,
+            "errorTypes": [marker]
+        ]
+        let call = FlutterMethodCall(methodName: "getErrorHistory", arguments: arguments)
+        var receivedResult: Any?
+        let result: FlutterResult = { receivedResult = $0 }
+
+        plugin.handle(call, result: result)
+        guard let history = receivedResult as? [[String: Any]] else {
+            XCTFail("Result should be a list of dictionaries")
+            return
+        }
+        XCTAssertEqual(history.count, 1, "Bridge must return the seeded entry — filter and wiring both intact")
+        XCTAssertEqual(history.first?["type"] as? String, marker)
+        XCTAssertEqual(history.first?["message"] as? String, "seeded from plugin test")
     }
 
     func testGetCurrentZoneStatesReturnsMap() {

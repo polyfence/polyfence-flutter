@@ -347,7 +347,11 @@ class PolyfencePlugin: FlutterPlugin, MethodCallHandler, ActivityAware {
             
             "getErrorHistory" -> {
                 try {
-                    val timeRangeMs = call.argument<Long>("timeRangeMs")
+                    // Flutter marshals Dart ints as java.lang.Integer when
+                    // the value fits in int32 (< 2^31), else java.lang.Long.
+                    // Reading as Number and coercing accepts either without
+                    // a checked cast.
+                    val timeRangeMs = call.argument<Number>("timeRangeMs")?.toLong()
                     val errorTypes = call.argument<List<String>>("errorTypes")
                     val history = PolyfenceDebugCollector.getErrorHistory(timeRangeMs, errorTypes)
                     result.success(history)

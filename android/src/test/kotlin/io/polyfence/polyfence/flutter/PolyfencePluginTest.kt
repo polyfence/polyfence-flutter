@@ -315,10 +315,17 @@ class PolyfencePluginTest {
 
     @Test
     fun testGetErrorHistoryIsRecognized() {
-        val call = MethodCall("getErrorHistory", mapOf("timeRangeMs" to 3600000L, "errorTypes" to listOf<String>()))
-        try {
-            plugin.onMethodCall(call, result)
-        } catch (_: Exception) {}
+        // Pass 86_400_000 (24h) as a Kotlin Int, not Long. Flutter
+        // marshals a Dart int that fits in int32 (< 2^31) as
+        // java.lang.Integer on the Kotlin side; a Long-only extraction
+        // would ClassCastException here. Asserting success (not just
+        // "recognised") locks the numeric-type contract: any future
+        // narrowing of the argument extraction lands on the plugin's
+        // error branch instead, and this test fails.
+        val call = MethodCall("getErrorHistory", mapOf("timeRangeMs" to 86400000, "errorTypes" to listOf<String>()))
+        plugin.onMethodCall(call, result)
+        verify(result).success(any())
+        verify(result, never()).error(any(), any(), any())
         verify(result, never()).notImplemented()
     }
 }

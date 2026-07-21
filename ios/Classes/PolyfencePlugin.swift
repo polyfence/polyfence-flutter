@@ -549,6 +549,16 @@ extension PolyfencePlugin: FlutterStreamHandler {
     }
     
     private func getErrorHistory(arguments: Any?, result: @escaping FlutterResult) {
-        result([])
+        // Flutter's Swift codec surfaces Dart ints as NSNumber; reading
+        // through NSNumber's `.int64Value` accepts any numeric shape
+        // Flutter delivers without a type-specific downcast.
+        let args = arguments as? [String: Any]
+        let timeRangeMs = (args?["timeRangeMs"] as? NSNumber)?.int64Value
+        let errorTypes = args?["errorTypes"] as? [String]
+        let history = PolyfenceDebugCollector.shared.getErrorHistory(
+            timeRangeMs: timeRangeMs,
+            errorTypes: errorTypes
+        )
+        result(history)
     }
 }

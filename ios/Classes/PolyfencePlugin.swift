@@ -64,31 +64,6 @@ public class PolyfencePlugin: NSObject, FlutterPlugin {
         sharedInstance?.performanceSink?(event)
     }
 
-    private func emitStatus(trackingEnabled: Bool?) {
-        let zonesCount = (try? zonePersistence?.getZoneCount()) ?? 0
-        // Callers pass nil on addZone / removeZone / clearAllZones —
-        // the status event isn't caused by a start/stop, so fall back
-        // to querying the real state instead of reporting false.
-        // Matches RN parity (polyfence-react-native/ios/PolyfenceModule.swift).
-        let tracking = trackingEnabled ?? (locationTracker?.isTracking() ?? false)
-        // Populate profile + lastAccuracy from polyfence-core rather
-        // than hardcoding nil — otherwise consumers reading
-        // status.profile and status.lastAccuracy see null regardless
-        // of runtime state, which suggests data is unavailable when
-        // it isn't.
-        let profile: Any = locationTracker?.getCurrentSmartConfiguration().accuracyProfile.rawValue ?? NSNull()
-        let lastAccuracy: Any = locationTracker?.getLastKnownAccuracy() ?? NSNull()
-        let payload: [String: Any] = [
-            "type": "status",
-            "trackingEnabled": tracking,
-            "zonesCount": zonesCount,
-            "profile": profile,
-            "lastAccuracy": lastAccuracy,
-            "timestamp": Int64(Date().timeIntervalSince1970 * 1000)
-        ]
-        PolyfencePlugin.sendPerformanceEvent(event: payload)
-    }
-    
     // MARK: - Method Channel Handler
     
     public func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
@@ -101,19 +76,14 @@ public class PolyfencePlugin: NSObject, FlutterPlugin {
             requestLocationPermissions(always: always, result: result)
         case "startTracking":
             startLocationTracking(result: result)
-            emitStatus(trackingEnabled: true)
         case "stopTracking":
             stopLocationTracking(result: result)
-            emitStatus(trackingEnabled: false)
         case "addZone":
             addZone(arguments: call.arguments, result: result)
-            emitStatus(trackingEnabled: nil)
         case "removeZone":
             removeZone(arguments: call.arguments, result: result)
-            emitStatus(trackingEnabled: nil)
         case "clearAllZones":
             clearAllZones(result: result)
-            emitStatus(trackingEnabled: nil)
         case "isLocationServiceEnabled":
             result(CLLocationManager.locationServicesEnabled())
         case "getConfiguration":

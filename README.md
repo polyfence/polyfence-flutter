@@ -730,6 +730,47 @@ Calling `getSessionTelemetry()` is read-only — it does not itself trigger
 a telemetry upload. See [`doc/TELEMETRY.md`](doc/TELEMETRY.md) for the
 full field reference.
 
+### Live Runtime Status
+
+Subscribe to real-time GPS status snapshots emitted by polyfence-core
+while tracking is running (typically every ~30 seconds and on
+strategy / accuracy-profile change):
+
+```dart
+final subscription = Polyfence.instance.runtimeStatus.listen((status) {
+  print('Interval: ${status.intervalDescription}');
+  print('Nearest zone: ${status.proximityDescription}');
+  print('Current GPS accuracy: ${status.currentGpsAccuracy ?? "n/a"} m');
+  if (status.secondsSinceLastGpsFix > 30) {
+    // signal has been stale — surface a UI indicator
+  }
+});
+```
+
+Each emission is a typed `PolyfenceRuntimeStatus` carrying the
+current GPS interval, distance to the nearest monitored zone,
+current-fix accuracy, and GPS-health counters. Health-score events
+travel on the separate `healthScoreStream`. Cancel the subscription in
+your widget's `dispose()`.
+
+For CPU / memory / uptime and the aggregate session snapshot use the
+one-shot `debugInfo()` and `getSessionTelemetry()` accessors — those
+metrics are not delivered on a stream. **iOS caveat:** the current
+Flutter iOS bridge hand-builds `debugInfo()` inline and hard-codes
+every numeric field under `performance` (including `uptime` and
+`memoryUsageMB`), most of `battery` (including `totalActiveTime`,
+`estimatedHourlyDrain`, `gpsActiveTimePercent`, `wakeUpCount`), and
+every `zones.*` count to `0`. `systemStatus`, `battery.isCharging`,
+`battery.batteryLevel` and `recentErrors` return real values.
+Routing the iOS bridge through
+`PolyfenceDebugCollector.shared.collectDebugInfo()` (real `uptime`,
+`memoryUsageMB`, `battery.totalActiveTime`, error history) is a
+separate follow-up branch; even after that lands, counters like
+`totalLocationUpdates` / `totalZoneDetections` /
+`averageDetectionLatency` / `zones.activeZones` stay `0` on both
+platforms until polyfence-core wires the collector.
+`getSessionTelemetry()` is populated on both platforms.
+
 ## Upgrading
 
 ### From `2.0.x` to `2.1.0`

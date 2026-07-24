@@ -182,10 +182,38 @@ class PolyfenceService {
   Stream<PolyfenceRuntimeStatus> get runtimeStatus =>
       _runtimeStatusController.stream;
 
-  /// Stream of raw status updates from platform.
+  /// Raw status maps from the native platform.
   ///
-  /// Lower-level stream that emits raw status maps from the native platform.
-  /// Use [runtimeStatus] for typed status updates.
+  /// **Deprecated. There is no stream replacement.**
+  ///
+  /// The stream has no upstream writer — no native bridge emits into
+  /// it — so it never produces a value. Retained as a getter for
+  /// source-compatibility.
+  ///
+  /// Direct replacements for the fields the old payload carried:
+  /// - `profile` → [getConfiguration] returns the current
+  ///   `PolyfenceConfiguration.accuracyProfile`.
+  /// - `trackingEnabled` → track locally around [startTracking] and
+  ///   [stopTracking]; there is no dedicated `isTracking` query.
+  /// - `zonesCount` → no supported readback for the persistence-backed
+  ///   count. The in-process [zones] getter reports the session's
+  ///   cache only (zones added via [addZone] this session), not
+  ///   rehydrated at [initialize]. `debugInfo().zones.activeZones` is
+  ///   also `0` until polyfence-core wires
+  ///   `PolyfenceDebugCollector.setGeofenceEngine` (defined but never
+  ///   called today). Track the count in your own app state as you
+  ///   call [addZone] / [removeZone] / [clearAllZones].
+  /// - `lastAccuracy` → [runtimeStatus] emits
+  ///   [PolyfenceRuntimeStatus.currentGpsAccuracy] on every engine
+  ///   snapshot.
+  @Deprecated(
+    'No stream replacement. Use getConfiguration() for profile, '
+    'runtimeStatus.currentGpsAccuracy for lastAccuracy, and track '
+    'the zone count in your own app state around addZone / removeZone '
+    '/ clearAllZones — there is no supported readback for the '
+    'persistence-backed count today. Track tracking-enabled state '
+    'locally around startTracking() / stopTracking().',
+  )
   Stream<Map<String, dynamic>> get statusStream => _statusController.stream;
 
   bool _isInitialized = false;
@@ -374,9 +402,6 @@ class PolyfenceService {
       _performanceSubscription = _platform.performanceStream.listen(
         (event) {
           _handlePerformanceEvent(event);
-          if (event['type'] == 'status') {
-            _statusController.add(event);
-          }
         },
         onError: (Object error, StackTrace stackTrace) {
           _emitStreamError('performance', error, stackTrace);
@@ -1136,18 +1161,38 @@ class PolyfenceService {
     }
   }
 
-  /// Stream of performance metrics from the plugin.
+  /// Stream of per-emission performance metrics.
   ///
-  /// Emits [PolyfencePerformanceMetrics] with performance data including
-  /// detection latencies, GPS accuracy statistics, and battery usage.
+  /// **Deprecated. Use [runtimeStatus] instead.**
   ///
-  /// **Example:**
-  /// ```dart
-  /// Polyfence.instance.performanceStream.listen((metrics) {
-  ///   print('Average detection latency: ${metrics.averageDetectionLatency}ms');
-  ///   print('GPS accuracy ratio: ${metrics.gpsOkRatio}');
-  /// });
-  /// ```
+  /// This getter maps every native performance event through
+  /// [PolyfencePerformanceMetrics.fromMap], but the platform channel
+  /// carries `runtime_status` payloads shaped
+  /// `{type: "runtime_status", data: {strategy, gpsAccuracy,
+  /// nearestZoneDistanceM, intervalMs, currentGpsAccuracy,
+  /// secondsSinceLastGpsFix, ...}}` — none of the keys
+  /// [PolyfencePerformanceMetrics] reads (`uptime`,
+  /// `averageDetectionLatency`, `cpuUsagePercent`, `restartCount`,
+  /// `memoryUsageMB`) exist on that payload, so every emission maps to
+  /// an all-zeros metrics object. Retained as a getter for
+  /// source-compatibility.
+  ///
+  /// For live GPS metrics use [runtimeStatus], which returns a typed
+  /// [PolyfenceRuntimeStatus] built from the actual native payload.
+  /// For the CPU / memory / uptime figures this class promises, poll
+  /// [debugInfo] — those come from a one-shot collector, not a stream.
+  /// On iOS today [debugInfo]'s `uptime`, `memoryUsageMB`,
+  /// `cpuUsagePercent` and `totalLocationUpdates` are hard-coded to
+  /// zero at the bridge; only the Android build returns populated
+  /// values. Follow-up work to route the iOS bridge through
+  /// `PolyfenceDebugCollector.shared.collectDebugInfo()` is tracked
+  /// separately.
+  @Deprecated(
+    'Use runtimeStatus (typed PolyfenceRuntimeStatus) for live GPS '
+    'metrics. For CPU/memory/uptime, poll debugInfo() — those figures '
+    'are populated on Android and stubbed on iOS pending a separate '
+    'bridge fix.',
+  )
   Stream<PolyfencePerformanceMetrics> get performanceStream {
     return _platform.performanceStream
         .map((event) => PolyfencePerformanceMetrics.fromMap(event));

@@ -507,45 +507,13 @@ extension PolyfencePlugin: FlutterStreamHandler {
     // MARK: - Debug Methods
     
     private func getDebugInfo(result: @escaping FlutterResult) {
-        let debugInfo: [String: Any] = [
-            "systemStatus": [
-                "isLocationPermissionGranted": CLLocationManager.authorizationStatus() == .authorizedAlways || CLLocationManager.authorizationStatus() == .authorizedWhenInUse,
-                "isBackgroundLocationEnabled": CLLocationManager.authorizationStatus() == .authorizedAlways,
-                "isBatteryOptimizationDisabled": true, // iOS doesn't have battery optimization
-                "isGpsEnabled": CLLocationManager.locationServicesEnabled(),
-                "isWakeLockAcquired": false, // iOS doesn't use wake locks
-                "lastKnownAccuracy": -1.0,
-                "lastLocationUpdate": Date().timeIntervalSince1970 * 1000,
-                "platformVersion": UIDevice.current.systemVersion,
-                "pluginVersion": PolyfenceDebugCollector.shared.pluginVersion ?? "unknown"
-            ],
-            "performance": [
-                "uptime": 0,
-                "totalLocationUpdates": 0,
-                "totalZoneDetections": 0,
-                "averageDetectionLatency": 0.0,
-                "memoryUsageMB": 0,
-                "cpuUsagePercent": 0.0,
-                "restartCount": 0
-            ],
-            "battery": [
-                "estimatedHourlyDrain": 0.0,
-                "gpsActiveTimePercent": 0,
-                "wakeUpCount": 0,
-                "isCharging": UIDevice.current.batteryState == .charging,
-                "batteryLevel": Int(UIDevice.current.batteryLevel * 100),
-                "totalActiveTime": 0
-            ],
-            "zones": [
-                "activeZones": 0,
-                "circleZones": 0,
-                "polygonZones": 0,
-                "lastZoneUpdate": Date().timeIntervalSince1970 * 1000,
-                "zoneEventCounts": [:]
-            ],
-            "recentErrors": []
-        ]
-        result(debugInfo)
+        // All bridges share a single collector so the debugInfo()
+        // payload has one authoritative source. Location and
+        // zone-detection counters (`totalLocationUpdates`,
+        // `totalZoneDetections`, `averageDetectionLatency`) are `0`
+        // until polyfence-core's LocationTracker calls the collector's
+        // `recordLocationUpdate` / `recordZoneDetection` accessors.
+        result(PolyfenceDebugCollector.shared.collectDebugInfo())
     }
     
     private func getErrorHistory(arguments: Any?, result: @escaping FlutterResult) {

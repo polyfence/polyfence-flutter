@@ -291,5 +291,73 @@ void main() {
       expect(restored.recentErrors.length, 1);
       expect(restored.recentErrors[0].type, 'gpsTimeout');
     });
+
+    test('fromMap parses the polyfence-core collector debugInfo shape', () {
+      // Golden fixture: this is the exact shape
+      // `PolyfenceDebugCollector.collectDebugInfo()` returns on both
+      // Android and iOS (see polyfence-core/ios/Classes/
+      // PolyfenceDebugCollector.swift:30 and the Android counterpart).
+      // The Flutter iOS and Android bridges delegate to that collector
+      // on getDebugInfo. Locking the shape here prevents a silent
+      // regression if a future collector change drops a key.
+      final map = <String, dynamic>{
+        'systemStatus': {
+          'isLocationPermissionGranted': true,
+          'isBackgroundLocationEnabled': true,
+          'isBatteryOptimizationDisabled': true,
+          'isGpsEnabled': true,
+          'isWakeLockAcquired': false,
+          'lastKnownAccuracy': 12.5,
+          'lastLocationUpdate': 1700000000000,
+          'platformVersion': '17.4',
+          'pluginVersion': '2.1.0',
+        },
+        'performance': {
+          'uptime': 300000, // real value from sessionStartTime
+          'totalLocationUpdates': 0,
+          'totalZoneDetections': 0,
+          'averageDetectionLatency': 0.0,
+          'memoryUsageMB': 42, // real value from mach_task_basic_info
+          'cpuUsagePercent': 0.0,
+          'restartCount': 0,
+        },
+        'battery': {
+          'estimatedHourlyDrain': 0.0,
+          'gpsActiveTimePercent': 0,
+          'wakeUpCount': 0,
+          'isCharging': false,
+          'batteryLevel': 85,
+          'totalActiveTime': 300000, // real session-elapsed ms
+        },
+        'zones': {
+          'activeZones': 0,
+          'circleZones': 0,
+          'polygonZones': 0,
+          'lastZoneUpdate': 1700000000000,
+          'zoneEventCounts': <String, dynamic>{},
+        },
+        'recentErrors': <Map<String, dynamic>>[
+          {
+            'type': 'gpsTimeout',
+            'message': 'GPS timeout',
+            'timestamp': 1700000000000,
+            'context': <String, dynamic>{},
+          },
+        ],
+      };
+
+      final debugInfo = PolyfenceDebugInfo.fromMap(map);
+
+      expect(debugInfo.systemStatus.platformVersion, '17.4');
+      expect(debugInfo.systemStatus.pluginVersion, '2.1.0');
+      expect(debugInfo.performance.uptime,
+          const Duration(milliseconds: 300000));
+      expect(debugInfo.performance.memoryUsageMB, 42);
+      expect(debugInfo.battery.totalActiveTime,
+          const Duration(milliseconds: 300000));
+      expect(debugInfo.battery.batteryLevel, 85);
+      expect(debugInfo.recentErrors, hasLength(1));
+      expect(debugInfo.recentErrors.single.type, 'gpsTimeout');
+    });
   });
 }

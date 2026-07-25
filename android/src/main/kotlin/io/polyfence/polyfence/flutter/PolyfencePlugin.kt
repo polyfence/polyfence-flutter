@@ -79,35 +79,6 @@ class PolyfencePlugin: FlutterPlugin, MethodCallHandler, ActivityAware {
             prefs.edit().putBoolean(KEY_TRACKING_ENABLED, enabled).apply()
         }
 
-        private fun buildStatusPayload(context: Context): Map<String, Any?> {
-            val tracking = isTrackingEnabled(context)
-            val zonesCount = try {
-                val persistence = ZonePersistence(context)
-                persistence.getZoneCount()
-            } catch (e: Exception) { 0 }
-            // Populate profile + lastAccuracy from polyfence-core rather
-            // than hardcoding null — otherwise consumers reading
-            // status.profile and status.lastAccuracy see null regardless
-            // of runtime state, which suggests data is unavailable when
-            // it isn't.
-            val profile = LocationTracker.getCurrentSmartConfiguration().accuracyProfile.name
-            val lastAccuracy = LocationTracker.getLastKnownAccuracy()?.toDouble()
-            return mapOf(
-                "type" to "status",
-                "trackingEnabled" to tracking,
-                "zonesCount" to zonesCount,
-                "profile" to profile,
-                "lastAccuracy" to lastAccuracy, // null until first GPS fix
-                "timestamp" to System.currentTimeMillis()
-            )
-        }
-        
-        /** Send status to performance channel */
-        fun sendStatus(context: Context) {
-            val payload = buildStatusPayload(context)
-            mainHandler.post { performanceSink?.success(payload) }
-        }
-
     }
     
     private lateinit var methodChannel: MethodChannel
@@ -234,42 +205,37 @@ class PolyfencePlugin: FlutterPlugin, MethodCallHandler, ActivityAware {
             "startTracking" -> {
                 setTrackingEnabled(context, true)
                 startLocationTracking()
-                sendStatus(context)
                 result.success(null)
             }
-            
+
             "stopTracking" -> {
                 setTrackingEnabled(context, false)
                 stopLocationTracking()
-                sendStatus(context)
                 result.success(null)
             }
-            
+
             "addZone" -> {
                 val zoneData = call.arguments as? Map<String, Any>
                 if (zoneData != null) {
                     addZone(zoneData)
-                    sendStatus(context)
                     result.success(null)
                 } else {
                     result.error("INVALID_ZONE", "Zone data is required", null)
                 }
             }
-            
+
             "removeZone" -> {
                 val zoneId = call.argument<String>("zoneId")
                 if (zoneId != null) {
                     removeZone(zoneId)
-                    sendStatus(context)
                     result.success(null)
                 } else {
                     result.error("INVALID_ZONE_ID", "Zone ID is required", null)
                 }
             }
-            
+
             "clearAllZones" -> {
                 clearAllZones()
-                sendStatus(context)
                 result.success(null)
             }
             

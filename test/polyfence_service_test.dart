@@ -712,10 +712,12 @@ void main() {
 
     test('statusStream is available', () {
       expect(
+        // ignore: deprecated_member_use_from_same_package
         PolyfenceService.instance.statusStream,
         isA<Stream<Map<String, dynamic>>>(),
       );
     });
+
   });
 
   // The Dart bridge must convert PolyfenceErrorType enum values to

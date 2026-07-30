@@ -99,6 +99,15 @@ class PolyfencePlugin: FlutterPlugin, MethodCallHandler, ActivityAware {
     override fun onAttachedToEngine(@NonNull flutterPluginBinding: FlutterPlugin.FlutterPluginBinding) {
         context = flutterPluginBinding.applicationContext
 
+        // Start in the "not-yet-listening" state so any geofence event that
+        // fires between plugin attach and the geofence EventChannel's first
+        // onListen lands in the durable pending-events queue (when opted
+        // in) instead of core delivering to a null sink. Core's own default
+        // is `true`, which would mis-classify this window as live-delivery
+        // and silently drop the event; onListen flips this back to `true`
+        // when the Dart-side subscription is up.
+        LocationTracker.setBridgeAttached(false)
+
         // Setup error event channel — bridges core PolyfenceErrorManager to Flutter
         errorChannel = EventChannel(flutterPluginBinding.binaryMessenger, ERROR_CHANNEL)
         errorChannel.setStreamHandler(object : EventChannel.StreamHandler {
@@ -215,13 +224,13 @@ class PolyfencePlugin: FlutterPlugin, MethodCallHandler, ActivityAware {
                 // Wire up delegate so core sends events back to Flutter
                 LocationTracker.setPendingCoreDelegate(coreDelegate)
 
-                // Signal to core that the bridge's delivery sink is now
-                // receiving. Symmetrical with the setBridgeAttached(false)
-                // calls in dispose / onDetachedFromEngine. The companion
-                // stages the value as pending if the Service is not yet
-                // running, so an initialize() before startTracking() still
-                // takes effect on the next Service start.
-                LocationTracker.setBridgeAttached(true)
+                // Attach state is authoritative from the geofence stream
+                // handler's onListen / onCancel — initialize() does NOT
+                // pre-flip to `true` because that would misclassify the
+                // post-initialize / pre-listen window as live-delivery and
+                // silently drop events fired in that window (e.g. from a
+                // foreground Service that survived a prior process death
+                // while Analytics initialization is still awaiting).
 
                 result.success(null)
             }

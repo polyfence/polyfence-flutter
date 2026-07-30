@@ -611,6 +611,33 @@ if (status['isOptimized'] == true && status['canRequest'] == true) {
 }
 ```
 
+## Durable Pending-Events Queue (opt-in)
+
+Geofence events fired while the Flutter engine is torn down — mid app-switch, in the gap between a foreground-service wake and the Dart runtime coming back up, or after a crash — normally drop silently at the delivery boundary. Enable the durable queue and those events are persisted natively to a bounded on-disk ring buffer, then replayed when your app next attaches.
+
+Off by default. Opt in via `PolyfenceConfiguration.pendingEventsQueueSize`:
+
+```dart
+await Polyfence.instance.initialize(
+  config: PolyfenceConfiguration(
+    pendingEventsQueueSize: 500, // 0 disables the queue (default)
+  ),
+);
+```
+
+Drain on resume:
+
+```dart
+final missed = await Polyfence.instance.drainPendingEvents();
+for (final event in missed) {
+  // event.deliveredLate is `true`, event.capturedTs is the original
+  // detection moment, event.queuedDurationMs is how long it waited.
+  handleZoneCrossing(event);
+}
+```
+
+When the queue reaches capacity, oldest events evict first and surface via the standard error stream as `PolyfenceErrorType.pendingEventsEvicted` (with `context['severity'] == 'warning'` and `context['droppedCount']`) — a signal to raise the cap or drain more often. The cumulative eviction counter is readable via `Polyfence.instance.pendingEventsDroppedCount()`. Every consumer that leaves `pendingEventsQueueSize` at `0` sees zero behaviour change.
+
 ## Error Handling & Recovery
 
 ### Error Stream

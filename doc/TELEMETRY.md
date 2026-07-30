@@ -203,6 +203,9 @@ The plugin is open source. Verify the telemetry implementation directly:
 
 ## Changelog
 
+### plugin 2.2.0
+- Sample payload and field-reference tables refreshed to reflect plugin `2.2.0` and native `core_version` `1.1.0`. No new telemetry fields; version identifiers only.
+
 ### 2026-07-21 (plugin 2.1.0)
 - Sample payload and field-reference tables refreshed to reflect plugin `2.1.0` and native `core_version` `1.0.14`. No new telemetry fields; version identifiers only.
 

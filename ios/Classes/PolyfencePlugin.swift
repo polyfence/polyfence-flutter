@@ -178,8 +178,15 @@ public class PolyfencePlugin: NSObject, FlutterPlugin, PolyfenceCoreDelegate {
             // fire unconditionally and would double-emit every event.
             locationTracker?.coreDelegate = self
 
-            // Bridge is attached; live-deliver via the delegate.
-            locationTracker?.setBridgeAttached(true)
+            // Start in the "not-yet-listening" state so any geofence event
+            // that fires between initialize returning and the geofence
+            // FlutterStreamHandler's first onListen lands in the durable
+            // pending-events queue (when opted in) instead of core
+            // delivering to a nil sink. Core's own default is `true`, which
+            // would mis-classify this window as live-delivery and silently
+            // drop the event; onListen flips this back to `true` when the
+            // Dart-side subscription is up.
+            locationTracker?.setBridgeAttached(false)
             observeTerminationForBridgeDetach()
 
             result(nil)

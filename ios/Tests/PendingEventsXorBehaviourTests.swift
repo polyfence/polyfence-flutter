@@ -18,6 +18,12 @@ import PolyfenceCore
 ///
 /// Uses core's `_testInvokeHandleGeofenceEvent` seam to drive the event path
 /// without a real CLLocationManager fix.
+///
+/// NOT CI-gated yet — the plugin's iOS test suite has no xcodebuild job in
+/// `.github/workflows/ci.yml` and `example/ios/Runner.xcodeproj` does not
+/// reference `ios/Tests/`. Runs manually via `xcodebuild test` when the
+/// Runner project's test target is extended; wiring that is out of scope
+/// for this file.
 class PendingEventsXorBehaviourTests: XCTestCase {
 
     var plugin: PolyfencePlugin!

@@ -170,7 +170,15 @@ class PendingEventsBridgeTest {
     }
 
     @Test
-    fun initializeCallsSetBridgeAttachedTrue() {
+    fun initializeDoesNotFlipBridgeAttachedToTrueBeforeOnListen() {
+        // Production contract: the geofence EventChannel's onListen is the
+        // authoritative attach signal — initialize() must NOT pre-flip to
+        // `true`, or the post-initialize / pre-listen window (while
+        // PolyfenceAnalytics.instance.initialize() awaits) mis-classifies
+        // events as live and drops them into a null sink. Only setBridgeAttached
+        // call inside the initialize handler is the plugin's own attach
+        // wiring on the tracker delegate; the true flip lives in
+        // geofenceChannel.onListen.
         every { LocationTracker.setBridgeAttached(any()) } returns Unit
         every { LocationTracker.setBridgePlatform(any()) } returns Unit
         every { LocationTracker.setPendingCoreDelegate(any()) } returns Unit
@@ -182,8 +190,27 @@ class PendingEventsBridgeTest {
         )
         plugin.onMethodCall(call, result)
 
-        mockkVerify { LocationTracker.setBridgeAttached(true) }
+        mockkVerify(exactly = 0) { LocationTracker.setBridgeAttached(true) }
         verify(result).success(null)
+    }
+
+    @Test
+    fun onAttachedToEngineStartsInNotYetListeningState() {
+        // Plugin attach must call setBridgeAttached(false) so the window
+        // between attach and the geofence stream's first onListen deposits
+        // any fired events into the durable queue (when opted in) rather
+        // than delivering them into a null sink. Core's own default is
+        // `true`, which would silently drop events in that window.
+        every { LocationTracker.setBridgeAttached(any()) } returns Unit
+
+        val binding = mock(io.flutter.embedding.engine.plugins.FlutterPlugin.FlutterPluginBinding::class.java)
+        val binaryMessenger = mock(io.flutter.plugin.common.BinaryMessenger::class.java)
+        `when`(binding.binaryMessenger).thenReturn(binaryMessenger)
+        `when`(binding.applicationContext).thenReturn(mock(Context::class.java))
+
+        plugin.onAttachedToEngine(binding)
+
+        mockkVerify { LocationTracker.setBridgeAttached(false) }
     }
 
     @Test
@@ -198,7 +225,9 @@ class PendingEventsBridgeTest {
         plugin.onAttachedToEngine(binding)
         plugin.onDetachedFromEngine(binding)
 
-        mockkVerify { LocationTracker.setBridgeAttached(false) }
+        // Both onAttachedToEngine and onDetachedFromEngine call
+        // setBridgeAttached(false) — verify at least once.
+        mockkVerify(atLeast = 1) { LocationTracker.setBridgeAttached(false) }
     }
 
     @Test
@@ -240,10 +269,10 @@ class PendingEventsBridgeTest {
         handler.onListen("geofence", sink)
         handler.onCancel("geofence")
 
-        // Verify BOTH calls happened in order — this simulates the full
-        // subscribe / unsubscribe cycle. Any drop of the setBridgeAttached
-        // call from onCancel would fail this assertion.
-        mockkVerify(exactly = 1) { LocationTracker.setBridgeAttached(false) }
+        // Expect setBridgeAttached(false) called exactly twice: once from
+        // onAttachedToEngine's "not-yet-listening" seed and once from the
+        // onCancel that just fired.
+        mockkVerify(exactly = 2) { LocationTracker.setBridgeAttached(false) }
     }
 
     private fun extractGeofenceStreamHandler(

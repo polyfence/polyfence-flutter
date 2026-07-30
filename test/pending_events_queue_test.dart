@@ -283,7 +283,8 @@ void main() {
       expect(events.single.queuedDurationMs, greaterThanOrEqualTo(0));
     });
 
-    test('skips events with missing required fields silently', () async {
+    test('skips events with missing required fields but emits warning onError',
+        () async {
       mockPlatform.drainPendingEventsResponse = [
         {'eventType': 'ENTER'}, // no zoneId
         {'zoneId': 'z'}, // no eventType
@@ -296,8 +297,53 @@ void main() {
         },
       ];
 
+      final warnings = <PolyfenceError>[];
+      final sub = PolyfenceService.instance.onError
+          .where((e) => e.context['severity'] == 'warning')
+          .listen(warnings.add);
+
       final events = await PolyfenceService.instance.drainPendingEvents();
+      // Give the broadcast stream a chance to deliver.
+      await Future<void>.delayed(Duration.zero);
+      await sub.cancel();
+
       expect(events, hasLength(1));
+      // Native side has already deleted the two unparseable entries from
+      // the on-disk store; the bridge must at minimum surface an
+      // observable warning so the consumer knows two crossings were lost.
+      expect(warnings, hasLength(2));
+      for (final warning in warnings) {
+        expect(warning.context['severity'], 'warning');
+        expect(warning.context['rawEvent'], isA<Map>());
+      }
+    });
+
+    test('unparseable drained payload surfaces a single warning onError',
+        () async {
+      final past = DateTime.now()
+          .subtract(const Duration(seconds: 30))
+          .millisecondsSinceEpoch;
+      final malformed = <String, dynamic>{
+        // eventType present but unknown, and zoneId absent → not parseable.
+        'eventType': 'SUPERPOSITION',
+        'timestamp': past,
+        'latitude': 0.0,
+        'longitude': 0.0,
+      };
+      mockPlatform.drainPendingEventsResponse = [malformed];
+
+      final warnings = <PolyfenceError>[];
+      final sub = PolyfenceService.instance.onError.listen(warnings.add);
+
+      final events = await PolyfenceService.instance.drainPendingEvents();
+      await Future<void>.delayed(Duration.zero);
+      await sub.cancel();
+
+      expect(events, isEmpty);
+      expect(warnings, hasLength(1));
+      expect(warnings.single.context['severity'], 'warning');
+      expect(warnings.single.context['rawEvent'], malformed);
+      expect(warnings.single.message, contains('Drained pending event dropped'));
     });
 
     test('platform errors surface as PlatformOperationException', () async {

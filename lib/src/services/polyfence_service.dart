@@ -1381,7 +1381,26 @@ class PolyfenceService {
       final events = <GeofenceEvent>[];
       for (final map in raw) {
         final parsed = _parseDrainedEvent(map);
-        if (parsed != null) events.add(parsed);
+        if (parsed != null) {
+          events.add(parsed);
+        } else {
+          // Native side has already deleted this event from the on-disk
+          // store as part of the atomic drain, so an unparseable drained
+          // entry is lost content — the consumer must at minimum learn
+          // about it to reason about their zone-crossing history.
+          if (!_errorController.isClosed) {
+            _errorController.add(PolyfenceError(
+              type: PolyfenceErrorType.unknown,
+              message:
+                  'Drained pending event dropped: unparseable payload from native queue',
+              context: {
+                'severity': 'warning',
+                'rawEvent': map,
+              },
+              timestamp: DateTime.now(),
+            ));
+          }
+        }
       }
       return events;
     } on PlatformException catch (e, stackTrace) {
@@ -1660,20 +1679,35 @@ class PolyfenceService {
         await _stopTrackingDuringDispose();
       }
 
-      // 2. Cancel all stream subscriptions
+      // 2. Notify platform of disposal FIRST, before the subscriptions are
+      // cancelled. The native `dispose` handler calls
+      // LocationTracker.setBridgeAttached(false), which flips core into the
+      // persist branch — so any geofence event in flight between the
+      // signal and the sink-teardown lands in the durable pending-events
+      // queue (when opted in via pendingEventsQueueSize > 0) instead of
+      // firing into a sink that is about to die. Cancelling the
+      // subscriptions first left a window where core still believed the
+      // bridge was attached and would deliver-then-lose events.
+      try {
+        await _platform.dispose();
+      } catch (_) {
+        // Platform disposal is best-effort
+      }
+
+      // 3. Cancel all stream subscriptions
       await _locationSubscription?.cancel();
       await _geofenceSubscription?.cancel();
       await _errorSubscription?.cancel();
       await _performanceSubscription?.cancel();
 
-      // 3. Close all stream controllers
+      // 4. Close all stream controllers
       await _runtimeStatusController.close();
       await _eventController.close();
       await _locationController.close();
       await _errorController.close();
       await _statusController.close();
 
-      // 4. Cleanup analytics session (only if analytics initialized)
+      // 5. Cleanup analytics session (only if analytics initialized)
       if (_analyticsAvailable) {
         try {
           await PolyfenceAnalytics.instance.endSession();
@@ -1682,7 +1716,7 @@ class PolyfenceService {
         }
       }
 
-      // 5. Dispose app lifecycle manager (independent of analytics)
+      // 6. Dispose app lifecycle manager (independent of analytics)
       if (_lifecycleManagerAvailable) {
         try {
           AppLifecycleManager.instance.dispose();
@@ -1691,20 +1725,13 @@ class PolyfenceService {
         }
       }
 
-      // 6. Clear zone cache
+      // 7. Clear zone cache
       _zones.clear();
 
-      // 7. Reset initialization, analytics, and lifecycle flags
+      // 8. Reset initialization, analytics, and lifecycle flags
       _isInitialized = false;
       _analyticsAvailable = false;
       _lifecycleManagerAvailable = false;
-
-      // 8. Notify platform of disposal
-      try {
-        await _platform.dispose();
-      } catch (_) {
-        // Platform disposal is best-effort
-      }
     } catch (e) {
       // Log disposal error but don't throw (disposal should never fail)
       if (kDebugMode) {

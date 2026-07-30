@@ -99,8 +99,8 @@ class GeofenceEvent {
   final int? capturedTs;
 
   /// Milliseconds the event sat in the native durable queue between
-  /// capture and drain. `0` for live events. `null` on releases whose
-  /// native side did not stamp the field.
+  /// capture and drain. `null` on live events (they were never queued);
+  /// non-negative on drained events.
   final int? queuedDurationMs;
 
   /// The full zone object, looked up from the local zone cache by

@@ -5,11 +5,12 @@ import PolyfenceCore
 
 /// Bridge-level tests for the pending-events queue passthrough.
 ///
-/// Mirrors android/src/test/kotlin/io/polyfence/polyfence/flutter/
-/// PendingEventsBridgeTest.kt — every case here has a paired Kotlin test
-/// that drives the same behaviour on the Android bridge. Cross-platform
-/// parity was the meta-lesson from the prior release round: platform tests
-/// silently drift when one side is covered and the other is not.
+/// Every case here has a paired Kotlin test in
+/// android/src/test/kotlin/io/polyfence/polyfence/flutter/
+/// PendingEventsBridgeTest.kt that drives the same behaviour on the
+/// Android bridge. Platform tests silently diverge when one side is
+/// covered and the other is not, so cross-platform parity is a required
+/// invariant of any test added to this file.
 class PendingEventsBridgeTests: XCTestCase {
 
     var plugin: PolyfencePlugin!

@@ -88,6 +88,13 @@ class PolyfencePlugin: FlutterPlugin, MethodCallHandler, ActivityAware {
     private lateinit var performanceChannel: EventChannel
     private lateinit var context: Context
 
+    // Stream handlers kept as fields so tests can drive onListen / onCancel
+    // through the exact production wiring — Flutter's EventChannel does not
+    // expose an accessor for its current handler, and the pending-events
+    // queue's persist-vs-live XOR hangs off setBridgeAttached calls that
+    // must fire from these handlers.
+    private var geofenceStreamHandler: EventChannel.StreamHandler? = null
+
 
     override fun onAttachedToEngine(@NonNull flutterPluginBinding: FlutterPlugin.FlutterPluginBinding) {
         context = flutterPluginBinding.applicationContext
@@ -131,16 +138,25 @@ class PolyfencePlugin: FlutterPlugin, MethodCallHandler, ActivityAware {
             }
         })
         
-        // Setup geofence event channel
+        // Setup geofence event channel. The geofence sink is the load-bearing
+        // signal for the durable pending-events queue: when it goes away,
+        // core must persist events instead of delivering; when it comes
+        // back, core must live-deliver again. Tie setBridgeAttached to
+        // onListen / onCancel so a Dart stream unsubscribe / re-subscribe
+        // cycle correctly flips core's persist gate — initialize / dispose
+        // are not granular enough on their own.
         geofenceChannel = EventChannel(flutterPluginBinding.binaryMessenger, GEOFENCE_CHANNEL)
-        geofenceChannel.setStreamHandler(object : EventChannel.StreamHandler {
+        geofenceStreamHandler = object : EventChannel.StreamHandler {
             override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
                 geofenceSink = events
+                LocationTracker.setBridgeAttached(true)
             }
             override fun onCancel(arguments: Any?) {
                 geofenceSink = null
+                LocationTracker.setBridgeAttached(false)
             }
-        })
+        }
+        geofenceChannel.setStreamHandler(geofenceStreamHandler)
         
         // Setup performance event channel
         performanceChannel = EventChannel(flutterPluginBinding.binaryMessenger, PERFORMANCE_CHANNEL)
@@ -699,18 +715,17 @@ class PolyfencePlugin: FlutterPlugin, MethodCallHandler, ActivityAware {
         }
 
         override fun onGeofenceEvent(eventData: Map<String, Any>) {
-            // Belt-and-braces crash-recovery for the case where the Flutter
-            // engine dies without a clean detach — the plugin cannot call
-            // setBridgeAttached(false) on the way out, so the geofence
-            // event would otherwise be reported as delivered while landing
-            // in a null sink. Throwing lets core's existing try/catch flip
-            // bridgeAttached = false and route the event to the durable
-            // queue on the next fire. The primary lifecycle signal is
-            // LocationTracker.setBridgeAttached in initialize / dispose /
-            // onDetachedFromEngine; this path is the safety net.
-            val sink = geofenceSink
-                ?: throw IllegalStateException("geofence sink not attached")
-            mainHandler.post { sink.success(eventData) }
+            // Attach state is the authoritative gate — the geofence
+            // EventChannel's onListen / onCancel wire setBridgeAttached to
+            // this sink's lifecycle, so core only invokes this delegate
+            // when a sink was attached at the time of the check. The
+            // null-safe post covers the tiny race between core reading
+            // bridgeAttached=true and this callback running after an
+            // onCancel raced in on the platform thread; an in-flight
+            // event may drop silently in that window, which is acceptable
+            // because setBridgeAttached(false) has already flipped so the
+            // next event lands in the durable queue (when opted in).
+            mainHandler.post { geofenceSink?.success(eventData) }
         }
 
         override fun onPerformanceEvent(performanceData: Map<String, Any>) {

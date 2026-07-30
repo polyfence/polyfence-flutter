@@ -15,7 +15,7 @@ Here's exactly what gets sent to our analytics endpoint when a session ends:
   "app_identifier": "com.example.logistics",
   "platform": "android",
   "plugin_version": "2.2.0",
-  "core_version": "1.0.14",
+  "core_version": "1.1.0",
 
   "industry_category": null,
   "use_case": null,
@@ -83,7 +83,7 @@ Here's exactly what gets sent to our analytics endpoint when a session ends:
 | `platform` | string | `"android"` | Operating system |
 | `plugin_version` | string | `"2.2.0"` | Plugin version |
 | `bridge_platform` | string | `"flutter"` | Bridge layer (e.g. `flutter`, `react-native`). Set automatically. |
-| `core_version` | string | `"1.0.14"` | Native engine version from polyfence-core. Stamped automatically by TelemetryAggregator. |
+| `core_version` | string | `"1.1.0"` | Native engine version from polyfence-core. Stamped automatically by TelemetryAggregator. |
 
 ### Performance Metrics
 

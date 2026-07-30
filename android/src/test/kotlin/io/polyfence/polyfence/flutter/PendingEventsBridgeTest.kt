@@ -19,11 +19,11 @@ import org.mockito.junit.MockitoJUnitRunner
 /**
  * Bridge-level tests for the pending-events queue passthrough.
  *
- * Mirrors the assertions in the iOS test/ios/PendingEventsBridgeTests.swift
- * — every case here has a paired Swift test that drives the same behaviour
- * on the iOS bridge. Cross-platform parity was the meta-lesson from the
- * prior release round: platform tests silently drift when one side is
- * covered and the other is not.
+ * Every case here has a paired Swift test in
+ * ios/Tests/PendingEventsBridgeTests.swift that drives the same behaviour
+ * on the iOS bridge. Platform tests silently diverge when one side is
+ * covered and the other is not, so cross-platform parity is a required
+ * invariant of any test added to this file.
  *
  * MockK is used for polyfence-core companion stubbing (Mockito's mockStatic
  * cannot intercept Kotlin companion methods without @JvmStatic on core;
@@ -199,6 +199,59 @@ class PendingEventsBridgeTest {
         plugin.onDetachedFromEngine(binding)
 
         mockkVerify { LocationTracker.setBridgeAttached(false) }
+    }
+
+    @Test
+    fun geofenceStreamOnListenCallsSetBridgeAttachedTrue() {
+        // The geofence sink's presence is the load-bearing signal for
+        // core's persist-vs-live XOR — production wiring must call
+        // setBridgeAttached(true) inside onListen so a re-subscribe after
+        // an onCancel correctly flips core back to live delivery.
+        every { LocationTracker.setBridgeAttached(any()) } returns Unit
+
+        val binding = mock(io.flutter.embedding.engine.plugins.FlutterPlugin.FlutterPluginBinding::class.java)
+        val binaryMessenger = mock(io.flutter.plugin.common.BinaryMessenger::class.java)
+        `when`(binding.binaryMessenger).thenReturn(binaryMessenger)
+        `when`(binding.applicationContext).thenReturn(mock(Context::class.java))
+        plugin.onAttachedToEngine(binding)
+
+        val handler = extractGeofenceStreamHandler(plugin)
+        val sink = mock(io.flutter.plugin.common.EventChannel.EventSink::class.java)
+        handler.onListen("geofence", sink)
+
+        mockkVerify { LocationTracker.setBridgeAttached(true) }
+    }
+
+    @Test
+    fun geofenceStreamOnCancelCallsSetBridgeAttachedFalse() {
+        // Symmetric with onListen: onCancel must call setBridgeAttached(false)
+        // so an unsubscribed Dart stream flips core to the persist path
+        // instead of leaving core believing the bridge is still receiving.
+        every { LocationTracker.setBridgeAttached(any()) } returns Unit
+
+        val binding = mock(io.flutter.embedding.engine.plugins.FlutterPlugin.FlutterPluginBinding::class.java)
+        val binaryMessenger = mock(io.flutter.plugin.common.BinaryMessenger::class.java)
+        `when`(binding.binaryMessenger).thenReturn(binaryMessenger)
+        `when`(binding.applicationContext).thenReturn(mock(Context::class.java))
+        plugin.onAttachedToEngine(binding)
+
+        val handler = extractGeofenceStreamHandler(plugin)
+        val sink = mock(io.flutter.plugin.common.EventChannel.EventSink::class.java)
+        handler.onListen("geofence", sink)
+        handler.onCancel("geofence")
+
+        // Verify BOTH calls happened in order — this simulates the full
+        // subscribe / unsubscribe cycle. Any drop of the setBridgeAttached
+        // call from onCancel would fail this assertion.
+        mockkVerify(exactly = 1) { LocationTracker.setBridgeAttached(false) }
+    }
+
+    private fun extractGeofenceStreamHandler(
+        plugin: PolyfencePlugin
+    ): io.flutter.plugin.common.EventChannel.StreamHandler {
+        val handlerField = PolyfencePlugin::class.java.getDeclaredField("geofenceStreamHandler")
+        handlerField.isAccessible = true
+        return handlerField.get(plugin) as io.flutter.plugin.common.EventChannel.StreamHandler
     }
 
     @Test

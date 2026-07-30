@@ -391,6 +391,40 @@ class PolyfencePlugin: FlutterPlugin, MethodCallHandler, ActivityAware {
                 }
             }
 
+            "drainPendingEvents" -> {
+                try {
+                    val raw = LocationTracker.drainPendingEvents(context)
+                    val nowMs = System.currentTimeMillis()
+                    val enriched = raw.map { event ->
+                        val capturedTs = (event["timestamp"] as? Number)?.toLong() ?: nowMs
+                        val queued = (nowMs - capturedTs).coerceAtLeast(0L)
+                        HashMap<String, Any>(event).apply {
+                            put("deliveredLate", true)
+                            put("capturedTs", capturedTs)
+                            put("queuedDurationMs", queued)
+                        }
+                    }
+                    result.success(enriched)
+                } catch (e: Exception) {
+                    Log.e("PolyfencePlugin", "Failed to drain pending events: ${e.message}")
+                    result.error("DRAIN_PENDING_EVENTS_FAILED", e.message, null)
+                }
+            }
+
+            "pendingEventsDroppedCount" -> {
+                try {
+                    result.success(LocationTracker.pendingEventsDroppedCount(context))
+                } catch (e: Exception) {
+                    Log.e("PolyfencePlugin", "Failed to read pending events dropped count: ${e.message}")
+                    result.error("PENDING_EVENTS_DROPPED_COUNT_FAILED", e.message, null)
+                }
+            }
+
+            "dispose" -> {
+                signalBridgeDetached()
+                result.success(null)
+            }
+
             else -> {
                 result.notImplemented()
             }
@@ -629,13 +663,38 @@ class PolyfencePlugin: FlutterPlugin, MethodCallHandler, ActivityAware {
     }
     
     override fun onDetachedFromEngine(@NonNull binding: FlutterPlugin.FlutterPluginBinding) {
+        // Signal to core that live delivery is going away BEFORE the sinks
+        // are nulled — otherwise a geofence event racing this teardown could
+        // land in delegate.onGeofenceEvent while geofenceSink is already null
+        // and never reach the persist branch (mainHandler.post on a null
+        // sink is a silent no-op, so deliveredLive would still be true).
+        signalBridgeDetached()
+
         methodChannel.setMethodCallHandler(null)
         locationChannel.setStreamHandler(null)
         geofenceChannel.setStreamHandler(null)
         locationSink = null
         geofenceSink = null
     }
-    
+
+    /**
+     * Route the "bridge sink no longer receiving" signal to core so the next
+     * geofence event auto-flips to the persist path instead of dropping
+     * silently at the delegate boundary.
+     *
+     * Core exposes `LocationTracker.setBridgeAttached(Boolean)` only on the
+     * service instance, not on the companion — the bridge cannot reach it
+     * without a running Service handle. Instead, this plugin makes
+     * `coreDelegate.onGeofenceEvent` throw synchronously when the geofence
+     * sink is null. Core wraps every delegate call in a try/catch that
+     * flips `bridgeAttached = false` on any thrown exception and falls
+     * through to persist the event — so nulling `geofenceSink` here is
+     * enough to trigger the switch on the next fired event.
+     */
+    private fun signalBridgeDetached() {
+        geofenceSink = null
+    }
+
     // PolyfenceCoreDelegate — bridges core events to Flutter EventChannel sinks
     // Every delegate callback marshals to the platform-message
     // (main) thread before touching an EventChannel.EventSink — those
@@ -649,7 +708,15 @@ class PolyfencePlugin: FlutterPlugin, MethodCallHandler, ActivityAware {
         }
 
         override fun onGeofenceEvent(eventData: Map<String, Any>) {
-            mainHandler.post { geofenceSink?.success(eventData) }
+            // Synchronous null-check so a torn-down bridge triggers core's
+            // delegate-throw → auto-flip-to-persist branch instead of
+            // silently accepting the event and reporting it as delivered.
+            // Without this the async mainHandler.post + null-safe sink call
+            // would let `deliveredLive` stay true even when no sink is
+            // attached, defeating the whole pending-events queue.
+            val sink = geofenceSink
+                ?: throw IllegalStateException("geofence sink not attached")
+            mainHandler.post { sink.success(eventData) }
         }
 
         override fun onPerformanceEvent(performanceData: Map<String, Any>) {

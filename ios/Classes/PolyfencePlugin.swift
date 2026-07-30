@@ -29,6 +29,13 @@ public class PolyfencePlugin: NSObject, FlutterPlugin {
     private var geofenceSink: FlutterEventSink?
     private var errorSink: FlutterEventSink?
     private var performanceSink: FlutterEventSink?
+
+    deinit {
+        if let observer = terminationObserver {
+            NotificationCenter.default.removeObserver(observer)
+        }
+        locationTracker?.setBridgeAttached(false)
+    }
     
     // MARK: - Flutter Plugin Registration
     
@@ -102,6 +109,13 @@ public class PolyfencePlugin: NSObject, FlutterPlugin {
             getCurrentZoneStates(result: result)
         case "getSessionTelemetry":
             getSessionTelemetry(result: result)
+        case "drainPendingEvents":
+            drainPendingEvents(result: result)
+        case "pendingEventsDroppedCount":
+            pendingEventsDroppedCount(result: result)
+        case "dispose":
+            signalBridgeDetached()
+            result(nil)
         case "requestBatteryOptimization":
             // iOS does not have a battery-optimization-exemption dialog —
             // the concept is Android-only. No-op so the cross-platform
@@ -157,7 +171,7 @@ public class PolyfencePlugin: NSObject, FlutterPlugin {
             locationTracker?.setLocationCallback { [weak self] locationData in
                 self?.locationSink?(locationData)
             }
-            
+
             locationTracker?.setGeofenceCallback { [weak self] eventData in
                 // Terse geofence event log
                 let eventType = eventData["eventType"] as? String ?? "?"
@@ -170,11 +184,75 @@ public class PolyfencePlugin: NSObject, FlutterPlugin {
                     sink(eventData)
                 }
             }
-            
+
+            // The bridge is now the live delivery path. Signal to core so the
+            // durable pending-events queue (when enabled via
+            // pendingEventsQueueSize > 0) knows fired events will actually
+            // reach the consumer and does not persist them.
+            locationTracker?.setBridgeAttached(true)
+            observeTerminationForBridgeDetach()
+
             result(nil)
         } catch {
             result(FlutterError(code: "INITIALIZATION_FAILED", message: error.localizedDescription, details: nil))
         }
+    }
+
+    /// Register a one-shot observer that detaches the bridge when the host
+    /// app is about to terminate. The paired queue-persist path only kicks in
+    /// when core knows the bridge is gone; without this hook a foreground
+    /// termination would let events fire after the app is dead but before the
+    /// process is fully torn down, and they would drop at the delegate boundary.
+    private var terminationObserver: NSObjectProtocol?
+    private func observeTerminationForBridgeDetach() {
+        if terminationObserver != nil { return }
+        terminationObserver = NotificationCenter.default.addObserver(
+            forName: UIApplication.willTerminateNotification,
+            object: nil,
+            queue: nil
+        ) { [weak self] _ in
+            self?.signalBridgeDetached()
+        }
+    }
+
+    /// Signal to core that the bridge's delivery sink is no longer receiving,
+    /// so subsequent geofence events land in the durable queue (when opted-in
+    /// via pendingEventsQueueSize > 0) instead of dropping.
+    private func signalBridgeDetached() {
+        locationTracker?.setBridgeAttached(false)
+    }
+
+    private func drainPendingEvents(result: @escaping FlutterResult) {
+        guard let locationTracker = locationTracker else {
+            result([[String: Any]]())
+            return
+        }
+        let raw = locationTracker.drainPendingEvents()
+        let nowMs = Int64(Date().timeIntervalSince1970 * 1000)
+        let enriched: [[String: Any]] = raw.map { event in
+            var out = event
+            let capturedTs: Int64
+            if let ts = event["timestamp"] as? Int64 {
+                capturedTs = ts
+            } else if let n = event["timestamp"] as? NSNumber {
+                capturedTs = n.int64Value
+            } else {
+                capturedTs = nowMs
+            }
+            out["deliveredLate"] = true
+            out["capturedTs"] = capturedTs
+            out["queuedDurationMs"] = max(0, nowMs - capturedTs)
+            return out
+        }
+        result(enriched)
+    }
+
+    private func pendingEventsDroppedCount(result: @escaping FlutterResult) {
+        guard let locationTracker = locationTracker else {
+            result(0)
+            return
+        }
+        result(locationTracker.pendingEventsDroppedCount())
     }
     
     private func requestLocationPermissions(always: Bool, result: @escaping FlutterResult) {

@@ -1,5 +1,5 @@
 group 'io.polyfence.polyfence'
-version '2.1.1'
+version '2.2.0'
 
 buildscript {
     ext.kotlin_version = '1.8.22'
@@ -58,7 +58,12 @@ dependencies {
     implementation 'androidx.core:core-ktx:1.10.1'
     implementation 'com.google.android.gms:play-services-location:21.0.1'
     implementation 'androidx.work:work-runtime-ktx:2.8.1'
-    implementation 'io.polyfence:polyfence-core:1.0.14'
+    // Pinned to the coordinated mobile release train: polyfence-core 1.1.0
+    // ships the durable pending-events queue primitive and the drain-then-
+    // reconcile ordering this plugin's drainPendingEvents API is a passthrough
+    // for. Local builds against the 1.1.0 pre-release require the paired
+    // polyfence-core branch to be published to mavenLocal until the tag lands.
+    implementation 'io.polyfence:polyfence-core:1.1.0'
     testImplementation 'junit:junit:4.13.2'
     testImplementation 'org.mockito:mockito-core:5.2.0'
     testImplementation 'org.mockito:mockito-inline:5.2.0'

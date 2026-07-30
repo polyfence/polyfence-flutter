@@ -84,6 +84,25 @@ class GeofenceEvent {
   /// signalRestored don't carry a meaningful dwell duration).
   final double? dwellDurationMs;
 
+  /// `true` when this event was drained from the native durable queue via
+  /// [PolyfenceService.drainPendingEvents] — the crossing was detected by
+  /// the native engine while the Dart bridge was not attached, persisted
+  /// to disk, then replayed on next attach. `false` (the default) on every
+  /// live event delivered through [PolyfenceService.onGeofenceEvent].
+  final bool deliveredLate;
+
+  /// Milliseconds-since-epoch when the native engine originally detected
+  /// the crossing. Equals [timestamp]'s epoch value for live events. For
+  /// drained events ([deliveredLate] `true`), this preserves the original
+  /// detection moment; [timestamp] itself already reflects the same
+  /// captured instant when the event was persisted.
+  final int? capturedTs;
+
+  /// Milliseconds the event sat in the native durable queue between
+  /// capture and drain. `0` for live events. `null` on releases whose
+  /// native side did not stamp the field.
+  final int? queuedDurationMs;
+
   /// The full zone object, looked up from the local zone cache by
   /// [zoneId]. May be `null` if the zone was removed (or never
   /// registered) before the event was processed. NOT sent over the
@@ -101,6 +120,9 @@ class GeofenceEvent {
     this.detectionTimeMs,
     this.distanceToBoundaryM,
     this.dwellDurationMs,
+    this.deliveredLate = false,
+    this.capturedTs,
+    this.queuedDurationMs,
     this.zone,
   });
 
@@ -114,6 +136,9 @@ class GeofenceEvent {
       'detectionTimeMs': detectionTimeMs,
       'distanceToBoundaryM': distanceToBoundaryM,
       'dwellDurationMs': dwellDurationMs,
+      'deliveredLate': deliveredLate,
+      'capturedTs': capturedTs,
+      'queuedDurationMs': queuedDurationMs,
       'zone': zone?.toJson(),
     };
   }
@@ -131,6 +156,9 @@ class GeofenceEvent {
       detectionTimeMs: (json['detectionTimeMs'] as num?)?.toDouble(),
       distanceToBoundaryM: (json['distanceToBoundaryM'] as num?)?.toDouble(),
       dwellDurationMs: (json['dwellDurationMs'] as num?)?.toDouble(),
+      deliveredLate: json['deliveredLate'] as bool? ?? false,
+      capturedTs: (json['capturedTs'] as num?)?.toInt(),
+      queuedDurationMs: (json['queuedDurationMs'] as num?)?.toInt(),
       zone: json['zone'] != null ? Zone.fromJson(json['zone']) : null,
     );
   }
@@ -147,6 +175,9 @@ class GeofenceEvent {
         other.detectionTimeMs == detectionTimeMs &&
         other.distanceToBoundaryM == distanceToBoundaryM &&
         other.dwellDurationMs == dwellDurationMs &&
+        other.deliveredLate == deliveredLate &&
+        other.capturedTs == capturedTs &&
+        other.queuedDurationMs == queuedDurationMs &&
         other.zone == zone;
   }
 
@@ -160,6 +191,9 @@ class GeofenceEvent {
         detectionTimeMs,
         distanceToBoundaryM,
         dwellDurationMs,
+        deliveredLate,
+        capturedTs,
+        queuedDurationMs,
         zone,
       );
 }

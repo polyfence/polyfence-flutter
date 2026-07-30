@@ -793,6 +793,11 @@ class PolyfenceService {
         ));
       }
 
+      final deliveredLate = (eventData['deliveredLate'] as bool?) ?? false;
+      final capturedTs = (eventData['capturedTs'] as num?)?.toInt();
+      final queuedDurationMs =
+          (eventData['queuedDurationMs'] as num?)?.toInt();
+
       final event = GeofenceEvent(
         zoneId: zoneId,
         zoneName: zoneName,
@@ -809,6 +814,9 @@ class PolyfenceService {
         detectionTimeMs: detectionTimeMs,
         distanceToBoundaryM: distanceToBoundaryM,
         dwellDurationMs: dwellDurationMs,
+        deliveredLate: deliveredLate,
+        capturedTs: capturedTs,
+        queuedDurationMs: queuedDurationMs,
         zone: zone,
       );
 
@@ -1335,6 +1343,151 @@ class PolyfenceService {
         stackTrace: stackTrace,
       );
     }
+  }
+
+  /// Drain every geofence event the native engine persisted while the Dart
+  /// bridge was not receiving live deliveries. Returns the events in
+  /// oldest-first order and removes them from the on-disk store in the same
+  /// serialised block on the native side. Every returned event carries
+  /// [GeofenceEvent.deliveredLate] `true`, its original detection moment on
+  /// [GeofenceEvent.capturedTs], and how long it waited on
+  /// [GeofenceEvent.queuedDurationMs].
+  ///
+  /// Requires opt-in via [PolyfenceConfiguration.pendingEventsQueueSize] `> 0`.
+  /// Returns an empty list when the queue is disabled or when no events were
+  /// buffered.
+  ///
+  /// Native core also applies the drained events to its persisted zone-state
+  /// map before returning them, so a subsequent
+  /// `RECOVERY_ENTER`/`RECOVERY_EXIT` reconcile only fires when the drain's
+  /// final state genuinely disagrees with current position — no double-report.
+  ///
+  /// **Example:**
+  /// ```dart
+  /// final missed = await Polyfence.instance.drainPendingEvents();
+  /// for (final event in missed) {
+  ///   analytics.recordLateCrossing(event);
+  /// }
+  /// ```
+  ///
+  /// Throws [PolyfenceNotInitializedException] if not initialized.
+  /// Throws [PlatformOperationException] if a platform error occurs.
+  Future<List<GeofenceEvent>> drainPendingEvents() async {
+    _assertNotDisposed();
+    if (!_isInitialized) throw PolyfenceNotInitializedException();
+
+    try {
+      final raw = await _platform.drainPendingEvents();
+      final events = <GeofenceEvent>[];
+      for (final map in raw) {
+        final parsed = _parseDrainedEvent(map);
+        if (parsed != null) events.add(parsed);
+      }
+      return events;
+    } on PlatformException catch (e, stackTrace) {
+      throw PlatformOperationException(
+        'drainPendingEvents',
+        e.message ?? 'Unknown error',
+        details: {'code': e.code, 'details': e.details},
+        innerException: e,
+        stackTrace: stackTrace,
+      );
+    }
+  }
+
+  /// Cumulative count of events the native durable queue has evicted since
+  /// first construction of a store on this device. Oldest-first eviction
+  /// fires whenever a new event arrives with the queue at capacity. The
+  /// counter persists across process restarts and never resets — it is an
+  /// observability signal for `pendingEventsQueueSize` being too small.
+  ///
+  /// Returns `0` when the queue has never evicted and when it is disabled.
+  ///
+  /// Throws [PolyfenceNotInitializedException] if not initialized.
+  /// Throws [PlatformOperationException] if a platform error occurs.
+  Future<int> pendingEventsDroppedCount() async {
+    _assertNotDisposed();
+    if (!_isInitialized) throw PolyfenceNotInitializedException();
+
+    try {
+      return await _platform.pendingEventsDroppedCount();
+    } on PlatformException catch (e, stackTrace) {
+      throw PlatformOperationException(
+        'pendingEventsDroppedCount',
+        e.message ?? 'Unknown error',
+        details: {'code': e.code, 'details': e.details},
+        innerException: e,
+        stackTrace: stackTrace,
+      );
+    }
+  }
+
+  GeofenceEvent? _parseDrainedEvent(Map<String, dynamic> eventData) {
+    final zoneId = eventData['zoneId'] as String?;
+    final eventTypeRaw = (eventData['eventType'] as String?)?.toUpperCase();
+    if (zoneId == null || eventTypeRaw == null) return null;
+
+    final GeofenceEventType? geofenceEventType = switch (eventTypeRaw) {
+      'ENTER' => GeofenceEventType.enter,
+      'EXIT' => GeofenceEventType.exit,
+      'DWELL' => GeofenceEventType.dwell,
+      'RECOVERY_ENTER' => GeofenceEventType.recoveryEnter,
+      'RECOVERY_EXIT' => GeofenceEventType.recoveryExit,
+      'SIGNAL_LOST' => GeofenceEventType.signalLost,
+      'SIGNAL_RESTORED' => GeofenceEventType.signalRestored,
+      _ => null,
+    };
+    if (geofenceEventType == null) return null;
+
+    final timestampRaw = eventData['timestamp'];
+    final int timestamp = timestampRaw is int
+        ? timestampRaw
+        : (timestampRaw is num
+            ? timestampRaw.toInt()
+            : DateTime.now().millisecondsSinceEpoch);
+
+    final capturedTs = (eventData['capturedTs'] as num?)?.toInt() ?? timestamp;
+    final nowMs = DateTime.now().millisecondsSinceEpoch;
+    final queuedDurationMs =
+        (eventData['queuedDurationMs'] as num?)?.toInt() ??
+            (nowMs - capturedTs);
+
+    final lat = (eventData['latitude'] as num?)?.toDouble();
+    final lng = (eventData['longitude'] as num?)?.toDouble();
+    final acc = (eventData['gpsAccuracy'] as num?)?.toDouble() ??
+        (eventData['accuracy'] as num?)?.toDouble();
+    final speed = (eventData['speedMps'] as num?)?.toDouble();
+    final activity = eventData['activityAtEvent'] as String?;
+    final detectionTimeMs =
+        (eventData['detectionTimeMs'] as num?)?.toDouble();
+    final distanceToBoundaryM =
+        (eventData['distanceToBoundaryM'] as num?)?.toDouble();
+    final dwellDurationMs =
+        (eventData['dwellDurationMs'] as num?)?.toDouble();
+    final zoneName = (eventData['zoneName'] as String?) ?? '';
+    final zone = _zones[zoneId];
+
+    return GeofenceEvent(
+      zoneId: zoneId,
+      zoneName: zoneName,
+      type: geofenceEventType,
+      location: PolyfenceLocation(
+        latitude: lat ?? 0.0,
+        longitude: lng ?? 0.0,
+        accuracy: acc,
+        speed: speed,
+        timestamp: DateTime.fromMillisecondsSinceEpoch(timestamp),
+        activity: activity,
+      ),
+      timestamp: DateTime.fromMillisecondsSinceEpoch(timestamp),
+      detectionTimeMs: detectionTimeMs,
+      distanceToBoundaryM: distanceToBoundaryM,
+      dwellDurationMs: dwellDurationMs,
+      deliveredLate: true,
+      capturedTs: capturedTs,
+      queuedDurationMs: queuedDurationMs,
+      zone: zone,
+    );
   }
 
   /// Sets GPS accuracy profile for common use cases.

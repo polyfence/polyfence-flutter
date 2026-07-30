@@ -83,6 +83,24 @@ abstract class PolyfencePlatform extends PlatformInterface {
   /// **not** a fresh GPS point-in-polygon calculation, and only zones currently
   /// tracked by the engine are included.
   Future<Map<String, bool>> getZoneStates();
+
+  /// Drain every geofence event the native engine persisted while the bridge
+  /// was not attached. Returns raw event maps in oldest-first order and removes
+  /// them from disk in the same serialised block. Returns an empty list when
+  /// no events are queued or the queue is disabled
+  /// (`pendingEventsQueueSize == 0`).
+  Future<List<Map<String, dynamic>>> drainPendingEvents() async {
+    throw UnimplementedError('drainPendingEvents() has not been implemented.');
+  }
+
+  /// Cumulative count of events the native durable queue has evicted since
+  /// first construction of a store on this device (oldest-first eviction fires
+  /// when the queue cap is reached). Persists across process restarts. Returns
+  /// `0` when the queue has never evicted and when it is disabled.
+  Future<int> pendingEventsDroppedCount() async {
+    throw UnimplementedError(
+        'pendingEventsDroppedCount() has not been implemented.');
+  }
 }
 
 class MethodChannelPolyfence extends PolyfencePlatform {
@@ -283,6 +301,24 @@ class MethodChannelPolyfence extends PolyfencePlatform {
         .invokeMethod<Map<Object?, Object?>>('getSessionTelemetry');
     if (result == null) return {};
     return _deepCastMap(result);
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> drainPendingEvents() async {
+    final result =
+        await _channel.invokeMethod<List<Object?>>('drainPendingEvents');
+    if (result == null) return const <Map<String, dynamic>>[];
+    return result
+        .map((e) => _deepCastMap(Map<Object?, Object?>.from(e as Map)))
+        .toList();
+  }
+
+  @override
+  Future<int> pendingEventsDroppedCount() async {
+    final result =
+        await _channel.invokeMethod<Object?>('pendingEventsDroppedCount');
+    if (result == null) return 0;
+    return (result as num).toInt();
   }
 
   @override

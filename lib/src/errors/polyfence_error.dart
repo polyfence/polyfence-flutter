@@ -69,6 +69,14 @@ enum PolyfenceErrorType {
   /// Device is running low on memory.
   memoryLow,
 
+  /// The durable pending-events queue evicted its oldest entries because it
+  /// was at capacity when a new event arrived. Emitted with
+  /// `context['severity'] == 'warning'` and `context['droppedCount']` set to
+  /// how many events this eviction dropped — a signal that
+  /// `PolyfenceConfiguration.pendingEventsQueueSize` is too small for the
+  /// consumer app's offline gap.
+  pendingEventsEvicted,
+
   /// An unknown error occurred.
   unknown,
 }

@@ -90,6 +90,17 @@ class PolyfenceConfiguration {
   /// a signal-lost event is emitted (resolved by signal-restored or exit).
   final int gpsStalenessTimeoutMs;
 
+  /// Durable pending-events queue capacity. `0` (default) disables persistence
+  /// entirely — geofence events fired while the Dart bridge is not attached
+  /// simply drop, matching every prior release's behaviour. When `> 0`, the
+  /// native engine persists those events to a bounded on-disk ring buffer of
+  /// this many entries; the consumer drains them via
+  /// [PolyfenceService.drainPendingEvents] on next attach. Oldest events evict
+  /// first when the cap is reached and surface through [PolyfenceService.onError]
+  /// as `PolyfenceErrorType.pendingEventsEvicted`. Recommended when enabled:
+  /// `500`.
+  final int pendingEventsQueueSize;
+
   /// Enable debug logging for GPS configuration changes
   final bool enableDebugLogging;
 
@@ -109,6 +120,7 @@ class PolyfenceConfiguration {
     this.disableAlertNotifications = false,
     this.gpsAccuracyThreshold = 100.0,
     this.gpsStalenessTimeoutMs = 0,
+    this.pendingEventsQueueSize = 0,
     this.enableDebugLogging = false,
   }) {
     if (gpsAccuracyThreshold <= 0) {
@@ -122,6 +134,13 @@ class PolyfenceConfiguration {
       throw ArgumentError.value(
         gpsStalenessTimeoutMs,
         'gpsStalenessTimeoutMs',
+        'must not be negative',
+      );
+    }
+    if (pendingEventsQueueSize < 0) {
+      throw ArgumentError.value(
+        pendingEventsQueueSize,
+        'pendingEventsQueueSize',
         'must not be negative',
       );
     }
@@ -141,6 +160,7 @@ class PolyfenceConfiguration {
     bool? disableAlertNotifications,
     double? gpsAccuracyThreshold,
     int? gpsStalenessTimeoutMs,
+    int? pendingEventsQueueSize,
     bool? enableDebugLogging,
   }) {
     return PolyfenceConfiguration(
@@ -156,6 +176,7 @@ class PolyfenceConfiguration {
       disableAlertNotifications: disableAlertNotifications ?? this.disableAlertNotifications,
       gpsAccuracyThreshold: gpsAccuracyThreshold ?? this.gpsAccuracyThreshold,
       gpsStalenessTimeoutMs: gpsStalenessTimeoutMs ?? this.gpsStalenessTimeoutMs,
+      pendingEventsQueueSize: pendingEventsQueueSize ?? this.pendingEventsQueueSize,
       enableDebugLogging: enableDebugLogging ?? this.enableDebugLogging,
     );
   }
@@ -179,6 +200,7 @@ class PolyfenceConfiguration {
       'disableAlertNotifications': disableAlertNotifications,
       'gpsAccuracyThreshold': gpsAccuracyThreshold,
       'gpsStalenessTimeoutMs': gpsStalenessTimeoutMs,
+      'pendingEventsQueueSize': pendingEventsQueueSize,
       'enableDebugLogging': enableDebugLogging,
     };
   }
@@ -222,6 +244,8 @@ class PolyfenceConfiguration {
           (map['gpsAccuracyThreshold'] as num?)?.toDouble() ?? 100.0,
       gpsStalenessTimeoutMs:
           (map['gpsStalenessTimeoutMs'] as num?)?.toInt() ?? 0,
+      pendingEventsQueueSize:
+          (map['pendingEventsQueueSize'] as num?)?.toInt() ?? 0,
       enableDebugLogging: map['enableDebugLogging'] ?? false,
     );
   }
@@ -242,6 +266,7 @@ class PolyfenceConfiguration {
         other.disableAlertNotifications == disableAlertNotifications &&
         other.gpsAccuracyThreshold == gpsAccuracyThreshold &&
         other.gpsStalenessTimeoutMs == gpsStalenessTimeoutMs &&
+        other.pendingEventsQueueSize == pendingEventsQueueSize &&
         other.enableDebugLogging == enableDebugLogging;
   }
 
@@ -259,6 +284,7 @@ class PolyfenceConfiguration {
         disableAlertNotifications,
         gpsAccuracyThreshold,
         gpsStalenessTimeoutMs,
+        pendingEventsQueueSize,
         enableDebugLogging,
       );
 
@@ -277,6 +303,7 @@ class PolyfenceConfiguration {
         'disableAlertNotifications: $disableAlertNotifications, '
         'gpsAccuracyThreshold: $gpsAccuracyThreshold, '
         'gpsStalenessTimeoutMs: $gpsStalenessTimeoutMs, '
+        'pendingEventsQueueSize: $pendingEventsQueueSize, '
         'enableDebugLogging: $enableDebugLogging'
         ')';
   }

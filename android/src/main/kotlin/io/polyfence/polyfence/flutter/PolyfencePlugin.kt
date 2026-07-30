@@ -199,6 +199,14 @@ class PolyfencePlugin: FlutterPlugin, MethodCallHandler, ActivityAware {
                 // Wire up delegate so core sends events back to Flutter
                 LocationTracker.setPendingCoreDelegate(coreDelegate)
 
+                // Signal to core that the bridge's delivery sink is now
+                // receiving. Symmetrical with the setBridgeAttached(false)
+                // calls in dispose / onDetachedFromEngine. The companion
+                // stages the value as pending if the Service is not yet
+                // running, so an initialize() before startTracking() still
+                // takes effect on the next Service start.
+                LocationTracker.setBridgeAttached(true)
+
                 result.success(null)
             }
             
@@ -421,7 +429,7 @@ class PolyfencePlugin: FlutterPlugin, MethodCallHandler, ActivityAware {
             }
 
             "dispose" -> {
-                signalBridgeDetached()
+                LocationTracker.setBridgeAttached(false)
                 result.success(null)
             }
 
@@ -664,34 +672,17 @@ class PolyfencePlugin: FlutterPlugin, MethodCallHandler, ActivityAware {
     
     override fun onDetachedFromEngine(@NonNull binding: FlutterPlugin.FlutterPluginBinding) {
         // Signal to core that live delivery is going away BEFORE the sinks
-        // are nulled — otherwise a geofence event racing this teardown could
-        // land in delegate.onGeofenceEvent while geofenceSink is already null
-        // and never reach the persist branch (mainHandler.post on a null
-        // sink is a silent no-op, so deliveredLive would still be true).
-        signalBridgeDetached()
+        // are nulled so subsequent geofence events land in the durable
+        // pending-events queue (when opted in via pendingEventsQueueSize > 0)
+        // instead of dropping. Ordering matters: setBridgeAttached(false)
+        // must be observed by core before any in-flight event races into a
+        // just-nulled sink.
+        LocationTracker.setBridgeAttached(false)
 
         methodChannel.setMethodCallHandler(null)
         locationChannel.setStreamHandler(null)
         geofenceChannel.setStreamHandler(null)
         locationSink = null
-        geofenceSink = null
-    }
-
-    /**
-     * Route the "bridge sink no longer receiving" signal to core so the next
-     * geofence event auto-flips to the persist path instead of dropping
-     * silently at the delegate boundary.
-     *
-     * Core exposes `LocationTracker.setBridgeAttached(Boolean)` only on the
-     * service instance, not on the companion — the bridge cannot reach it
-     * without a running Service handle. Instead, this plugin makes
-     * `coreDelegate.onGeofenceEvent` throw synchronously when the geofence
-     * sink is null. Core wraps every delegate call in a try/catch that
-     * flips `bridgeAttached = false` on any thrown exception and falls
-     * through to persist the event — so nulling `geofenceSink` here is
-     * enough to trigger the switch on the next fired event.
-     */
-    private fun signalBridgeDetached() {
         geofenceSink = null
     }
 
@@ -708,12 +699,15 @@ class PolyfencePlugin: FlutterPlugin, MethodCallHandler, ActivityAware {
         }
 
         override fun onGeofenceEvent(eventData: Map<String, Any>) {
-            // Synchronous null-check so a torn-down bridge triggers core's
-            // delegate-throw → auto-flip-to-persist branch instead of
-            // silently accepting the event and reporting it as delivered.
-            // Without this the async mainHandler.post + null-safe sink call
-            // would let `deliveredLive` stay true even when no sink is
-            // attached, defeating the whole pending-events queue.
+            // Belt-and-braces crash-recovery for the case where the Flutter
+            // engine dies without a clean detach — the plugin cannot call
+            // setBridgeAttached(false) on the way out, so the geofence
+            // event would otherwise be reported as delivered while landing
+            // in a null sink. Throwing lets core's existing try/catch flip
+            // bridgeAttached = false and route the event to the durable
+            // queue on the next fire. The primary lifecycle signal is
+            // LocationTracker.setBridgeAttached in initialize / dispose /
+            // onDetachedFromEngine; this path is the safety net.
             val sink = geofenceSink
                 ?: throw IllegalStateException("geofence sink not attached")
             mainHandler.post { sink.success(eventData) }

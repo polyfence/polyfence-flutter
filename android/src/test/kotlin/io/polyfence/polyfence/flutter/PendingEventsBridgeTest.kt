@@ -4,13 +4,15 @@ import android.content.Context
 import android.content.SharedPreferences
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
+import io.mockk.every
+import io.mockk.mockkObject
+import io.mockk.unmockkObject
+import io.mockk.verify as mockkVerify
 import io.polyfence.core.LocationTracker
 import org.junit.After
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
-import org.mockito.MockedStatic
-import org.mockito.Mockito
 import org.mockito.Mockito.*
 import org.mockito.junit.MockitoJUnitRunner
 
@@ -22,8 +24,13 @@ import org.mockito.junit.MockitoJUnitRunner
  * on the iOS bridge. Cross-platform parity was the meta-lesson from the
  * prior release round: platform tests silently drift when one side is
  * covered and the other is not.
+ *
+ * MockK is used for polyfence-core companion stubbing (Mockito's mockStatic
+ * cannot intercept Kotlin companion methods without @JvmStatic on core;
+ * MockK's mockkObject supports companion objects natively). Mockito is
+ * retained for the FlutterResult mock, matching the rest of the test file.
  */
-@RunWith(MockitoJUnitRunner::class)
+@RunWith(MockitoJUnitRunner.Silent::class)
 class PendingEventsBridgeTest {
 
     private lateinit var plugin: PolyfencePlugin
@@ -45,27 +52,25 @@ class PendingEventsBridgeTest {
         val contextField = PolyfencePlugin::class.java.getDeclaredField("context")
         contextField.isAccessible = true
         contextField.set(plugin, mockContext)
+
+        mockkObject(LocationTracker.Companion)
     }
 
     @After
     fun tearDown() {
-        // reset any static mocks between tests
+        unmockkObject(LocationTracker.Companion)
     }
 
     @Test
     fun drainPendingEventsReturnsEmptyListWhenCoreHasNone() {
-        Mockito.mockStatic(LocationTracker::class.java).use { staticMock ->
-            staticMock.`when`<List<Map<String, Any>>> {
-                LocationTracker.drainPendingEvents(any())
-            }.thenReturn(emptyList())
+        every { LocationTracker.drainPendingEvents(any()) } returns emptyList()
 
-            val call = MethodCall("drainPendingEvents", null)
-            plugin.onMethodCall(call, result)
+        val call = MethodCall("drainPendingEvents", null)
+        plugin.onMethodCall(call, result)
 
-            verify(result).success(emptyList<Map<String, Any>>())
-            verify(result, never()).error(any(), any(), any())
-            verify(result, never()).notImplemented()
-        }
+        verify(result).success(emptyList<Map<String, Any>>())
+        verify(result, never()).error(any(), any(), any())
+        verify(result, never()).notImplemented()
     }
 
     @Test
@@ -82,27 +87,22 @@ class PendingEventsBridgeTest {
                 "detectionTimeMs" to 12.0
             )
         )
+        every { LocationTracker.drainPendingEvents(any()) } returns rawEvents
 
-        Mockito.mockStatic(LocationTracker::class.java).use { staticMock ->
-            staticMock.`when`<List<Map<String, Any>>> {
-                LocationTracker.drainPendingEvents(any())
-            }.thenReturn(rawEvents)
+        val call = MethodCall("drainPendingEvents", null)
+        plugin.onMethodCall(call, result)
 
-            val call = MethodCall("drainPendingEvents", null)
-            plugin.onMethodCall(call, result)
-
-            val captor = org.mockito.ArgumentCaptor.forClass(List::class.java)
-            verify(result).success(captor.capture())
-            @Suppress("UNCHECKED_CAST")
-            val enriched = captor.value as List<Map<String, Any>>
-            assert(enriched.size == 1)
-            val event = enriched[0]
-            assert(event["zoneId"] == "zone-1")
-            assert(event["deliveredLate"] == true)
-            assert(event["capturedTs"] == eventTs)
-            val queued = event["queuedDurationMs"] as Long
-            assert(queued >= 0L) { "queuedDurationMs must not be negative, got $queued" }
-        }
+        val captor = org.mockito.ArgumentCaptor.forClass(List::class.java)
+        verify(result).success(captor.capture())
+        @Suppress("UNCHECKED_CAST")
+        val enriched = captor.value as List<Map<String, Any>>
+        assert(enriched.size == 1)
+        val event = enriched[0]
+        assert(event["zoneId"] == "zone-1")
+        assert(event["deliveredLate"] == true)
+        assert(event["capturedTs"] == eventTs)
+        val queued = event["queuedDurationMs"] as Long
+        assert(queued >= 0L) { "queuedDurationMs must not be negative, got $queued" }
     }
 
     @Test
@@ -111,83 +111,116 @@ class PendingEventsBridgeTest {
             mapOf("zoneId" to "z1", "eventType" to "ENTER", "timestamp" to 1_000L),
             mapOf("zoneId" to "z1", "eventType" to "EXIT", "timestamp" to 2_000L)
         )
+        every { LocationTracker.drainPendingEvents(any()) } returns rawEvents
 
-        Mockito.mockStatic(LocationTracker::class.java).use { staticMock ->
-            staticMock.`when`<List<Map<String, Any>>> {
-                LocationTracker.drainPendingEvents(any())
-            }.thenReturn(rawEvents)
+        val call = MethodCall("drainPendingEvents", null)
+        plugin.onMethodCall(call, result)
 
-            val call = MethodCall("drainPendingEvents", null)
-            plugin.onMethodCall(call, result)
-
-            val captor = org.mockito.ArgumentCaptor.forClass(List::class.java)
-            verify(result).success(captor.capture())
-            @Suppress("UNCHECKED_CAST")
-            val enriched = captor.value as List<Map<String, Any>>
-            assert(enriched.size == 2)
-            assert(enriched[0]["eventType"] == "ENTER")
-            assert(enriched[1]["eventType"] == "EXIT")
-        }
+        val captor = org.mockito.ArgumentCaptor.forClass(List::class.java)
+        verify(result).success(captor.capture())
+        @Suppress("UNCHECKED_CAST")
+        val enriched = captor.value as List<Map<String, Any>>
+        assert(enriched.size == 2)
+        assert(enriched[0]["eventType"] == "ENTER")
+        assert(enriched[1]["eventType"] == "EXIT")
     }
 
     @Test
     fun drainPendingEventsSurfacesCoreExceptionAsPlatformError() {
-        Mockito.mockStatic(LocationTracker::class.java).use { staticMock ->
-            staticMock.`when`<List<Map<String, Any>>> {
-                LocationTracker.drainPendingEvents(any())
-            }.thenThrow(RuntimeException("disk read error"))
+        every { LocationTracker.drainPendingEvents(any()) } throws RuntimeException("disk read error")
 
-            val call = MethodCall("drainPendingEvents", null)
-            plugin.onMethodCall(call, result)
+        val call = MethodCall("drainPendingEvents", null)
+        plugin.onMethodCall(call, result)
 
-            verify(result).error(eq("DRAIN_PENDING_EVENTS_FAILED"), any(), any())
-            verify(result, never()).success(any())
-        }
+        verify(result).error(eq("DRAIN_PENDING_EVENTS_FAILED"), any(), any())
+        verify(result, never()).success(any())
     }
 
     @Test
     fun pendingEventsDroppedCountReturnsZeroInitially() {
-        Mockito.mockStatic(LocationTracker::class.java).use { staticMock ->
-            staticMock.`when`<Long> {
-                LocationTracker.pendingEventsDroppedCount(any())
-            }.thenReturn(0L)
+        every { LocationTracker.pendingEventsDroppedCount(any()) } returns 0L
 
-            val call = MethodCall("pendingEventsDroppedCount", null)
-            plugin.onMethodCall(call, result)
+        val call = MethodCall("pendingEventsDroppedCount", null)
+        plugin.onMethodCall(call, result)
 
-            verify(result).success(0L)
-        }
+        verify(result).success(0L)
     }
 
     @Test
     fun pendingEventsDroppedCountReturnsCoreValueWhenNonZero() {
-        Mockito.mockStatic(LocationTracker::class.java).use { staticMock ->
-            staticMock.`when`<Long> {
-                LocationTracker.pendingEventsDroppedCount(any())
-            }.thenReturn(42L)
+        every { LocationTracker.pendingEventsDroppedCount(any()) } returns 42L
 
-            val call = MethodCall("pendingEventsDroppedCount", null)
-            plugin.onMethodCall(call, result)
+        val call = MethodCall("pendingEventsDroppedCount", null)
+        plugin.onMethodCall(call, result)
 
-            verify(result).success(42L)
-        }
+        verify(result).success(42L)
     }
 
     @Test
-    fun disposeMethodChannelCaseSignalsBridgeDetachedAndReturnsSuccess() {
+    fun disposeMethodChannelCaseCallsSetBridgeAttachedFalseAndReturnsSuccess() {
+        every { LocationTracker.setBridgeAttached(any()) } returns Unit
+
         val call = MethodCall("dispose", null)
         plugin.onMethodCall(call, result)
+
+        mockkVerify { LocationTracker.setBridgeAttached(false) }
         verify(result).success(null)
         verify(result, never()).notImplemented()
+        verify(result, never()).error(any(), any(), any())
+    }
+
+    @Test
+    fun initializeCallsSetBridgeAttachedTrue() {
+        every { LocationTracker.setBridgeAttached(any()) } returns Unit
+        every { LocationTracker.setBridgePlatform(any()) } returns Unit
+        every { LocationTracker.setPendingCoreDelegate(any()) } returns Unit
+        every { LocationTracker.setAlertNotificationsEnabled(any()) } returns Unit
+
+        val call = MethodCall(
+            "initialize",
+            mapOf("licenseKey" to null, "config" to emptyMap<String, Any>())
+        )
+        plugin.onMethodCall(call, result)
+
+        mockkVerify { LocationTracker.setBridgeAttached(true) }
+        verify(result).success(null)
+    }
+
+    @Test
+    fun onDetachedFromEngineCallsSetBridgeAttachedFalseBeforeNullingSinks() {
+        every { LocationTracker.setBridgeAttached(any()) } returns Unit
+
+        val binding = mock(io.flutter.embedding.engine.plugins.FlutterPlugin.FlutterPluginBinding::class.java)
+        val binaryMessenger = mock(io.flutter.plugin.common.BinaryMessenger::class.java)
+        `when`(binding.binaryMessenger).thenReturn(binaryMessenger)
+        `when`(binding.applicationContext).thenReturn(mock(Context::class.java))
+
+        plugin.onAttachedToEngine(binding)
+        plugin.onDetachedFromEngine(binding)
+
+        mockkVerify { LocationTracker.setBridgeAttached(false) }
     }
 
     @Test
     fun pendingEventsQueueSizeFlowsThroughInitializeConfigMap() {
+        every { LocationTracker.setBridgeAttached(any()) } returns Unit
+        every { LocationTracker.setBridgePlatform(any()) } returns Unit
+        every { LocationTracker.setPendingCoreDelegate(any()) } returns Unit
+        every { LocationTracker.setAlertNotificationsEnabled(any()) } returns Unit
+        every { LocationTracker.applyConfigurationDirect(any(), any()) } returns Unit
+
         val config = mapOf<String, Any>("pendingEventsQueueSize" to 500)
         val call = MethodCall("initialize", mapOf("licenseKey" to null, "config" to config))
         plugin.onMethodCall(call, result)
+
+        mockkVerify {
+            LocationTracker.applyConfigurationDirect(
+                any(),
+                match { map: Map<String, Any> ->
+                    map["pendingEventsQueueSize"] == 500
+                }
+            )
+        }
         verify(result).success(null)
-        verify(result, never()).notImplemented()
-        verify(result, never()).error(any(), any(), any())
     }
 }

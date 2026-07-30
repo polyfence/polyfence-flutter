@@ -18,6 +18,7 @@ void main() {
       expect(config.disableAlertNotifications, false);
       expect(config.gpsAccuracyThreshold, 100.0);
       expect(config.gpsStalenessTimeoutMs, 0);
+      expect(config.pendingEventsQueueSize, 0);
       expect(config.enableDebugLogging, false);
     });
 
@@ -65,6 +66,7 @@ void main() {
         disableAlertNotifications: true,
         gpsAccuracyThreshold: 50.0,
         gpsStalenessTimeoutMs: 30000,
+        pendingEventsQueueSize: 500,
         enableDebugLogging: true,
       );
 
@@ -76,6 +78,7 @@ void main() {
       expect(restored.disableAlertNotifications, true);
       expect(restored.gpsAccuracyThreshold, 50.0);
       expect(restored.gpsStalenessTimeoutMs, 30000);
+      expect(restored.pendingEventsQueueSize, 500);
       expect(restored.enableDebugLogging, true);
       expect(restored.proximitySettings, isNotNull);
       expect(restored.movementSettings, isNotNull);
@@ -94,6 +97,7 @@ void main() {
       expect(config.disableAlertNotifications, false);
       expect(config.gpsAccuracyThreshold, 100.0);
       expect(config.gpsStalenessTimeoutMs, 0);
+      expect(config.pendingEventsQueueSize, 0);
       expect(config.enableDebugLogging, false);
       expect(config.proximitySettings, isNull);
       expect(config.movementSettings, isNull);
@@ -103,6 +107,13 @@ void main() {
     test('gpsStalenessTimeoutMs rejects negative values', () {
       expect(
         () => PolyfenceConfiguration(gpsStalenessTimeoutMs: -1),
+        throwsArgumentError,
+      );
+    });
+
+    test('pendingEventsQueueSize rejects negative values', () {
+      expect(
+        () => PolyfenceConfiguration(pendingEventsQueueSize: -1),
         throwsArgumentError,
       );
     });

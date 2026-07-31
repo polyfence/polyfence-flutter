@@ -118,6 +118,79 @@ void main() {
       );
     });
 
+    group('OS wake fences', () {
+      test('osGeofenceWakeEnabled defaults to false and round-trips', () {
+        expect(PolyfenceConfiguration().osGeofenceWakeEnabled, false);
+        expect(PolyfenceConfiguration().toMap()['osGeofenceWakeEnabled'], false);
+
+        final enabled = PolyfenceConfiguration(osGeofenceWakeEnabled: true);
+        expect(enabled.toMap()['osGeofenceWakeEnabled'], true);
+        expect(
+          PolyfenceConfiguration.fromMap(enabled.toMap()).osGeofenceWakeEnabled,
+          true,
+        );
+      });
+
+      test('osGeofenceMaxRegions is omitted from the map when null', () {
+        // Android and iOS have different slot budgets (50 vs 20). Emitting a
+        // key here would force one platform's number onto the other, so the
+        // absent case has to stay absent rather than becoming a default.
+        expect(PolyfenceConfiguration().osGeofenceMaxRegions, isNull);
+        expect(
+          PolyfenceConfiguration().toMap().containsKey('osGeofenceMaxRegions'),
+          false,
+        );
+      });
+
+      test('osGeofenceMaxRegions round-trips when set', () {
+        final config = PolyfenceConfiguration(osGeofenceMaxRegions: 30);
+
+        expect(config.toMap()['osGeofenceMaxRegions'], 30);
+        expect(
+          PolyfenceConfiguration.fromMap(config.toMap()).osGeofenceMaxRegions,
+          30,
+        );
+      });
+
+      test('osGeofenceMaxRegions passes out-of-range values through', () {
+        // The native engine clamps into the platform's usable range and
+        // reports the effective budget back through getConfiguration().
+        // Clamping here as well would produce two answers for one question.
+        expect(
+          PolyfenceConfiguration(osGeofenceMaxRegions: 5000)
+              .toMap()['osGeofenceMaxRegions'],
+          5000,
+        );
+        expect(
+          PolyfenceConfiguration(osGeofenceMaxRegions: 0)
+              .toMap()['osGeofenceMaxRegions'],
+          0,
+        );
+      });
+
+      test('copyWith carries both fields', () {
+        final original = PolyfenceConfiguration(
+          osGeofenceWakeEnabled: true,
+          osGeofenceMaxRegions: 30,
+        );
+        final modified = original.copyWith(gpsAccuracyThreshold: 50.0);
+
+        expect(modified.osGeofenceWakeEnabled, true);
+        expect(modified.osGeofenceMaxRegions, 30);
+      });
+
+      test('equality and hashCode account for both fields', () {
+        final base = PolyfenceConfiguration();
+
+        expect(base == PolyfenceConfiguration(osGeofenceWakeEnabled: true),
+            false);
+        expect(
+            base == PolyfenceConfiguration(osGeofenceMaxRegions: 30), false);
+        expect(base == PolyfenceConfiguration(), true);
+        expect(base.hashCode, PolyfenceConfiguration().hashCode);
+      });
+    });
+
     test('copyWith updates specified fields and preserves others', () {
       final original = PolyfenceConfiguration(
         accuracyProfile: PolyfenceAccuracyProfile.maxAccuracy,

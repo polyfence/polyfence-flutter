@@ -608,8 +608,15 @@ class PolyfenceService {
   /// 4. Begin monitoring all added zones for entry/exit events
   ///
   /// **Permissions:**
-  /// - Android: Requires `ACCESS_FINE_LOCATION` and `ACCESS_BACKGROUND_LOCATION`
-  /// - iOS: Requires "Always" location permission for background tracking
+  /// - Android: `ACCESS_FINE_LOCATION` or `ACCESS_COARSE_LOCATION`, plus
+  ///   `FOREGROUND_SERVICE_LOCATION` on API 34+. Tracking runs in a foreground
+  ///   service typed `location`, which holds location access on its own —
+  ///   `ACCESS_BACKGROUND_LOCATION` is required only when
+  ///   [PolyfenceConfiguration.osGeofenceWakeEnabled] is set, and without it
+  ///   wake fences degrade to polling while tracking continues.
+  /// - iOS: "When In Use" is enough. "Always" is required only when
+  ///   [PolyfenceConfiguration.osGeofenceWakeEnabled] is set, because region
+  ///   callbacks after process death cannot be delivered under "When In Use".
   ///
   /// **Example:**
   /// ```dart
@@ -974,18 +981,28 @@ class PolyfenceService {
     }
   }
 
-  /// Requests location permissions from the user.
+  /// Reports whether the permissions tracking needs are held, and on iOS asks
+  /// for them if they have not been decided yet.
   ///
-  /// **Android:**
-  /// - `always: false` - Requests "While in use" permission
-  /// - `always: true` - Requests "Always allow" permission (required for background)
+  /// **Android:** check-only. Runtime permission dialogs need an `Activity` and
+  /// an `onRequestPermissionsResult` callback, neither of which a plugin can
+  /// reach from here — drive the request from your app (for example with
+  /// `permission_handler`) and call this to confirm the outcome. Returns `true`
+  /// once fine or coarse location is granted, plus `FOREGROUND_SERVICE_LOCATION`
+  /// on API 34+.
   ///
-  /// **iOS:**
-  /// - Always requests "Always" permission (required for background geofencing)
+  /// **iOS:** requests "When In Use" when [always] is `false`, and "Always"
+  /// when it is `true`. Returns `true` for either grant.
+  ///
+  /// [always] asks for the stronger background grant on both platforms. Set it
+  /// only when [PolyfenceConfiguration.osGeofenceWakeEnabled] is on — that is
+  /// the only feature that needs location access outside the foreground
+  /// service, and asking for it otherwise puts an Android app through Google
+  /// Play's manual background-location review for nothing.
   ///
   /// **Example:**
   /// ```dart
-  /// final granted = await Polyfence.instance.requestPermissions(always: true);
+  /// final granted = await Polyfence.instance.requestPermissions();
   /// if (!granted) {
   ///   print('Location permission denied');
   /// }

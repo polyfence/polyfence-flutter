@@ -122,6 +122,12 @@ class PolyfenceSystemStatus {
   /// Polyfence plugin version.
   final String pluginVersion;
 
+  /// State of the most recent OS wake-fence registration attempt, or `null`
+  /// when no registration has been attempted — which is what a consumer with
+  /// [PolyfenceConfiguration.osGeofenceWakeEnabled] off always sees, and what
+  /// distinguishes "not opted in" from "opted in and failing".
+  final OsGeofenceRegistrationHealth? osGeofenceRegistrationHealth;
+
   /// Creates system status.
   PolyfenceSystemStatus({
     required this.isLocationPermissionGranted,
@@ -133,10 +139,12 @@ class PolyfenceSystemStatus {
     required this.lastLocationUpdate,
     required this.platformVersion,
     required this.pluginVersion,
+    this.osGeofenceRegistrationHealth,
   });
 
   /// Creates system status from a platform channel map.
   factory PolyfenceSystemStatus.fromMap(Map<String, dynamic> map) {
+    final health = map['osGeofenceRegistrationHealth'];
     return PolyfenceSystemStatus(
       isLocationPermissionGranted: map['isLocationPermissionGranted'] ?? false,
       isBackgroundLocationEnabled: map['isBackgroundLocationEnabled'] ?? false,
@@ -150,6 +158,11 @@ class PolyfenceSystemStatus {
       ),
       platformVersion: map['platformVersion'] ?? 'Unknown',
       pluginVersion: map['pluginVersion'] ?? 'Unknown',
+      osGeofenceRegistrationHealth: health is Map
+          ? OsGeofenceRegistrationHealth.fromMap(
+              Map<String, dynamic>.from(health),
+            )
+          : null,
     );
   }
 
@@ -165,7 +178,8 @@ class PolyfenceSystemStatus {
         other.lastKnownAccuracy == lastKnownAccuracy &&
         other.lastLocationUpdate == lastLocationUpdate &&
         other.platformVersion == platformVersion &&
-        other.pluginVersion == pluginVersion;
+        other.pluginVersion == pluginVersion &&
+        other.osGeofenceRegistrationHealth == osGeofenceRegistrationHealth;
   }
 
   @override
@@ -179,6 +193,7 @@ class PolyfenceSystemStatus {
         lastLocationUpdate,
         platformVersion,
         pluginVersion,
+        osGeofenceRegistrationHealth,
       );
 
   /// Converts to a map for serialization.
@@ -193,7 +208,77 @@ class PolyfenceSystemStatus {
       'lastLocationUpdate': lastLocationUpdate.millisecondsSinceEpoch,
       'platformVersion': platformVersion,
       'pluginVersion': pluginVersion,
+      'osGeofenceRegistrationHealth': osGeofenceRegistrationHealth?.toMap(),
     };
+  }
+}
+
+/// State of the most recent attempt to register zone perimeters with the
+/// operating system's geofence service.
+///
+/// Reached through [PolyfenceSystemStatus.osGeofenceRegistrationHealth], where
+/// `null` means no attempt has been made yet.
+class OsGeofenceRegistrationHealth {
+  /// How many zones Polyfence asked the OS to monitor.
+  final int requested;
+
+  /// How many the OS accepted. Fewer than [requested] means the platform's
+  /// per-app cap was reached and coverage is partial — expected on a large zone
+  /// set, not a failure, and [lastError] stays `null`. Zero while the app is
+  /// foregrounded is also deliberate: slots are released whenever the in-process
+  /// engine is doing the detecting.
+  final int registered;
+
+  /// Why the last attempt could not register everything, or `null` when nothing
+  /// went wrong. `"background_location_denied"` means the grant OS wake fences
+  /// need is missing — `ACCESS_BACKGROUND_LOCATION` on Android, "Always"
+  /// authorization on iOS.
+  final String? lastError;
+
+  /// Creates a registration health snapshot.
+  const OsGeofenceRegistrationHealth({
+    required this.requested,
+    required this.registered,
+    this.lastError,
+  });
+
+  /// Creates a snapshot from a platform channel map.
+  factory OsGeofenceRegistrationHealth.fromMap(Map<String, dynamic> map) {
+    return OsGeofenceRegistrationHealth(
+      requested: (map['requested'] as num?)?.toInt() ?? 0,
+      registered: (map['registered'] as num?)?.toInt() ?? 0,
+      lastError: map['lastError'] as String?,
+    );
+  }
+
+  /// Converts to a map for serialization.
+  Map<String, dynamic> toMap() {
+    return {
+      'requested': requested,
+      'registered': registered,
+      'lastError': lastError,
+    };
+  }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is OsGeofenceRegistrationHealth &&
+        other.requested == requested &&
+        other.registered == registered &&
+        other.lastError == lastError;
+  }
+
+  @override
+  int get hashCode => Object.hash(requested, registered, lastError);
+
+  @override
+  String toString() {
+    return 'OsGeofenceRegistrationHealth('
+        'requested: $requested, '
+        'registered: $registered, '
+        'lastError: $lastError'
+        ')';
   }
 }
 

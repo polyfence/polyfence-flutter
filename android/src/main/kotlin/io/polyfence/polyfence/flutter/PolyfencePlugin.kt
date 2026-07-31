@@ -273,7 +273,7 @@ class PolyfencePlugin: FlutterPlugin, MethodCallHandler, ActivityAware {
             }
             
             "requestPermissions" -> {
-                result.success(hasAllRequiredPerms(context))
+                result.success(hasCoreTrackingPerms(context))
             }
             
             "isLocationServiceEnabled" -> {
@@ -486,18 +486,32 @@ class PolyfencePlugin: FlutterPlugin, MethodCallHandler, ActivityAware {
         }
     }
 
-    private fun hasAllRequiredPerms(context: Context): Boolean {
+    /**
+     * Permissions required to run the tracker at all. Mirrors
+     * `LocationTracker.hasCoreTrackingPerms` in polyfence-core — this gate must
+     * never be stricter than the engine's own, or it refuses work the engine
+     * would have done.
+     *
+     * `ACCESS_BACKGROUND_LOCATION` is deliberately NOT part of this. The tracker
+     * is a foreground service, and a foreground service typed `location` has
+     * location access for as long as it runs. The background permission governs
+     * location access *outside* a foreground service — passive geofences, jobs,
+     * receivers — which is what OS wake fences use and nothing else here does.
+     * Requiring it unconditionally would refuse to start for consumers who
+     * never asked for that capability, and force every integrator through
+     * Google Play's background-location review for a feature they are not
+     * using. iOS accepts "when in use" here, so this is also what makes the
+     * platforms agree.
+     */
+    private fun hasCoreTrackingPerms(context: Context): Boolean {
         val fine = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
         val coarse = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
-        val bgOk = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_BACKGROUND_LOCATION) == PackageManager.PERMISSION_GRANTED
-        } else true
         // API 34 (Android 14) requires FOREGROUND_SERVICE_LOCATION permission
         // Use SDK_INT >= 34 instead of UPSIDE_DOWN_CAKE constant (not available in older SDKs)
         val fgsOk = if (Build.VERSION.SDK_INT >= 34) {
             ContextCompat.checkSelfPermission(context, Manifest.permission.FOREGROUND_SERVICE_LOCATION) == PackageManager.PERMISSION_GRANTED
         } else true
-        return (fine || coarse) && bgOk && fgsOk
+        return (fine || coarse) && fgsOk
     }
     
     private fun startLocationTracking() {

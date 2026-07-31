@@ -101,6 +101,38 @@ class PolyfenceConfiguration {
   /// `500`.
   final int pendingEventsQueueSize;
 
+  /// Registers the nearest active zones with the operating system's geofence
+  /// service so a crossing can still be captured after the app's process is
+  /// fully killed. `false` (default) registers nothing with the OS and shares
+  /// no zone data with it — Polyfence's own engine remains the sole detector
+  /// either way; this is only a wake source.
+  ///
+  /// Requires [pendingEventsQueueSize] `> 0` to be useful: an OS wake writes
+  /// the crossing into that queue and it is delivered on the next
+  /// [PolyfenceService.drainPendingEvents]. With the queue off, the woken
+  /// crossing has nowhere to go and the engine reports
+  /// `PolyfenceErrorType.osGeofenceQueueDisabled`.
+  ///
+  /// Costs the stronger background-location grant: `ACCESS_BACKGROUND_LOCATION`
+  /// (and `RECEIVE_BOOT_COMPLETED`) on Android, "Always" authorization on iOS.
+  /// Without it, wake fences degrade to polling-only and the engine reports
+  /// `PolyfenceErrorType.osGeofencePermissionDenied` — tracking is unaffected.
+  /// Request that grant only when this is on; it puts an Android app through
+  /// Google Play's manual background-location review.
+  final bool osGeofenceWakeEnabled;
+
+  /// How many OS geofence slots Polyfence may occupy while the app is
+  /// backgrounded. `null` (default) uses the native engine's per-platform
+  /// default — 50 of Android's 100-per-app allocation, leaving half free for
+  /// geofences the consumer app registers itself, and 20 on iOS, which is
+  /// already Apple's hard per-app cap.
+  ///
+  /// Values outside the platform's usable range are clamped by the native
+  /// engine, so the effective budget is whatever `getConfiguration()` reports
+  /// back rather than necessarily the value passed here. Only meaningful when
+  /// [osGeofenceWakeEnabled] is `true`.
+  final int? osGeofenceMaxRegions;
+
   /// Enable debug logging for GPS configuration changes
   final bool enableDebugLogging;
 
@@ -121,6 +153,8 @@ class PolyfenceConfiguration {
     this.gpsAccuracyThreshold = 100.0,
     this.gpsStalenessTimeoutMs = 0,
     this.pendingEventsQueueSize = 0,
+    this.osGeofenceWakeEnabled = false,
+    this.osGeofenceMaxRegions,
     this.enableDebugLogging = false,
   }) {
     if (gpsAccuracyThreshold <= 0) {
@@ -161,6 +195,8 @@ class PolyfenceConfiguration {
     double? gpsAccuracyThreshold,
     int? gpsStalenessTimeoutMs,
     int? pendingEventsQueueSize,
+    bool? osGeofenceWakeEnabled,
+    int? osGeofenceMaxRegions,
     bool? enableDebugLogging,
   }) {
     return PolyfenceConfiguration(
@@ -177,6 +213,8 @@ class PolyfenceConfiguration {
       gpsAccuracyThreshold: gpsAccuracyThreshold ?? this.gpsAccuracyThreshold,
       gpsStalenessTimeoutMs: gpsStalenessTimeoutMs ?? this.gpsStalenessTimeoutMs,
       pendingEventsQueueSize: pendingEventsQueueSize ?? this.pendingEventsQueueSize,
+      osGeofenceWakeEnabled: osGeofenceWakeEnabled ?? this.osGeofenceWakeEnabled,
+      osGeofenceMaxRegions: osGeofenceMaxRegions ?? this.osGeofenceMaxRegions,
       enableDebugLogging: enableDebugLogging ?? this.enableDebugLogging,
     );
   }
@@ -201,6 +239,11 @@ class PolyfenceConfiguration {
       'gpsAccuracyThreshold': gpsAccuracyThreshold,
       'gpsStalenessTimeoutMs': gpsStalenessTimeoutMs,
       'pendingEventsQueueSize': pendingEventsQueueSize,
+      'osGeofenceWakeEnabled': osGeofenceWakeEnabled,
+      // Omitted when null so the native engine keeps its own per-platform
+      // default rather than having one platform's number forced onto both.
+      if (osGeofenceMaxRegions != null)
+        'osGeofenceMaxRegions': osGeofenceMaxRegions,
       'enableDebugLogging': enableDebugLogging,
     };
   }
@@ -246,6 +289,8 @@ class PolyfenceConfiguration {
           (map['gpsStalenessTimeoutMs'] as num?)?.toInt() ?? 0,
       pendingEventsQueueSize:
           (map['pendingEventsQueueSize'] as num?)?.toInt() ?? 0,
+      osGeofenceWakeEnabled: map['osGeofenceWakeEnabled'] ?? false,
+      osGeofenceMaxRegions: (map['osGeofenceMaxRegions'] as num?)?.toInt(),
       enableDebugLogging: map['enableDebugLogging'] ?? false,
     );
   }
@@ -267,6 +312,8 @@ class PolyfenceConfiguration {
         other.gpsAccuracyThreshold == gpsAccuracyThreshold &&
         other.gpsStalenessTimeoutMs == gpsStalenessTimeoutMs &&
         other.pendingEventsQueueSize == pendingEventsQueueSize &&
+        other.osGeofenceWakeEnabled == osGeofenceWakeEnabled &&
+        other.osGeofenceMaxRegions == osGeofenceMaxRegions &&
         other.enableDebugLogging == enableDebugLogging;
   }
 
@@ -285,6 +332,8 @@ class PolyfenceConfiguration {
         gpsAccuracyThreshold,
         gpsStalenessTimeoutMs,
         pendingEventsQueueSize,
+        osGeofenceWakeEnabled,
+        osGeofenceMaxRegions,
         enableDebugLogging,
       );
 
@@ -304,6 +353,8 @@ class PolyfenceConfiguration {
         'gpsAccuracyThreshold: $gpsAccuracyThreshold, '
         'gpsStalenessTimeoutMs: $gpsStalenessTimeoutMs, '
         'pendingEventsQueueSize: $pendingEventsQueueSize, '
+        'osGeofenceWakeEnabled: $osGeofenceWakeEnabled, '
+        'osGeofenceMaxRegions: $osGeofenceMaxRegions, '
         'enableDebugLogging: $enableDebugLogging'
         ')';
   }

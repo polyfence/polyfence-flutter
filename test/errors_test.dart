@@ -228,6 +228,50 @@ void main() {
       expect(codes, contains('wake_lock_timeout'));
     });
 
+    test('OS wake-fence codes resolve to their own types, not unknown', () {
+      // These degrade rather than fail loudly, so an unmapped code leaves a
+      // consumer unable to tell "wake coverage is gone" apart from any other
+      // unmapped error. Mirrors polyfence-react-native's NATIVE_CODE_TO_TYPE.
+      const cases = {
+        'os_geofence_permission_denied':
+            PolyfenceErrorType.osGeofencePermissionDenied,
+        'os_geofence_registration_failed':
+            PolyfenceErrorType.osGeofenceRegistrationFailed,
+        'os_geofence_queue_disabled':
+            PolyfenceErrorType.osGeofenceQueueDisabled,
+      };
+
+      cases.forEach((nativeCode, expectedType) {
+        final error = PolyfenceError.fromMap({
+          'type': nativeCode,
+          'message': 'test',
+          'context': {'severity': 'warning'},
+          'timestamp': 0,
+        });
+        expect(error.type, expectedType, reason: nativeCode);
+        expect(
+          PolyfenceError.polyfenceErrorTypeToNativeCode(expectedType),
+          contains(nativeCode),
+        );
+      });
+    });
+
+    test('gps_error resolves to unknown deliberately', () {
+      // The iOS CLLocationManager didFailWithError passthrough carries no
+      // failure classification of its own. Asserted so the decision reads as
+      // a decision rather than an oversight.
+      expect(
+        PolyfenceError.fromMap({'type': 'gps_error', 'message': 'x'}).type,
+        PolyfenceErrorType.unknown,
+      );
+      expect(
+        PolyfenceError.polyfenceErrorTypeToNativeCode(
+          PolyfenceErrorType.unknown,
+        ),
+        contains('gps_error'),
+      );
+    });
+
     test('canonical code is always first (stable ordering for logs)', () {
       final codes = PolyfenceError.polyfenceErrorTypeToNativeCode(
         PolyfenceErrorType.gpsPermissionDenied,

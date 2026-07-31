@@ -102,6 +102,74 @@ void main() {
       expect(status.platformVersion, 'Unknown');
       expect(status.pluginVersion, 'Unknown');
     });
+
+    group('osGeofenceRegistrationHealth', () {
+      test('is null when the native map omits it or sends null', () {
+        // Null is the "no registration attempted" contract, which is what a
+        // consumer with wake fences off always sees — it has to stay
+        // distinguishable from a cap hit or a permission failure.
+        expect(PolyfenceSystemStatus.fromMap({}).osGeofenceRegistrationHealth,
+            isNull);
+        expect(
+          PolyfenceSystemStatus.fromMap({'osGeofenceRegistrationHealth': null})
+              .osGeofenceRegistrationHealth,
+          isNull,
+        );
+      });
+
+      test('parses a cap hit without treating it as an error', () {
+        final status = PolyfenceSystemStatus.fromMap({
+          'osGeofenceRegistrationHealth': {
+            'requested': 40,
+            'registered': 20,
+            'lastError': null,
+          },
+        });
+
+        final health = status.osGeofenceRegistrationHealth;
+        expect(health, isNotNull);
+        expect(health!.requested, 40);
+        expect(health.registered, 20);
+        expect(health.lastError, isNull);
+      });
+
+      test('parses a denied background grant', () {
+        final health = PolyfenceSystemStatus.fromMap({
+          'osGeofenceRegistrationHealth': {
+            'requested': 12,
+            'registered': 0,
+            'lastError': 'background_location_denied',
+          },
+        }).osGeofenceRegistrationHealth;
+
+        expect(health!.lastError, 'background_location_denied');
+        expect(health.registered, 0);
+      });
+
+      test('round-trips through toMap and participates in equality', () {
+        final status = PolyfenceSystemStatus(
+          isLocationPermissionGranted: true,
+          isBackgroundLocationEnabled: false,
+          isBatteryOptimizationDisabled: false,
+          isGpsEnabled: true,
+          isWakeLockAcquired: false,
+          lastKnownAccuracy: 10.0,
+          lastLocationUpdate: DateTime.fromMillisecondsSinceEpoch(0),
+          platformVersion: 'Android 12',
+          pluginVersion: '2.2.0',
+          osGeofenceRegistrationHealth: const OsGeofenceRegistrationHealth(
+            requested: 8,
+            registered: 8,
+          ),
+        );
+
+        final restored = PolyfenceSystemStatus.fromMap(status.toMap());
+
+        expect(restored, status);
+        expect(restored.hashCode, status.hashCode);
+        expect(restored.osGeofenceRegistrationHealth!.registered, 8);
+      });
+    });
   });
 
   group('PolyfencePerformanceMetrics', () {

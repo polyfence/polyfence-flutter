@@ -83,14 +83,35 @@ flutter pub get
 
 ### Android — `android/app/src/main/AndroidManifest.xml`
 
+The minimum viable set. Tracking runs as a foreground service typed `location`, which holds location access for as long as it runs, so foreground location is all it needs:
+
 ```xml
 <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
 <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
-<uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
 <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
 <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
 <uses-permission android:name="android.permission.WAKE_LOCK" />
 <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+```
+
+**Required only if you set `osGeofenceWakeEnabled: true`:**
+
+```xml
+<uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
+<uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+```
+
+`ACCESS_BACKGROUND_LOCATION` governs location access *outside* a foreground service, which is exactly what OS wake fences are: they fire when nothing of yours is running. Declaring it puts your app into Google Play's manual background-location review, which is why base tracking does not need it. `RECEIVE_BOOT_COMPLETED` lets Polyfence re-register wake fences after a device restart — Play Services drops all registered geofences on reboot.
+
+If the grant is missing or revoked, **tracking still runs**: wake fences degrade to polling-only and emit a `PolyfenceErrorType.osGeofencePermissionDenied` event on `onError` with `context['severity'] == 'warning'`, and `debugInfo().systemStatus.osGeofenceRegistrationHealth` reports `lastError == 'background_location_denied'`.
+
+This plugin declares `ACCESS_BACKGROUND_LOCATION` in its own manifest, and manifest merging is a build-time operation that cannot be gated on a runtime flag — so it lands in your merged manifest either way. If you are not using wake fences and want it out of the merged result (and out of Play's review trigger), strip it in your own manifest:
+
+```xml
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+          xmlns:tools="http://schemas.android.com/tools">
+    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION"
+                     tools:node="remove" />
 ```
 
 - **minSdk**: 24+ (Android 7.0)
@@ -181,22 +202,35 @@ await Polyfence.instance.initialize();
 
 ### Step 2: Request Permissions
 
-**iOS:** `requestPermissions(always: true)` triggers the system permission dialog.
+Foreground location is the whole requirement — "While in use" on Android, "When In Use" on iOS. The stronger background grant is needed only for `osGeofenceWakeEnabled`; request it only when you set that flag, and never otherwise. On Android, `Permission.locationAlways.request()` on an already-denied permission shows no prompt and sends the user to the system settings screen.
+
+**iOS:** `requestPermissions()` triggers the system permission dialog. Pass `always: true` only alongside `osGeofenceWakeEnabled: true`.
 
 **Android:** `requestPermissions()` **does not show a dialog** — it only reads the current permission state and returns a boolean. To trigger the OS dialog on Android, use a package like [`permission_handler`](https://pub.dev/packages/permission_handler) first, then call `requestPermissions()` to verify the result.
 
 ```dart
 import 'dart:io' show Platform;
+
+// One flag drives both the permission request and the configuration —
+// requesting the background grant without enabling the feature buys a Play
+// review for nothing, and enabling the feature without the grant leaves it
+// permanently degraded.
+const bool osGeofenceWakeEnabled = false;
+
 // Android only — trigger the OS permission dialog.
 // import 'package:permission_handler/permission_handler.dart';
 // if (Platform.isAndroid) {
 //   await Permission.location.request();
-//   await Permission.locationAlways.request();
+//   if (osGeofenceWakeEnabled) {
+//     await Permission.locationAlways.request();
+//   }
 // }
 
 // Both platforms — verify the result. On iOS this ALSO shows the
 // system dialog on first call.
-final hasPermission = await Polyfence.instance.requestPermissions(always: true);
+final hasPermission = await Polyfence.instance.requestPermissions(
+  always: osGeofenceWakeEnabled,
+);
 if (!hasPermission) {
   // Handle permission denied — e.g. guide the user to Settings.
   return;

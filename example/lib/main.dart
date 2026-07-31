@@ -25,7 +25,28 @@ void main() {
   runApp(const PolyfenceApp());
 }
 
-Future<bool> ensureAndroidTrackingPermissions() async {
+/// Whether this app opts into OS wake fences, which let a zone crossing be
+/// captured after the app's process is killed outright.
+///
+/// Off here because it is not free: it needs `ACCESS_BACKGROUND_LOCATION`, and
+/// asking for that permission puts an Android app into Google Play's manual
+/// background-location review. Base tracking does not need it — the tracker
+/// runs as a foreground service typed `location`, which holds location access
+/// on its own.
+///
+/// One flag drives both the permission request below and the plugin
+/// configuration, because the two must agree: requesting the background grant
+/// without enabling the feature buys a Play review for nothing, and enabling
+/// the feature without the grant leaves it permanently degraded.
+const bool kOsGeofenceWakeEnabled = false;
+
+/// The queue that an OS wake fence deposits a crossing into. Wake fences have
+/// nowhere to store a woken crossing without it, so the two are set together.
+const int kPendingEventsQueueSize = kOsGeofenceWakeEnabled ? 500 : 0;
+
+Future<bool> ensureAndroidTrackingPermissions({
+  bool osGeofenceWakeEnabled = false,
+}) async {
   if (!Platform.isAndroid) return true;
 
   // Notifications (API 33+). If the user has permanently denied, the
@@ -41,16 +62,27 @@ Future<bool> ensureAndroidTrackingPermissions() async {
     if (!notif.isGranted) return false;
   }
 
-  // Fine location first
+  // Foreground location is the whole requirement for tracking.
   final fine = await Permission.location.request();
   if (!fine.isGranted) return false;
 
-  // Background location (API 29+)
-  final always = await Permission.locationAlways.request();
-  if (!always.isGranted) {
-    // Some OEMs require going to settings; guide user
-    await openAppSettings();
-    return false;
+  // Background location (API 29+) buys exactly one thing: OS wake fences.
+  // Requested only when they are enabled, and never otherwise —
+  // `Permission.locationAlways.request()` on an already-denied permission
+  // shows no prompt and sends the user to the system settings screen, so a
+  // request "just in case" is a visible detour with nothing behind it.
+  if (osGeofenceWakeEnabled) {
+    final always = await Permission.locationAlways.request();
+    if (!always.isGranted) {
+      // Tracking still runs on the foreground grant alone; only the
+      // wake-after-process-kill capability is lost. The engine reports the
+      // degradation as an `osGeofencePermissionDenied` error, so this is a
+      // reason to inform the user, not to refuse to start.
+      debugPrint(
+        'Background location denied — OS wake fences will run degraded; '
+        'tracking continues on the foreground grant.',
+      );
+    }
   }
 
   // Activity recognition (API 29+) — powers the SmartGPS intelligent
@@ -168,7 +200,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
       // Check permissions first (Android only)
       if (Platform.isAndroid) {
-        final hasPermissions = await ensureAndroidTrackingPermissions();
+        final hasPermissions = await ensureAndroidTrackingPermissions(
+          osGeofenceWakeEnabled: kOsGeofenceWakeEnabled,
+        );
         if (!hasPermissions) {
           _addErrorEvent('Location permissions required for tracking');
           return;
@@ -199,6 +233,12 @@ class _HomeScreenState extends State<HomeScreen> {
             enabled: true,
             activeRadiusMeters: 5000,
           ),
+          // Set together: a wake fence deposits the crossing it woke for
+          // into the pending-events queue, so the feature is inert with the
+          // queue off. osGeofenceMaxRegions is left unset so each platform
+          // keeps its own slot budget.
+          osGeofenceWakeEnabled: kOsGeofenceWakeEnabled,
+          pendingEventsQueueSize: kPendingEventsQueueSize,
         ),
       );
 

@@ -108,6 +108,13 @@ class PolyfencePlugin: FlutterPlugin, MethodCallHandler, ActivityAware {
         // when the Dart-side subscription is up.
         LocationTracker.setBridgeAttached(false)
 
+        // Declare that this bridge owns the listener-live signal, before any
+        // method-channel call can register a delegate. Core would otherwise
+        // treat delegate registration as a direct-Kotlin consumer subscribing
+        // and replay the durable queue during initialize() — into a Dart
+        // stream the app has not subscribed to yet.
+        LocationTracker.setEventListenerActive(false)
+
         // Setup error event channel — bridges core PolyfenceErrorManager to Flutter
         errorChannel = EventChannel(flutterPluginBinding.binaryMessenger, ERROR_CHANNEL)
         errorChannel.setStreamHandler(object : EventChannel.StreamHandler {
@@ -453,8 +460,15 @@ class PolyfencePlugin: FlutterPlugin, MethodCallHandler, ActivityAware {
                 }
             }
 
+            "setEventListenerActive" -> {
+                val active = call.argument<Boolean>("active") ?: false
+                LocationTracker.setEventListenerActive(active)
+                result.success(null)
+            }
+
             "dispose" -> {
                 LocationTracker.setBridgeAttached(false)
+                LocationTracker.setEventListenerActive(false)
                 result.success(null)
             }
 
@@ -717,6 +731,7 @@ class PolyfencePlugin: FlutterPlugin, MethodCallHandler, ActivityAware {
         // must be observed by core before any in-flight event races into a
         // just-nulled sink.
         LocationTracker.setBridgeAttached(false)
+        LocationTracker.setEventListenerActive(false)
 
         methodChannel.setMethodCallHandler(null)
         locationChannel.setStreamHandler(null)

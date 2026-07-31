@@ -35,6 +35,7 @@ public class PolyfencePlugin: NSObject, FlutterPlugin, PolyfenceCoreDelegate {
             NotificationCenter.default.removeObserver(observer)
         }
         locationTracker?.setBridgeAttached(false)
+        LocationTracker.setEventListenerActive(false)
         locationTracker?.coreDelegate = nil
     }
     
@@ -47,6 +48,13 @@ public class PolyfencePlugin: NSObject, FlutterPlugin, PolyfenceCoreDelegate {
         let errorChannel = FlutterEventChannel(name: "polyfence/error", binaryMessenger: registrar.messenger())
         let performanceChannel = FlutterEventChannel(name: "polyfence/performance", binaryMessenger: registrar.messenger())
         
+        // Declare that this bridge owns the listener-live signal, before any
+        // tracker is constructed. Core would otherwise treat delegate
+        // registration as a direct-Swift consumer subscribing and replay the
+        // durable queue during initialize() — into a Dart stream the app has
+        // not subscribed to yet.
+        LocationTracker.setEventListenerActive(false)
+
         let instance = PolyfencePlugin()
         sharedInstance = instance
         
@@ -114,6 +122,10 @@ public class PolyfencePlugin: NSObject, FlutterPlugin, PolyfenceCoreDelegate {
             drainPendingEvents(result: result)
         case "pendingEventsDroppedCount":
             pendingEventsDroppedCount(result: result)
+        case "setEventListenerActive":
+            let active = (call.arguments as? [String: Any])?["active"] as? Bool ?? false
+            LocationTracker.setEventListenerActive(active)
+            result(nil)
         case "dispose":
             signalBridgeDetached()
             result(nil)
@@ -246,6 +258,7 @@ public class PolyfencePlugin: NSObject, FlutterPlugin, PolyfenceCoreDelegate {
     /// via pendingEventsQueueSize > 0) instead of dropping.
     private func signalBridgeDetached() {
         locationTracker?.setBridgeAttached(false)
+        LocationTracker.setEventListenerActive(false)
     }
 
     private func drainPendingEvents(result: @escaping FlutterResult) {

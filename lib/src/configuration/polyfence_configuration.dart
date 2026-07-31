@@ -101,6 +101,15 @@ class PolyfenceConfiguration {
   /// `500`.
   final int pendingEventsQueueSize;
 
+  /// Whether queued events are delivered automatically the moment a consumer
+  /// starts listening. `true` (default) replays the durable queue through
+  /// [PolyfenceService.onGeofenceEvent] on the first subscription, so a
+  /// crossing captured while the app was dead arrives without the consumer
+  /// asking for it. `false` leaves the queue pull-only —
+  /// [PolyfenceService.drainPendingEvents] is then the only way to get the
+  /// events out. Only meaningful when [pendingEventsQueueSize] `> 0`.
+  final bool pendingEventsAutoDrainEnabled;
+
   /// Registers the nearest active zones with the operating system's geofence
   /// service so a crossing can still be captured after the app's process is
   /// fully killed. `false` (default) registers nothing with the OS and shares
@@ -153,6 +162,7 @@ class PolyfenceConfiguration {
     this.gpsAccuracyThreshold = 100.0,
     this.gpsStalenessTimeoutMs = 0,
     this.pendingEventsQueueSize = 0,
+    this.pendingEventsAutoDrainEnabled = true,
     this.osGeofenceWakeEnabled = false,
     this.osGeofenceMaxRegions,
     this.enableDebugLogging = false,
@@ -195,6 +205,7 @@ class PolyfenceConfiguration {
     double? gpsAccuracyThreshold,
     int? gpsStalenessTimeoutMs,
     int? pendingEventsQueueSize,
+    bool? pendingEventsAutoDrainEnabled,
     bool? osGeofenceWakeEnabled,
     int? osGeofenceMaxRegions,
     bool? enableDebugLogging,
@@ -213,6 +224,8 @@ class PolyfenceConfiguration {
       gpsAccuracyThreshold: gpsAccuracyThreshold ?? this.gpsAccuracyThreshold,
       gpsStalenessTimeoutMs: gpsStalenessTimeoutMs ?? this.gpsStalenessTimeoutMs,
       pendingEventsQueueSize: pendingEventsQueueSize ?? this.pendingEventsQueueSize,
+      pendingEventsAutoDrainEnabled:
+          pendingEventsAutoDrainEnabled ?? this.pendingEventsAutoDrainEnabled,
       osGeofenceWakeEnabled: osGeofenceWakeEnabled ?? this.osGeofenceWakeEnabled,
       osGeofenceMaxRegions: osGeofenceMaxRegions ?? this.osGeofenceMaxRegions,
       enableDebugLogging: enableDebugLogging ?? this.enableDebugLogging,
@@ -239,6 +252,7 @@ class PolyfenceConfiguration {
       'gpsAccuracyThreshold': gpsAccuracyThreshold,
       'gpsStalenessTimeoutMs': gpsStalenessTimeoutMs,
       'pendingEventsQueueSize': pendingEventsQueueSize,
+      'pendingEventsAutoDrainEnabled': pendingEventsAutoDrainEnabled,
       'osGeofenceWakeEnabled': osGeofenceWakeEnabled,
       // Omitted when null so the native engine keeps its own per-platform
       // default rather than having one platform's number forced onto both.
@@ -289,6 +303,8 @@ class PolyfenceConfiguration {
           (map['gpsStalenessTimeoutMs'] as num?)?.toInt() ?? 0,
       pendingEventsQueueSize:
           (map['pendingEventsQueueSize'] as num?)?.toInt() ?? 0,
+      pendingEventsAutoDrainEnabled:
+          map['pendingEventsAutoDrainEnabled'] as bool? ?? true,
       osGeofenceWakeEnabled: map['osGeofenceWakeEnabled'] ?? false,
       osGeofenceMaxRegions: (map['osGeofenceMaxRegions'] as num?)?.toInt(),
       enableDebugLogging: map['enableDebugLogging'] ?? false,
@@ -312,6 +328,7 @@ class PolyfenceConfiguration {
         other.gpsAccuracyThreshold == gpsAccuracyThreshold &&
         other.gpsStalenessTimeoutMs == gpsStalenessTimeoutMs &&
         other.pendingEventsQueueSize == pendingEventsQueueSize &&
+        other.pendingEventsAutoDrainEnabled == pendingEventsAutoDrainEnabled &&
         other.osGeofenceWakeEnabled == osGeofenceWakeEnabled &&
         other.osGeofenceMaxRegions == osGeofenceMaxRegions &&
         other.enableDebugLogging == enableDebugLogging;
@@ -332,6 +349,7 @@ class PolyfenceConfiguration {
         gpsAccuracyThreshold,
         gpsStalenessTimeoutMs,
         pendingEventsQueueSize,
+        pendingEventsAutoDrainEnabled,
         osGeofenceWakeEnabled,
         osGeofenceMaxRegions,
         enableDebugLogging,
@@ -353,6 +371,7 @@ class PolyfenceConfiguration {
         'gpsAccuracyThreshold: $gpsAccuracyThreshold, '
         'gpsStalenessTimeoutMs: $gpsStalenessTimeoutMs, '
         'pendingEventsQueueSize: $pendingEventsQueueSize, '
+        'pendingEventsAutoDrainEnabled: $pendingEventsAutoDrainEnabled, '
         'osGeofenceWakeEnabled: $osGeofenceWakeEnabled, '
         'osGeofenceMaxRegions: $osGeofenceMaxRegions, '
         'enableDebugLogging: $enableDebugLogging'

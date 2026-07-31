@@ -101,6 +101,19 @@ abstract class PolyfencePlatform extends PlatformInterface {
     throw UnimplementedError(
         'pendingEventsDroppedCount() has not been implemented.');
   }
+
+  /// Tell the native engine whether a consumer's geofence-event listener is
+  /// live. Distinct from the plugin's own platform-channel subscription, which
+  /// is attached during `initialize()` and therefore says nothing about a
+  /// subscriber existing. The native side replays the durable queue on the
+  /// false→true edge.
+  ///
+  /// Advisory, and fired on every subscribe / unsubscribe rather than by
+  /// consumer request — so the default is a no-op rather than the
+  /// `UnimplementedError` the request-driven methods above throw. An
+  /// implementation that ignores it leaves the queue pull-only, which is the
+  /// same behaviour as opting out.
+  Future<void> setEventListenerActive(bool active) async {}
 }
 
 class MethodChannelPolyfence extends PolyfencePlatform {
@@ -319,6 +332,11 @@ class MethodChannelPolyfence extends PolyfencePlatform {
         await _channel.invokeMethod<Object?>('pendingEventsDroppedCount');
     if (result == null) return 0;
     return (result as num).toInt();
+  }
+
+  @override
+  Future<void> setEventListenerActive(bool active) async {
+    await _channel.invokeMethod('setEventListenerActive', {'active': active});
   }
 
   @override

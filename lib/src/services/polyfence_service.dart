@@ -77,9 +77,19 @@ class PolyfenceService {
   // When false, lifecycle cleanup is skipped during dispose.
   bool _lifecycleManagerAvailable = false;
 
-  // Event streams for the app
-  final StreamController<GeofenceEvent> _eventController =
-      StreamController<GeofenceEvent>.broadcast();
+  // Event streams for the app.
+  //
+  // The geofence controller reports its own subscriber lifecycle to the native
+  // engine. Nothing else in this class can: the platform-channel subscription
+  // below is opened by [initialize] and stays open for the plugin's lifetime,
+  // so it is attached long before any consumer subscribes. A broadcast
+  // controller with no subscribers discards what it is given, which is exactly
+  // where replayed events would be lost.
+  late final StreamController<GeofenceEvent> _eventController =
+      StreamController<GeofenceEvent>.broadcast(
+    onListen: () => _setGeofenceListenerActive(true),
+    onCancel: () => _setGeofenceListenerActive(false),
+  );
   final StreamController<PolyfenceLocation> _locationController =
       StreamController<PolyfenceLocation>.broadcast();
   final StreamController<PolyfenceError> _errorController =
@@ -221,6 +231,31 @@ class PolyfenceService {
   StreamSubscription<dynamic>? _geofenceSubscription;
   StreamSubscription<dynamic>? _errorSubscription;
   StreamSubscription<Map<String, dynamic>>? _performanceSubscription;
+
+  // Latest subscriber state of [onGeofenceEvent], mirrored to the native
+  // engine. Held here as well as pushed so a subscription taken before
+  // [initialize] is replayed to native once the channel is usable.
+  bool _geofenceListenerActive = false;
+
+  void _setGeofenceListenerActive(bool active) {
+    _geofenceListenerActive = active;
+    _syncGeofenceListenerState();
+  }
+
+  void _syncGeofenceListenerState() {
+    if (!_isInitialized) return;
+    // Fire-and-forget: a consumer subscribing must never be able to throw, and
+    // the native side treats a missed signal as "no listener", which is the
+    // safe reading — events stay queued rather than being replayed into
+    // nothing.
+    _platform.setEventListenerActive(_geofenceListenerActive).catchError(
+      (Object error, StackTrace stackTrace) {
+        if (kDebugMode) {
+          debugPrint('Polyfence: listener signal failed: $error');
+        }
+      },
+    );
+  }
 
   // Zone cache for event creation (read-only)
   final Map<String, Zone> _zones = {};
@@ -412,6 +447,11 @@ class PolyfenceService {
       );
 
       _isInitialized = true;
+
+      // A consumer that subscribed before initialize() had no usable channel to
+      // signal through. Replay the current subscriber state now that there is
+      // one, so the queue is drained for them too.
+      _syncGeofenceListenerState();
     } on PlatformException catch (e, stackTrace) {
       throw PlatformOperationException(
         'initialize',

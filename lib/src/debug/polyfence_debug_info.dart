@@ -154,7 +154,7 @@ class PolyfenceSystemStatus {
       isWakeLockAcquired: map['isWakeLockAcquired'] ?? false,
       lastKnownAccuracy: (map['lastKnownAccuracy'] ?? -1.0).toDouble(),
       lastLocationUpdate: DateTime.fromMillisecondsSinceEpoch(
-        map['lastLocationUpdate'] ?? 0,
+        (map['lastLocationUpdate'] as num?)?.toInt() ?? 0,
       ),
       platformVersion: map['platformVersion'] ?? 'Unknown',
       pluginVersion: map['pluginVersion'] ?? 'Unknown',
@@ -319,14 +319,14 @@ class PolyfencePerformanceMetrics {
   /// Creates performance metrics from a platform channel map.
   factory PolyfencePerformanceMetrics.fromMap(Map<String, dynamic> map) {
     return PolyfencePerformanceMetrics(
-      uptime: Duration(milliseconds: map['uptime'] ?? 0),
-      totalLocationUpdates: map['totalLocationUpdates'] ?? 0,
-      totalZoneDetections: map['totalZoneDetections'] ?? 0,
+      uptime: Duration(milliseconds: (map['uptime'] as num?)?.toInt() ?? 0),
+      totalLocationUpdates: (map['totalLocationUpdates'] as num?)?.toInt() ?? 0,
+      totalZoneDetections: (map['totalZoneDetections'] as num?)?.toInt() ?? 0,
       averageDetectionLatency:
           (map['averageDetectionLatency'] ?? 0.0).toDouble(),
-      memoryUsageMB: map['memoryUsageMB'] ?? 0,
+      memoryUsageMB: (map['memoryUsageMB'] as num?)?.toInt() ?? 0,
       cpuUsagePercent: (map['cpuUsagePercent'] ?? 0.0).toDouble(),
-      restartCount: map['restartCount'] ?? 0,
+      restartCount: (map['restartCount'] as num?)?.toInt() ?? 0,
     );
   }
 
@@ -402,11 +402,12 @@ class PolyfenceBatteryMetrics {
   factory PolyfenceBatteryMetrics.fromMap(Map<String, dynamic> map) {
     return PolyfenceBatteryMetrics(
       estimatedHourlyDrain: (map['estimatedHourlyDrain'] ?? 0.0).toDouble(),
-      gpsActiveTimePercent: map['gpsActiveTimePercent'] ?? 0,
-      wakeUpCount: map['wakeUpCount'] ?? 0,
+      gpsActiveTimePercent: (map['gpsActiveTimePercent'] as num?)?.toInt() ?? 0,
+      wakeUpCount: (map['wakeUpCount'] as num?)?.toInt() ?? 0,
       isCharging: map['isCharging'] ?? false,
-      batteryLevel: map['batteryLevel'] ?? 0,
-      totalActiveTime: Duration(milliseconds: map['totalActiveTime'] ?? 0),
+      batteryLevel: (map['batteryLevel'] as num?)?.toInt() ?? 0,
+      totalActiveTime:
+          Duration(milliseconds: (map['totalActiveTime'] as num?)?.toInt() ?? 0),
     );
   }
 
@@ -474,11 +475,11 @@ class PolyfenceZoneStatus {
   /// Creates zone status from a platform channel map.
   factory PolyfenceZoneStatus.fromMap(Map<String, dynamic> map) {
     return PolyfenceZoneStatus(
-      activeZones: map['activeZones'] ?? 0,
-      circleZones: map['circleZones'] ?? 0,
-      polygonZones: map['polygonZones'] ?? 0,
+      activeZones: (map['activeZones'] as num?)?.toInt() ?? 0,
+      circleZones: (map['circleZones'] as num?)?.toInt() ?? 0,
+      polygonZones: (map['polygonZones'] as num?)?.toInt() ?? 0,
       lastZoneUpdate: DateTime.fromMillisecondsSinceEpoch(
-        map['lastZoneUpdate'] ?? 0,
+        (map['lastZoneUpdate'] as num?)?.toInt() ?? 0,
       ),
       zoneEventCounts: Map<String, int>.from(map['zoneEventCounts'] ?? {}),
     );
@@ -555,7 +556,7 @@ class PolyfenceErrorSummary {
       type: map['type'] ?? 'unknown',
       message: map['message'] ?? '',
       timestamp: DateTime.fromMillisecondsSinceEpoch(
-        map['timestamp'] ?? 0,
+        (map['timestamp'] as num?)?.toInt() ?? 0,
       ),
       correlationId: map['correlationId'],
       context: Map<String, dynamic>.from(map['context'] ?? {}),

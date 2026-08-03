@@ -697,6 +697,24 @@ for (final event in missed) {
 }
 ```
 
+### Replayed events arrive out of order — sort by event time, not arrival
+
+A replayed crossing carries the timestamp of **when it happened**, not when you received it. It is delivered
+through the same callback as a live event, so an event list that simply prepends new arrivals will put a crossing
+from half an hour ago above one that happened since — reading as though the driver were entering that zone *now*.
+
+That is the exact confusion this feature exists to prevent: a late-delivered congestion-charge entry presenting as
+current. Order by the event's own time:
+
+```dart
+events.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+```
+
+Use `deliveredLate` to mark a replayed crossing in your UI rather than folding it into the event type — anything
+that compares the type by equality will silently misclassify a decorated value. `capturedTs` and
+`queuedDurationMs` tell you when it happened and how long it waited, so you can decide whether an action that made
+sense at the time still makes sense now.
+
 When the queue reaches capacity, oldest events evict first and surface via the standard error stream as `PolyfenceErrorType.pendingEventsEvicted` (with `context['severity'] == 'warning'` and `context['droppedCount']`) — a signal to raise the cap or drain more often. The cumulative eviction counter is readable via `Polyfence.instance.pendingEventsDroppedCount()`. Every consumer that leaves `pendingEventsQueueSize` at `0` sees zero behaviour change.
 
 ## Error Handling & Recovery

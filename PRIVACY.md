@@ -21,7 +21,7 @@ The SDK surfaces geofencing to Dart while native engines (Kotlin on Android, Swi
 
 Polyfence collects **zero PII and zero identifiable data about your end users.** The only personal information in our system is YOUR account info (email, billing) — same as any paid SaaS, identical to what Stripe or Vercel hold about you.
 
-This SDK **never collects, transmits, or stores** GPS coordinates, raw location fixes, zone boundaries, addresses, end-user names, contact fields, advertising identifiers, or cross-app tracking tokens. Telemetry, when enabled, is limited to aggregates and operational signals described in [`doc/TELEMETRY.md`](doc/TELEMETRY.md) — never coordinates, never end-user identifiers, never end-user PII.
+This SDK **never collects, transmits, or stores** GPS coordinates, raw location fixes, addresses, end-user names, contact fields, advertising identifiers, or cross-app tracking tokens. Zone perimeters stay on the device too, with one opt-in exception described below. Telemetry, when enabled, is limited to aggregates and operational signals described in [`doc/TELEMETRY.md`](doc/TELEMETRY.md) — never coordinates, never end-user identifiers, never end-user PII.
 
 ---
 
@@ -72,6 +72,35 @@ Different defaults for different data — control on every axis, no privacy thea
 ## This SDK never collects, transmits, or stores
 
 On its own, this SDK **never collects, transmits, or stores** location data, end-user identifiers, or end-user PII. All geofence math runs in `polyfence-core` (Kotlin on Android, Swift on iOS), not in Dart. See [`polyfence-core` PRIVACY.md](https://github.com/polyfence/polyfence-core/blob/main/PRIVACY.md) for the engine’s privacy claims.
+
+### The one exception: OS wake fences (opt-in, off by default)
+
+Phones close background apps to reclaim memory. If you want a zone crossing to still be caught while your app is
+closed, you can set `osGeofenceWakeEnabled` in `PolyfenceConfiguration`. It ships **off**, and only your own app
+code turns it on.
+
+With it on, the SDK registers **zone perimeters** — a centre point and a radius for the zones nearest the device —
+with the phone's own geofence service: Google Play Services on Android, CoreLocation on iOS. That list describes
+**your zones**, not your user: no position, no device identifier, and nothing about the person carrying the phone
+travels with it. When the operating system sees a boundary crossed it does one thing — it wakes your app.
+Polyfence's engine remains the only thing that decides what actually happened, evaluating every zone with full
+polygon geometry in-process.
+
+What that costs you, stated plainly: turning it on discloses part of your zone geography to Apple or Google. They
+already know where the device is — that is the platform your app runs on, not something Polyfence introduces — but
+they do not know where your zones are until your app registers them. That is why it stays off until you choose
+otherwise.
+
+- **How much** — only the zones nearest the device: at most 20 on iOS (Apple's cap) and 50 on Android by default,
+  however many you have. Lower it with `osGeofenceMaxRegions`. The set is re-chosen as the device travels, so over
+  a long journey more of your zones can be disclosed than the cap alone suggests.
+- **How precisely** — these platforms understand circles only, so a polygon zone is registered as a circle drawn
+  around it. What they hold is a rougher outline than the zone you drew, never a sharper one.
+- **Who receives it** — the operating system on your user's own phone. Nothing on this path reaches Polyfence
+  servers, so Apple and Google are not processing anything on our behalf. This is a disclosure **your app** makes,
+  and it belongs in your privacy policy rather than ours.
+- **What your users are asked** — waking a closed app needs a background location grant ("Allow all the time" on
+  Android, "Always" on iOS). Leave the setting off and the SDK asks only for location while your app is in use.
 
 ---
 

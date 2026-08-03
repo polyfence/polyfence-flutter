@@ -18,6 +18,12 @@ checks:
     runs: bash scripts/consistency-android-gradle-version.sh
     fix: Run scripts/sync_version.sh to propagate pubspec.yaml version to android/build.gradle.
 
+  - id: library-manifest-permission-set
+    description: android/src/main/AndroidManifest.xml declares exactly the library-owned permissions, so the set inherited by every consumer cannot silently regrow
+    type: subprocess
+    runs: bash scripts/consistency-library-manifest-permissions.sh
+    fix: Permissions with a Google Play review cost or that gate an opt-in feature are consumer-declared — document them in doc/ANDROID_PERMISSIONS.md and the README instead of adding them to the library manifest.
+
   - id: dart-analyze-clean
     description: Flutter analyzer reports zero errors on plugin surfaces (infos tolerated via project precedent)
     type: subprocess

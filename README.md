@@ -83,36 +83,46 @@ flutter pub get
 
 ### Android — `android/app/src/main/AndroidManifest.xml`
 
-The minimum viable set. Tracking runs as a foreground service typed `location`, which holds location access for as long as it runs, so foreground location is all it needs:
+**Base integration needs no manifest changes.** The plugin declares the permissions its own foreground service and receiver cannot run without, and manifest merging pulls them into your app: `ACCESS_FINE_LOCATION`, `ACCESS_COARSE_LOCATION`, `FOREGROUND_SERVICE`, `FOREGROUND_SERVICE_LOCATION`, `WAKE_LOCK`, `POST_NOTIFICATIONS`, `VIBRATE`, `RECEIVE_BOOT_COMPLETED`.
+
+Permissions that carry a Google Play review cost, or that gate a feature you opt into, are **declared by your app** so only apps that use the feature pay for them:
 
 ```xml
-<uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
-<uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
-<uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-<uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
-<uses-permission android:name="android.permission.WAKE_LOCK" />
-<uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
-```
-
-**Required only if you set `osGeofenceWakeEnabled: true`:**
-
-```xml
+<!-- Tracking while your app is backgrounded or closed -->
 <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
-<uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+
+<!-- requestBatteryOptimizationExemption() -->
+<uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+
+<!-- Minute-accurate scheduled tracking windows -->
+<uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+
+<!-- Activity-based GPS tuning -->
+<uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" />
+<uses-permission android:name="com.google.android.gms.permission.ACTIVITY_RECOGNITION" />
 ```
 
-`ACCESS_BACKGROUND_LOCATION` governs location access *outside* a foreground service, which is exactly what OS wake fences are: they fire when nothing of yours is running. Declaring it puts your app into Google Play's manual background-location review, which is why base tracking does not need it. `RECEIVE_BOOT_COMPLETED` lets Polyfence re-register wake fences after a device restart — Play Services drops all registered geofences on reboot.
+Paste only the blocks for features you use — every one of them costs you something at review time or adds a runtime prompt.
 
-If the grant is missing or revoked, **tracking still runs**: wake fences degrade to polling-only and emit a `PolyfenceErrorType.osGeofencePermissionDenied` event on `onError` with `context['severity'] == 'warning'`, and `debugInfo().systemStatus.osGeofenceRegistrationHealth` reports `lastError == 'background_location_denied'`.
+> **An undeclared permission cannot be granted.** Requesting one that is absent from your merged manifest returns denied immediately, with no dialog shown and nothing in logcat. `Permission.locationAlways.request()` without `ACCESS_BACKGROUND_LOCATION` above is the common case: it silently fails on every call and background tracking never starts.
 
-This plugin declares `ACCESS_BACKGROUND_LOCATION` in its own manifest, and manifest merging is a build-time operation that cannot be gated on a runtime flag — so it lands in your merged manifest either way. If you are not using wake fences and want it out of the merged result (and out of Play's review trigger), strip it in your own manifest:
+If the background grant is missing or revoked, **tracking still runs**: wake fences degrade to polling-only and emit a `PolyfenceErrorType.osGeofencePermissionDenied` event on `onError` with `context['severity'] == 'warning'`, and `debugInfo().systemStatus.osGeofenceRegistrationHealth` reports `lastError == 'background_location_denied'`.
+
+[**doc/ANDROID_PERMISSIONS.md**](doc/ANDROID_PERMISSIONS.md) has the per-feature detail — which runtime request goes with which declaration, what each feature degrades to when the permission is missing, and how to verify the merged result.
+
+#### The foreground service declaration
+
+The plugin declares the tracking service, so you don't need to add it:
 
 ```xml
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
-          xmlns:tools="http://schemas.android.com/tools">
-    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION"
-                     tools:node="remove" />
+<service
+    android:name="io.polyfence.core.LocationTracker"
+    android:foregroundServiceType="location"
+    android:stopWithTask="false"
+    android:exported="false" />
 ```
+
+If you do hand-write it, keep both details exact: `android:foregroundServiceType="location"` is required from API 29 and hard-enforced from API 34, where `startForeground()` throws `MissingForegroundServiceTypeException` without it; and the class name must be fully qualified, since `LocationTracker` ships in polyfence-core under `io.polyfence.core` rather than in your own package.
 
 - **minSdk**: 24+ (Android 7.0)
 - **tested**: up to API 35 (Android 15)
@@ -207,6 +217,8 @@ Foreground location is the whole requirement — "While in use" on Android, "Whe
 **iOS:** `requestPermissions()` triggers the system permission dialog. Pass `always: true` only alongside `osGeofenceWakeEnabled: true`.
 
 **Android:** `requestPermissions()` **does not show a dialog** — it only reads the current permission state and returns a boolean. To trigger the OS dialog on Android, use a package like [`permission_handler`](https://pub.dev/packages/permission_handler) first, then call `requestPermissions()` to verify the result.
+
+> **`Permission.locationAlways` needs `ACCESS_BACKGROUND_LOCATION` in your own manifest** — see [doc/ANDROID_PERMISSIONS.md](doc/ANDROID_PERMISSIONS.md). Requesting a permission your merged manifest doesn't declare returns denied with no dialog shown.
 
 ```dart
 import 'dart:io' show Platform;
@@ -552,6 +564,13 @@ await Polyfence.instance.updateConfiguration(
 
 **Notes:** Schedule persists across app restarts and device reboots. Time windows that span midnight are supported (e.g., 22:00 - 06:00). Multiple overlapping windows are supported — tracking is active during any of them. On Android, uses AlarmManager for reliable wake-up at scheduled times.
 
+**Android permission (optional)** — for minute-accurate window boundaries, add to `AndroidManifest.xml`:
+```xml
+<uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+```
+
+Without it, scheduling still works: the plugin detects that exact alarms are unavailable and falls back to inexact ones, so a window may open or close a few minutes late while the device is dozing. Declare it only if that drift matters — it is subject to Play policy review.
+
 ### Activity Recognition
 
 Automatically detect user activity (still, walking, running, cycling, driving) and optimize GPS intervals accordingly. This feature is **opt-in** and requires additional permissions.
@@ -596,10 +615,13 @@ await Polyfence.instance.updateConfiguration(
 
 **Additional Permissions Required:**
 
-**Android** — Add to `AndroidManifest.xml` (only if using activity recognition):
+**Android** — Add to `AndroidManifest.xml` (only if using activity recognition). Both are required — the platform permission and the Play Services one:
 ```xml
 <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" />
+<uses-permission android:name="com.google.android.gms.permission.ACTIVITY_RECOGNITION" />
 ```
+
+Declining the runtime prompt is safe: GPS intervals fall back to the profile defaults and zone detection is unaffected.
 
 **iOS** — Add to `Info.plist` (only if using activity recognition):
 ```xml
@@ -637,6 +659,11 @@ Events fire whether the app is foregrounded, backgrounded, or the screen is lock
 ### Battery Optimization Bypass (Android)
 
 Android may kill background services if battery optimization is enabled. Use the built-in API to request exemption:
+
+**Android permission** — required for the exemption dialog to appear at all. Without it the call is a no-op:
+```xml
+<uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+```
 
 ```dart
 final status = await Polyfence.instance.batteryOptimizationStatus();
@@ -833,6 +860,31 @@ platforms until polyfence-core wires the collector.
 `getSessionTelemetry()` is populated on both platforms.
 
 ## Upgrading
+
+### Android manifest permissions are consumer-declared
+
+Five permissions the plugin used to declare are now declared by your app instead: `ACCESS_BACKGROUND_LOCATION`, `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS`, `SCHEDULE_EXACT_ALARM`, and both `ACTIVITY_RECOGNITION` permissions. Each one either triggers a Google Play review or gates a feature you opt into, so the cost now falls only on apps that use it.
+
+**This is a breaking change for any app that relies on one of those features and does not declare the permission itself.** The failure is silent — an undeclared permission cannot be granted, so a runtime request returns denied without ever prompting the user. If your app calls `Permission.locationAlways.request()` (the pattern the example app used to demonstrate) and does nothing else, background tracking stops working with no error anywhere.
+
+Add whichever blocks apply to `android/app/src/main/AndroidManifest.xml`:
+
+```xml
+<!-- Tracking while your app is backgrounded or closed -->
+<uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
+
+<!-- requestBatteryOptimizationExemption() -->
+<uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+
+<!-- Minute-accurate scheduled tracking windows -->
+<uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+
+<!-- Activity-based GPS tuning -->
+<uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" />
+<uses-permission android:name="com.google.android.gms.permission.ACTIVITY_RECOGNITION" />
+```
+
+Nothing else changes: the eight permissions the plugin's own service and receiver need are still merged in for you, as are the `<service>` and `<receiver>` declarations. Apps that use only foreground tracking need no manifest change at all. Full detail — including what each feature degrades to without its permission — is in [doc/ANDROID_PERMISSIONS.md](doc/ANDROID_PERMISSIONS.md).
 
 ### From `2.0.x` to `2.1.0`
 

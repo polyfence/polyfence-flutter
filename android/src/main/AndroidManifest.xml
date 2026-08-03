@@ -1,22 +1,52 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
   package="io.polyfence.polyfence">
 
+  <!-- Permissions are split between this library and the app that depends on it.
+
+       Manifest merging happens at build time, so every <uses-permission> declared
+       here lands in the merged manifest of every consuming app whether or not that
+       app enables the feature behind it. The set below is therefore limited to
+       permissions the components declared further down this file cannot function
+       without, and which cost an integrator nothing at store-review time:
+
+         ACCESS_FINE_LOCATION, ACCESS_COARSE_LOCATION - the fixes the engine
+           evaluates zone membership against.
+         FOREGROUND_SERVICE, FOREGROUND_SERVICE_LOCATION - LocationTracker runs as
+           a location-typed foreground service; startForeground() throws without
+           the typed permission from API 34.
+         WAKE_LOCK - LocationTracker holds a partial wake lock for the life of a
+           tracking session so the CPU stays up between GPS fixes.
+         POST_NOTIFICATIONS, VIBRATE - the foreground-service notification and the
+           zone alerts posted alongside it.
+         RECEIVE_BOOT_COMPLETED - the BOOT_COMPLETED filter on ScheduleReceiver
+           below; without it the system never delivers that broadcast.
+
+       Permissions that carry a Google Play review cost, or that gate a feature the
+       app opts into, belong to the consuming app instead, so only apps that use
+       the feature pay for it: ACCESS_BACKGROUND_LOCATION (Play's manual
+       background-location review), REQUEST_IGNORE_BATTERY_OPTIMIZATIONS (Play
+       restricts it to app categories that can justify it), SCHEDULE_EXACT_ALARM
+       (scheduled tracking only - alarms degrade to inexact without it) and both
+       ACTIVITY_RECOGNITION permissions (activity-based GPS tuning only).
+
+       An undeclared permission cannot be granted: a runtime request against one of
+       them returns denied without ever prompting the user. doc/ANDROID_PERMISSIONS.md
+       carries the block to paste for each feature. -->
+
   <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
   <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
-  <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
   <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
   <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
   <uses-permission android:name="android.permission.WAKE_LOCK" />
-  <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
   <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
   <uses-permission android:name="android.permission.VIBRATE" />
   <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
-  <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
-  <!-- Activity Recognition (required for API 29+, opt-in feature) -->
-  <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" />
-  <uses-permission android:name="com.google.android.gms.permission.ACTIVITY_RECOGNITION" />
 
   <application>
+    <!-- Both components live in polyfence-core, whose own manifest declares no
+         components, so these are their only declaration in the merged manifest.
+         Fully qualified names are required: a relative name would resolve against
+         this manifest's package (io.polyfence.polyfence), not io.polyfence.core. -->
     <service
       android:name="io.polyfence.core.LocationTracker"
       android:foregroundServiceType="location"

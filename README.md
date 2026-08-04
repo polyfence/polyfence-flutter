@@ -779,7 +779,7 @@ final debugInfo = await Polyfence.instance.debugInfo();
 // System status
 print('Location Permission: ${debugInfo.systemStatus.isLocationPermissionGranted}');
 print('GPS Enabled: ${debugInfo.systemStatus.isGpsEnabled}');
-print('Wake Lock Active: ${debugInfo.systemStatus.isWakeLockAcquired ?? "n/a on iOS"}');
+print('Wake Lock Active: ${debugInfo.systemStatus.isWakeLockAcquired ?? "not measured"}');
 
 // Performance metrics
 print('Uptime: ${debugInfo.performance.uptime}');

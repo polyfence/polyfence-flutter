@@ -337,12 +337,19 @@ class PolyfencePerformanceMetrics {
 
   /// Creates performance metrics from a platform channel map.
   factory PolyfencePerformanceMetrics.fromMap(Map<String, dynamic> map) {
+    final timedDetections = (map['timedZoneDetections'] as num?)?.toInt() ?? 0;
     return PolyfencePerformanceMetrics(
       uptime: Duration(milliseconds: (map['uptime'] as num?)?.toInt() ?? 0),
       totalLocationUpdates: (map['totalLocationUpdates'] as num?)?.toInt() ?? 0,
       totalZoneDetections: (map['totalZoneDetections'] as num?)?.toInt() ?? 0,
-      timedZoneDetections: (map['timedZoneDetections'] as num?)?.toInt() ?? 0,
-      averageDetectionLatency: (map['averageDetectionLatency'] as num?)?.toDouble(),
+      timedZoneDetections: timedDetections,
+      // A mean with no samples behind it is not a mean. A native build older
+      // than this contract sends 0.0 for "nothing measured yet", and 0.0 is
+      // the best possible latency — so it is dropped rather than passed on
+      // to look like a perfect one.
+      averageDetectionLatency: timedDetections > 0
+          ? (map['averageDetectionLatency'] as num?)?.toDouble()
+          : null,
       memoryUsageMB: (map['memoryUsageMB'] as num?)?.toInt() ?? 0,
       restartCount: (map['restartCount'] as num?)?.toInt(),
     );
@@ -386,7 +393,6 @@ class PolyfencePerformanceMetrics {
   }
 }
 
-/// Battery usage metrics for monitoring power consumption.
 /// Reads a battery percentage, rejecting anything outside 0-100.
 ///
 /// A negative value is how older native builds signalled a level the OS had
@@ -398,6 +404,7 @@ int? _batteryLevelOrNull(Object? raw) {
   return value;
 }
 
+/// Battery usage metrics for monitoring power consumption.
 class PolyfenceBatteryMetrics {
   /// Whether the device is currently charging.
   final bool isCharging;

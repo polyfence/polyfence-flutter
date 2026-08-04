@@ -456,6 +456,24 @@ void main() {
       expect(debugInfo.performance.timedZoneDetections, 4);
     });
 
+    test('a latency with no samples behind it is not a mean', () {
+      // A native build older than this contract sends 0.0 for "nothing
+      // measured yet". Passed through it would read as the best possible
+      // latency for a device that has timed nothing.
+      final debugInfo = PolyfenceDebugInfo.fromMap(collectorPayload(
+        isBatteryOptimizationDisabled: null,
+        isWakeLockAcquired: null,
+        restartCount: null,
+        averageDetectionLatency: 0.0,
+        batteryLevel: 50,
+        totalZoneDetections: 2,
+        timedZoneDetections: 0,
+      ));
+
+      expect(debugInfo.performance.averageDetectionLatency, isNull);
+      expect(debugInfo.performance.totalZoneDetections, 2);
+    });
+
     test('a battery level outside 0-100 is not a measurement', () {
       // A native build that predates the null contract reports -100 for a
       // level the OS has not populated. Passing that through would show a

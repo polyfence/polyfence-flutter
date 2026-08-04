@@ -863,9 +863,9 @@ For memory / uptime and the aggregate session snapshot use the one-shot
 `debugInfo()` and `getSessionTelemetry()` accessors — those metrics are
 not delivered on a stream. Both are populated on both platforms.
 
-Every value `debugInfo()` returns is a measurement. Where a platform
-cannot measure something, the field is **null** rather than a filler
-value, so absence is distinguishable from a genuine zero:
+Where a platform cannot measure one of the following, the field is
+**null** rather than a filler value, so absence is distinguishable from a
+genuine zero:
 
 | Field | Null when |
 |---|---|
@@ -883,6 +883,9 @@ no timing.
 
 `memoryUsageMB` measures whole-process resident size on iOS and Java heap
 only on Android, so the two are not comparable across platforms.
+
+Two older fields still use sentinels rather than null: `lastKnownAccuracy`
+is `-1` and `lastLocationUpdate` is epoch zero when no fix has arrived.
 
 ## Upgrading
 

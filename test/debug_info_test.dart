@@ -98,6 +98,11 @@ void main() {
 
       expect(status.isLocationPermissionGranted, false);
       expect(status.isGpsEnabled, false);
+      // Absent, not false: false would claim the app is subject to battery
+      // optimisation and holds no wake lock, which are statements about
+      // mechanisms iOS does not have.
+      expect(status.isBatteryOptimizationDisabled, isNull);
+      expect(status.isWakeLockAcquired, isNull);
       expect(status.lastKnownAccuracy, -1.0);
       expect(status.platformVersion, 'Unknown');
       expect(status.pluginVersion, 'Unknown');
@@ -178,7 +183,7 @@ void main() {
         uptime: const Duration(hours: 2, minutes: 30),
         totalLocationUpdates: 500,
         totalZoneDetections: 12,
-timedZoneDetections: 12,
+        timedZoneDetections: 12,
         averageDetectionLatency: 45.5,
         memoryUsageMB: 25,
         restartCount: 1,
@@ -190,6 +195,7 @@ timedZoneDetections: 12,
       expect(restored.uptime, const Duration(hours: 2, minutes: 30));
       expect(restored.totalLocationUpdates, 500);
       expect(restored.totalZoneDetections, 12);
+      expect(restored.timedZoneDetections, 12);
       expect(restored.averageDetectionLatency, 45.5);
       expect(restored.memoryUsageMB, 25);
       expect(restored.restartCount, 1);
@@ -233,7 +239,6 @@ timedZoneDetections: 12,
 
   group('PolyfenceZoneStatus', () {
     test('fromMap/toMap round-trip', () {
-      final ts = DateTime(2024, 6, 15, 12, 0, 0);
       final status = PolyfenceZoneStatus(
         activeZones: 5,
         circleZones: 3,
@@ -307,7 +312,7 @@ timedZoneDetections: 12,
           uptime: const Duration(hours: 1),
           totalLocationUpdates: 100,
           totalZoneDetections: 5,
-timedZoneDetections: 5,
+        timedZoneDetections: 5,
           averageDetectionLatency: 30.0,
           memoryUsageMB: 10,
           restartCount: 0,
@@ -343,66 +348,130 @@ timedZoneDetections: 5,
       expect(restored.recentErrors[0].type, 'gpsTimeout');
     });
 
-    test('fromMap parses the polyfence-core collector debugInfo shape', () {
-      // Golden fixture: this is the exact shape
-      // `PolyfenceDebugCollector.collectDebugInfo()` returns on both
-      // Android and iOS (see polyfence-core/ios/Classes/
-      // PolyfenceDebugCollector.swift:30 and the Android counterpart).
-      // The Flutter iOS and Android bridges delegate to that collector
-      // on getDebugInfo. Locking the shape here prevents a silent
-      // regression if a future collector change drops a key.
-      final map = <String, dynamic>{
-        'systemStatus': {
-          'isLocationPermissionGranted': true,
-          'isBackgroundLocationEnabled': true,
-          'isBatteryOptimizationDisabled': true,
-          'isGpsEnabled': true,
-          'isWakeLockAcquired': false,
-          'lastKnownAccuracy': 12.5,
-          'lastLocationUpdate': 1700000000000,
-          'platformVersion': '17.4',
-          'pluginVersion': '2.1.0',
-        },
-        'performance': {
-          'uptime': 300000, // real value from sessionStartTime
-          'totalLocationUpdates': 0,
-          'totalZoneDetections': 0,
-          'averageDetectionLatency': 0.0,
-          'memoryUsageMB': 42, // real value from mach_task_basic_info
-          'restartCount': 0,
-        },
-        'battery': {
-          'isCharging': false,
-          'batteryLevel': 85,
-          'totalActiveTime': 300000, // real session-elapsed ms
-        },
-        'zones': {
-          'activeZones': 0,
-          'circleZones': 0,
-          'polygonZones': 0,
-        },
-        'recentErrors': <Map<String, dynamic>>[
-          {
-            'type': 'gpsTimeout',
-            'message': 'GPS timeout',
-            'timestamp': 1700000000000,
-            'context': <String, dynamic>{},
-          },
-        ],
-      };
+    // Two fixtures, not one: the platforms no longer return the same shape.
+    // iOS reports null where it has no mechanism to measure — no wake locks,
+    // no battery-optimisation exemption, no foreground service to restart —
+    // while Android answers all three. A single golden map would have to
+    // pick one and would silently stop describing the other.
 
-      final debugInfo = PolyfenceDebugInfo.fromMap(map);
+    Map<String, dynamic> collectorPayload({
+      required Object? isBatteryOptimizationDisabled,
+      required Object? isWakeLockAcquired,
+      required Object? restartCount,
+      required Object? averageDetectionLatency,
+      required Object? batteryLevel,
+      required int totalZoneDetections,
+      required int timedZoneDetections,
+    }) =>
+        <String, dynamic>{
+          'systemStatus': {
+            'isLocationPermissionGranted': true,
+            'isBackgroundLocationEnabled': true,
+            'isBatteryOptimizationDisabled': isBatteryOptimizationDisabled,
+            'isGpsEnabled': true,
+            'isWakeLockAcquired': isWakeLockAcquired,
+            'lastKnownAccuracy': 12.5,
+            'lastLocationUpdate': 1700000000000,
+            'platformVersion': '17.4',
+            'pluginVersion': '2.1.0',
+            'osGeofenceRegistrationHealth': null,
+          },
+          'performance': {
+            'uptime': 300000,
+            'totalLocationUpdates': 24,
+            'totalZoneDetections': totalZoneDetections,
+            'timedZoneDetections': timedZoneDetections,
+            'averageDetectionLatency': averageDetectionLatency,
+            'memoryUsageMB': 42,
+            'restartCount': restartCount,
+          },
+          'battery': {
+            'isCharging': false,
+            'batteryLevel': batteryLevel,
+            'totalActiveTime': 300000,
+          },
+          'zones': {
+            'activeZones': 3,
+            'circleZones': 2,
+            'polygonZones': 1,
+          },
+          'recentErrors': <Map<String, dynamic>>[
+            {
+              'type': 'gpsTimeout',
+              'message': 'GPS timeout',
+              'timestamp': 1700000000000,
+              'context': <String, dynamic>{},
+            },
+          ],
+        };
+
+    test('fromMap parses the iOS collector shape, nulls and all', () {
+      // What polyfence-core's iOS collector actually emits: three fields the
+      // platform cannot answer, and a battery level the OS has not populated.
+      final debugInfo = PolyfenceDebugInfo.fromMap(collectorPayload(
+        isBatteryOptimizationDisabled: null,
+        isWakeLockAcquired: null,
+        restartCount: null,
+        averageDetectionLatency: null,
+        batteryLevel: null,
+        totalZoneDetections: 4,
+        timedZoneDetections: 3,
+      ));
+
+      expect(debugInfo.systemStatus.isBatteryOptimizationDisabled, isNull);
+      expect(debugInfo.systemStatus.isWakeLockAcquired, isNull);
+      expect(debugInfo.performance.restartCount, isNull);
+      expect(debugInfo.performance.averageDetectionLatency, isNull);
+      expect(debugInfo.battery.batteryLevel, isNull);
+
+      // A crossing the engine synthesised outside a timed evaluation counts,
+      // but contributes no sample — so the two figures differ, and the mean
+      // covers only the timed ones.
+      expect(debugInfo.performance.totalZoneDetections, 4);
+      expect(debugInfo.performance.timedZoneDetections, 3);
 
       expect(debugInfo.systemStatus.platformVersion, '17.4');
-      expect(debugInfo.systemStatus.pluginVersion, '2.1.0');
-      expect(debugInfo.performance.uptime,
-          const Duration(milliseconds: 300000));
       expect(debugInfo.performance.memoryUsageMB, 42);
-      expect(debugInfo.battery.totalActiveTime,
-          const Duration(milliseconds: 300000));
-      expect(debugInfo.battery.batteryLevel, 85);
-      expect(debugInfo.recentErrors, hasLength(1));
+      expect(debugInfo.zones.activeZones, 3);
       expect(debugInfo.recentErrors.single.type, 'gpsTimeout');
+    });
+
+    test('fromMap parses the Android collector shape, which answers all three',
+        () {
+      final debugInfo = PolyfenceDebugInfo.fromMap(collectorPayload(
+        isBatteryOptimizationDisabled: true,
+        isWakeLockAcquired: false,
+        restartCount: 2,
+        averageDetectionLatency: 4.5,
+        batteryLevel: 85,
+        totalZoneDetections: 4,
+        timedZoneDetections: 4,
+      ));
+
+      expect(debugInfo.systemStatus.isBatteryOptimizationDisabled, isTrue);
+      expect(debugInfo.systemStatus.isWakeLockAcquired, isFalse);
+      expect(debugInfo.performance.restartCount, 2);
+      expect(debugInfo.performance.averageDetectionLatency, 4.5);
+      expect(debugInfo.battery.batteryLevel, 85);
+      expect(debugInfo.performance.timedZoneDetections, 4);
+    });
+
+    test('a battery level outside 0-100 is not a measurement', () {
+      // A native build that predates the null contract reports -100 for a
+      // level the OS has not populated. Passing that through would show a
+      // consumer a charge no device ever had, and a null-coalescing default
+      // would not catch it.
+      final debugInfo = PolyfenceDebugInfo.fromMap(collectorPayload(
+        isBatteryOptimizationDisabled: null,
+        isWakeLockAcquired: null,
+        restartCount: null,
+        averageDetectionLatency: null,
+        batteryLevel: -100,
+        totalZoneDetections: 0,
+        timedZoneDetections: 0,
+      ));
+
+      expect(debugInfo.battery.batteryLevel, isNull);
     });
   });
 }

@@ -28,7 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   | `systemStatus.isWakeLockAcquired` | always on iOS; on Android when no tracking service is running, since nothing could be holding a lock |
   | `performance.restartCount` | always on iOS — no foreground service to restart |
   | `performance.averageDetectionLatency` | until at least one crossing has been **timed** |
-  | `battery.batteryLevel` | on iOS before the OS populates the level, which previously surfaced as `-100` |
+  | `battery.batteryLevel` | on iOS before the OS populates the level. Any reading outside 0-100 is also reported as null — older native builds signalled "not populated" with a negative sentinel, and a charge no device ever had is not a measurement |
 
   New `performance.timedZoneDetections` says how many crossings contributed a latency sample. It is lower than `totalZoneDetections` when the engine synthesised a crossing outside a timed evaluation — a degraded-GPS exit, for instance. Those crossings are real, so they are counted; they simply carry no timing, and folding them in as zero would drag the mean toward a speed nothing achieved.
 - **The listener signal is separate from the sink-attach signal.** `setBridgeAttached` continues to report whether the plugin's own geofence `EventChannel` sink is wired; a new `setEventListenerActive` reports whether a consumer is subscribed to the Dart-side stream. The two happen at different moments — the sink attaches during `initialize()`, the subscription comes after — and only the second means somebody is receiving. The automatic replay keys off the second; keying it off the first would emit the queue into a broadcast stream with no subscribers, which discards it.

@@ -645,7 +645,7 @@ void main() {
           uptime: const Duration(hours: 1),
           totalLocationUpdates: 100,
           totalZoneDetections: 10,
-timedZoneDetections: 10,
+        timedZoneDetections: 10,
           averageDetectionLatency: 15.0,
           memoryUsageMB: 50,
           restartCount: 0,
@@ -731,7 +731,7 @@ timedZoneDetections: 10,
         uptime: const Duration(hours: 1),
         totalLocationUpdates: 100,
         totalZoneDetections: 10,
-timedZoneDetections: 10,
+        timedZoneDetections: 10,
         averageDetectionLatency: 15.0,
         memoryUsageMB: 50,
         restartCount: 0,
@@ -740,7 +740,7 @@ timedZoneDetections: 10,
         uptime: const Duration(hours: 1),
         totalLocationUpdates: 100,
         totalZoneDetections: 10,
-timedZoneDetections: 10,
+        timedZoneDetections: 10,
         averageDetectionLatency: 15.0,
         memoryUsageMB: 50,
         restartCount: 0,
@@ -771,7 +771,6 @@ timedZoneDetections: 10,
 
   group('PolyfenceZoneStatus equality', () {
     test('equal instances with same map', () {
-      final ts = DateTime(2024, 1, 1);
       final a = PolyfenceZoneStatus(
         activeZones: 5,
         circleZones: 3,
@@ -788,7 +787,6 @@ timedZoneDetections: 10,
     });
 
     test('not equal when a count differs', () {
-      final ts = DateTime(2024, 1, 1);
       final a = PolyfenceZoneStatus(
         activeZones: 5,
         circleZones: 3,

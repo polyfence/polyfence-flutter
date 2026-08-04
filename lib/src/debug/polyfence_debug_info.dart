@@ -387,6 +387,17 @@ class PolyfencePerformanceMetrics {
 }
 
 /// Battery usage metrics for monitoring power consumption.
+/// Reads a battery percentage, rejecting anything outside 0-100.
+///
+/// A negative value is how older native builds signalled a level the OS had
+/// not populated; passing it through would show a consumer a charge the
+/// device never had, and a `?? default` on their side would not catch it.
+int? _batteryLevelOrNull(Object? raw) {
+  final value = (raw as num?)?.toInt();
+  if (value == null || value < 0 || value > 100) return null;
+  return value;
+}
+
 class PolyfenceBatteryMetrics {
   /// Whether the device is currently charging.
   final bool isCharging;
@@ -394,7 +405,10 @@ class PolyfenceBatteryMetrics {
   /// Current battery level (0-100).
   ///
   /// Null on iOS before the operating system has populated the level, which
-  /// is always the case in the Simulator.
+  /// is always the case in the Simulator. A value outside 0-100 is also
+  /// reported as null: older native builds signalled "not populated" with a
+  /// negative sentinel, and a charge no device ever had is not a
+  /// measurement.
   final int? batteryLevel;
 
   /// Total time the plugin has been actively tracking.
@@ -411,7 +425,7 @@ class PolyfenceBatteryMetrics {
   factory PolyfenceBatteryMetrics.fromMap(Map<String, dynamic> map) {
     return PolyfenceBatteryMetrics(
       isCharging: map['isCharging'] ?? false,
-      batteryLevel: (map['batteryLevel'] as num?)?.toInt(),
+      batteryLevel: _batteryLevelOrNull(map['batteryLevel']),
       totalActiveTime:
           Duration(milliseconds: (map['totalActiveTime'] as num?)?.toInt() ?? 0),
     );
@@ -436,7 +450,6 @@ class PolyfenceBatteryMetrics {
   /// Converts to a map for serialization.
   Map<String, dynamic> toMap() {
     return {
-
       'isCharging': isCharging,
       'batteryLevel': batteryLevel,
       'totalActiveTime': totalActiveTime.inMilliseconds,

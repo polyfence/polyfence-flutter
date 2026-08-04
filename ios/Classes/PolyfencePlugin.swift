@@ -610,11 +610,7 @@ extension PolyfencePlugin: FlutterStreamHandler {
     
     private func getDebugInfo(result: @escaping FlutterResult) {
         // All bridges share a single collector so the debugInfo()
-        // payload has one authoritative source. Location and
-        // zone-detection counters (`totalLocationUpdates`,
-        // `totalZoneDetections`, `averageDetectionLatency`) are `0`
-        // until polyfence-core's LocationTracker calls the collector's
-        // `recordLocationUpdate` / `recordZoneDetection` accessors.
+        // payload has one authoritative source.
         result(PolyfenceDebugCollector.shared.collectDebugInfo())
     }
     

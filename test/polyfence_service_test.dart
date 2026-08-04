@@ -558,9 +558,11 @@ void main() {
       expect(mockPlatform.calls, contains('getDebugInfo'));
       expect(info, isA<PolyfenceDebugInfo>());
       expect(info.systemStatus.pluginVersion, '0.9.0');
-      // Missing keys now safely default to empty values
+      // A count with no data is zero; a measurement with no data is
+      // absent. Defaulting the latter to zero would report the best
+      // possible battery level for a device that never gave one.
       expect(info.performance.totalLocationUpdates, 0);
-      expect(info.battery.batteryLevel, 0);
+      expect(info.battery.batteryLevel, isNull);
       expect(info.zones.activeZones, 0);
       expect(info.recentErrors, isEmpty);
     });

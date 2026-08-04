@@ -178,9 +178,9 @@ void main() {
         uptime: const Duration(hours: 2, minutes: 30),
         totalLocationUpdates: 500,
         totalZoneDetections: 12,
+timedZoneDetections: 12,
         averageDetectionLatency: 45.5,
         memoryUsageMB: 25,
-        cpuUsagePercent: 3.2,
         restartCount: 1,
       );
 
@@ -192,7 +192,6 @@ void main() {
       expect(restored.totalZoneDetections, 12);
       expect(restored.averageDetectionLatency, 45.5);
       expect(restored.memoryUsageMB, 25);
-      expect(restored.cpuUsagePercent, 3.2);
       expect(restored.restartCount, 1);
     });
 
@@ -202,16 +201,16 @@ void main() {
       expect(metrics.uptime, Duration.zero);
       expect(metrics.totalLocationUpdates, 0);
       expect(metrics.totalZoneDetections, 0);
-      expect(metrics.averageDetectionLatency, 0.0);
+      expect(metrics.timedZoneDetections, 0);
+      // Absent, not zero: zero is the best possible latency, so defaulting
+      // would make a device that has measured nothing look perfect.
+      expect(metrics.averageDetectionLatency, isNull);
     });
   });
 
   group('PolyfenceBatteryMetrics', () {
     test('fromMap/toMap round-trip', () {
       final metrics = PolyfenceBatteryMetrics(
-        estimatedHourlyDrain: 2.5,
-        gpsActiveTimePercent: 40,
-        wakeUpCount: 15,
         isCharging: true,
         batteryLevel: 85,
         totalActiveTime: const Duration(hours: 3),
@@ -219,10 +218,6 @@ void main() {
 
       final map = metrics.toMap();
       final restored = PolyfenceBatteryMetrics.fromMap(map);
-
-      expect(restored.estimatedHourlyDrain, 2.5);
-      expect(restored.gpsActiveTimePercent, 40);
-      expect(restored.wakeUpCount, 15);
       expect(restored.isCharging, true);
       expect(restored.batteryLevel, 85);
       expect(restored.totalActiveTime, const Duration(hours: 3));
@@ -230,10 +225,9 @@ void main() {
 
     test('fromMap uses defaults for missing fields', () {
       final metrics = PolyfenceBatteryMetrics.fromMap({});
-
-      expect(metrics.estimatedHourlyDrain, 0.0);
       expect(metrics.isCharging, false);
-      expect(metrics.batteryLevel, 0);
+      // Absent, not zero — the platform has not reported a level.
+      expect(metrics.batteryLevel, isNull);
     });
   });
 
@@ -244,8 +238,6 @@ void main() {
         activeZones: 5,
         circleZones: 3,
         polygonZones: 2,
-        lastZoneUpdate: ts,
-        zoneEventCounts: {'zone-1': 10, 'zone-2': 5},
       );
 
       final map = status.toMap();
@@ -254,9 +246,6 @@ void main() {
       expect(restored.activeZones, 5);
       expect(restored.circleZones, 3);
       expect(restored.polygonZones, 2);
-      expect(restored.lastZoneUpdate, ts);
-      expect(restored.zoneEventCounts['zone-1'], 10);
-      expect(restored.zoneEventCounts['zone-2'], 5);
     });
 
     test('fromMap uses defaults for missing fields', () {
@@ -265,7 +254,6 @@ void main() {
       expect(status.activeZones, 0);
       expect(status.circleZones, 0);
       expect(status.polygonZones, 0);
-      expect(status.zoneEventCounts, isEmpty);
     });
   });
 
@@ -319,15 +307,12 @@ void main() {
           uptime: const Duration(hours: 1),
           totalLocationUpdates: 100,
           totalZoneDetections: 5,
+timedZoneDetections: 5,
           averageDetectionLatency: 30.0,
           memoryUsageMB: 10,
-          cpuUsagePercent: 1.5,
           restartCount: 0,
         ),
         battery: PolyfenceBatteryMetrics(
-          estimatedHourlyDrain: 1.5,
-          gpsActiveTimePercent: 30,
-          wakeUpCount: 5,
           isCharging: false,
           batteryLevel: 72,
           totalActiveTime: const Duration(hours: 1),
@@ -336,8 +321,6 @@ void main() {
           activeZones: 3,
           circleZones: 2,
           polygonZones: 1,
-          lastZoneUpdate: ts,
-          zoneEventCounts: {'z1': 3},
         ),
         recentErrors: [
           PolyfenceErrorSummary(
@@ -386,13 +369,9 @@ void main() {
           'totalZoneDetections': 0,
           'averageDetectionLatency': 0.0,
           'memoryUsageMB': 42, // real value from mach_task_basic_info
-          'cpuUsagePercent': 0.0,
           'restartCount': 0,
         },
         'battery': {
-          'estimatedHourlyDrain': 0.0,
-          'gpsActiveTimePercent': 0,
-          'wakeUpCount': 0,
           'isCharging': false,
           'batteryLevel': 85,
           'totalActiveTime': 300000, // real session-elapsed ms
@@ -401,8 +380,6 @@ void main() {
           'activeZones': 0,
           'circleZones': 0,
           'polygonZones': 0,
-          'lastZoneUpdate': 1700000000000,
-          'zoneEventCounts': <String, dynamic>{},
         },
         'recentErrors': <Map<String, dynamic>>[
           {

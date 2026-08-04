@@ -645,15 +645,12 @@ void main() {
           uptime: const Duration(hours: 1),
           totalLocationUpdates: 100,
           totalZoneDetections: 10,
+timedZoneDetections: 10,
           averageDetectionLatency: 15.0,
           memoryUsageMB: 50,
-          cpuUsagePercent: 2.5,
           restartCount: 0,
         ),
         battery: PolyfenceBatteryMetrics(
-          estimatedHourlyDrain: 3.5,
-          gpsActiveTimePercent: 80,
-          wakeUpCount: 5,
           isCharging: false,
           batteryLevel: 75,
           totalActiveTime: const Duration(hours: 1),
@@ -662,8 +659,6 @@ void main() {
           activeZones: activeZones,
           circleZones: 3,
           polygonZones: 2,
-          lastZoneUpdate: ts,
-          zoneEventCounts: {'z1': 5, 'z2': 3},
         ),
         recentErrors: [
           PolyfenceErrorSummary(
@@ -736,18 +731,18 @@ void main() {
         uptime: const Duration(hours: 1),
         totalLocationUpdates: 100,
         totalZoneDetections: 10,
+timedZoneDetections: 10,
         averageDetectionLatency: 15.0,
         memoryUsageMB: 50,
-        cpuUsagePercent: 2.5,
         restartCount: 0,
       );
       final b = PolyfencePerformanceMetrics(
         uptime: const Duration(hours: 1),
         totalLocationUpdates: 100,
         totalZoneDetections: 10,
+timedZoneDetections: 10,
         averageDetectionLatency: 15.0,
         memoryUsageMB: 50,
-        cpuUsagePercent: 2.5,
         restartCount: 0,
       );
 
@@ -759,17 +754,11 @@ void main() {
   group('PolyfenceBatteryMetrics equality', () {
     test('equal instances', () {
       final a = PolyfenceBatteryMetrics(
-        estimatedHourlyDrain: 3.5,
-        gpsActiveTimePercent: 80,
-        wakeUpCount: 5,
         isCharging: false,
         batteryLevel: 75,
         totalActiveTime: const Duration(hours: 1),
       );
       final b = PolyfenceBatteryMetrics(
-        estimatedHourlyDrain: 3.5,
-        gpsActiveTimePercent: 80,
-        wakeUpCount: 5,
         isCharging: false,
         batteryLevel: 75,
         totalActiveTime: const Duration(hours: 1),
@@ -787,36 +776,28 @@ void main() {
         activeZones: 5,
         circleZones: 3,
         polygonZones: 2,
-        lastZoneUpdate: ts,
-        zoneEventCounts: {'z1': 5, 'z2': 3},
       );
       final b = PolyfenceZoneStatus(
         activeZones: 5,
         circleZones: 3,
         polygonZones: 2,
-        lastZoneUpdate: ts,
-        zoneEventCounts: {'z1': 5, 'z2': 3},
       );
 
       expect(a, equals(b));
       expect(a.hashCode, equals(b.hashCode));
     });
 
-    test('not equal when map differs', () {
+    test('not equal when a count differs', () {
       final ts = DateTime(2024, 1, 1);
       final a = PolyfenceZoneStatus(
         activeZones: 5,
         circleZones: 3,
         polygonZones: 2,
-        lastZoneUpdate: ts,
-        zoneEventCounts: {'z1': 5},
       );
       final b = PolyfenceZoneStatus(
         activeZones: 5,
         circleZones: 3,
-        polygonZones: 2,
-        lastZoneUpdate: ts,
-        zoneEventCounts: {'z1': 10},
+        polygonZones: 4,
       );
 
       expect(a, isNot(equals(b)));

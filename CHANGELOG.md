@@ -193,7 +193,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Dead companion methods removed** — `sendLocationUpdate()`, `sendGeofenceEvent()`, `sendPerformanceEvent()` on Android companion object were never called (superseded by delegate pattern). Removed.
 - **polyfence-core bumped to 1.0.3** — Includes FGS crash fix, GPS cold-start seed, and distance filter deferral.
 - **polyfence-core bumped to 1.0.2** — Plugin calls `setBridgePlatform()` which was added in core 1.0.2. Previously declared 1.0.0, causing build failures for consumers.
-- **Telemetry defaults, retry queue, and platform timeouts** — Audit findings resolved: telemetry field defaults corrected, retry queue backoff improved, platform-specific timeouts tuned.
+- **Telemetry defaults, retry queue, and platform timeouts** — telemetry field defaults corrected, retry queue backoff improved, platform-specific timeouts tuned.
 - **Analytics config consolidation** — `AnalyticsConfig` unified with typed `initialize()` method. Migration guide added.
 - **Haversine bounds and polygon test vectors** — Corrected edge-case calculations in `geofence_algorithms_test`.
 - **Debug overlay nested accessors** — Updated to use `PolyfenceDebugInfo` nested objects (`info.zones.activeZones`, `info.performance.totalZoneDetections`).

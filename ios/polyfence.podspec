@@ -11,12 +11,12 @@ Privacy-first polygon and circle geofencing for Flutter. True background trackin
   s.source           = { :path => '.' }
   s.source_files = 'Classes/**/*'
   s.dependency 'Flutter'
-  # Pinned to the coordinated mobile release train: polyfence-core 1.1.0 ships
+  # Pinned to the coordinated mobile release train: polyfence-core 3.0.0 ships
   # the durable pending-events queue primitive and the drain-then-reconcile
   # ordering this plugin's drainPendingEvents API is a passthrough for. Local
-  # builds against the 1.1.0 pre-release require the paired polyfence-core
-  # branch to be checked out and pod-linked until the tag lands.
-  s.dependency 'PolyfenceCore', '~> 1.1.0'
+  # builds against the pre-release require the paired polyfence-core branch to
+  # be checked out and pod-linked until the tag lands.
+  s.dependency 'PolyfenceCore', '~> 3.0.0'
   s.platform = :ios, '14.0'
   s.swift_version = '5.0'
   

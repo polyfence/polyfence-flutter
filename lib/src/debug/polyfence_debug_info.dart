@@ -9,7 +9,6 @@ import 'package:flutter/foundation.dart';
 /// final debug = await Polyfence.instance.debugInfo();
 /// print('Zones: ${debug.zones.activeZones}');
 /// print('GPS accuracy: ${debug.systemStatus.lastKnownAccuracy}m');
-/// print('Battery drain: ${debug.battery.estimatedHourlyDrain}%/hr');
 /// ```
 class PolyfenceDebugInfo {
   /// Current system and permission status.
@@ -102,13 +101,18 @@ class PolyfenceSystemStatus {
   final bool isBackgroundLocationEnabled;
 
   /// Whether battery optimization is disabled (Android).
-  final bool isBatteryOptimizationDisabled;
+  ///
+  /// Null on iOS, which has no battery-optimisation exemption to report.
+  final bool? isBatteryOptimizationDisabled;
 
   /// Whether GPS/location services are enabled on the device.
   final bool isGpsEnabled;
 
   /// Whether a wake lock is currently held (Android).
-  final bool isWakeLockAcquired;
+  ///
+  /// Null on iOS, which has no wake locks, and on Android when no tracking
+  /// service is running — nothing could then be holding one.
+  final bool? isWakeLockAcquired;
 
   /// Last known GPS accuracy in meters (-1 if unknown).
   final double lastKnownAccuracy;
@@ -132,9 +136,9 @@ class PolyfenceSystemStatus {
   PolyfenceSystemStatus({
     required this.isLocationPermissionGranted,
     required this.isBackgroundLocationEnabled,
-    required this.isBatteryOptimizationDisabled,
+    this.isBatteryOptimizationDisabled,
     required this.isGpsEnabled,
-    required this.isWakeLockAcquired,
+    this.isWakeLockAcquired,
     required this.lastKnownAccuracy,
     required this.lastLocationUpdate,
     required this.platformVersion,
@@ -149,9 +153,9 @@ class PolyfenceSystemStatus {
       isLocationPermissionGranted: map['isLocationPermissionGranted'] ?? false,
       isBackgroundLocationEnabled: map['isBackgroundLocationEnabled'] ?? false,
       isBatteryOptimizationDisabled:
-          map['isBatteryOptimizationDisabled'] ?? false,
+          map['isBatteryOptimizationDisabled'] as bool?,
       isGpsEnabled: map['isGpsEnabled'] ?? false,
-      isWakeLockAcquired: map['isWakeLockAcquired'] ?? false,
+      isWakeLockAcquired: map['isWakeLockAcquired'] as bool?,
       lastKnownAccuracy: (map['lastKnownAccuracy'] ?? -1.0).toDouble(),
       lastLocationUpdate: DateTime.fromMillisecondsSinceEpoch(
         (map['lastLocationUpdate'] as num?)?.toInt() ?? 0,
@@ -293,40 +297,61 @@ class PolyfencePerformanceMetrics {
   /// Total number of zone entry/exit detections.
   final int totalZoneDetections;
 
+  /// How many of those crossings were timed, and so how many samples
+  /// [averageDetectionLatency] covers.
+  ///
+  /// Lower than [totalZoneDetections] when the engine synthesised a crossing
+  /// outside a timed evaluation — a degraded-GPS exit, for instance. Those are
+  /// real crossings the consumer received, so they are counted, but they
+  /// contribute no latency sample.
+  final int timedZoneDetections;
+
   /// Average time in milliseconds to detect zone crossings.
-  final double averageDetectionLatency;
+  ///
+  /// Null until at least one crossing has been timed. Zero is the best
+  /// possible latency, so an unmeasured device is reported as unmeasured
+  /// rather than as a perfect one.
+  final double? averageDetectionLatency;
 
   /// Estimated memory usage in megabytes.
+  ///
+  /// Whole-process resident size on iOS, Java heap only on Android — the two
+  /// are not comparable across platforms.
   final int memoryUsageMB;
 
-  /// Estimated CPU usage percentage.
-  final double cpuUsagePercent;
-
   /// Number of times the background service was restarted.
-  final int restartCount;
+  ///
+  /// Null on iOS, which has no foreground service to restart.
+  final int? restartCount;
 
   /// Creates performance metrics.
   PolyfencePerformanceMetrics({
     required this.uptime,
     required this.totalLocationUpdates,
     required this.totalZoneDetections,
-    required this.averageDetectionLatency,
+    required this.timedZoneDetections,
+    this.averageDetectionLatency,
     required this.memoryUsageMB,
-    required this.cpuUsagePercent,
-    required this.restartCount,
+    this.restartCount,
   });
 
   /// Creates performance metrics from a platform channel map.
   factory PolyfencePerformanceMetrics.fromMap(Map<String, dynamic> map) {
+    final timedDetections = (map['timedZoneDetections'] as num?)?.toInt() ?? 0;
     return PolyfencePerformanceMetrics(
       uptime: Duration(milliseconds: (map['uptime'] as num?)?.toInt() ?? 0),
       totalLocationUpdates: (map['totalLocationUpdates'] as num?)?.toInt() ?? 0,
       totalZoneDetections: (map['totalZoneDetections'] as num?)?.toInt() ?? 0,
-      averageDetectionLatency:
-          (map['averageDetectionLatency'] ?? 0.0).toDouble(),
+      timedZoneDetections: timedDetections,
+      // A mean with no samples behind it is not a mean. A native build older
+      // than this contract sends 0.0 for "nothing measured yet", and 0.0 is
+      // the best possible latency — so it is dropped rather than passed on
+      // to look like a perfect one.
+      averageDetectionLatency: timedDetections > 0
+          ? (map['averageDetectionLatency'] as num?)?.toDouble()
+          : null,
       memoryUsageMB: (map['memoryUsageMB'] as num?)?.toInt() ?? 0,
-      cpuUsagePercent: (map['cpuUsagePercent'] ?? 0.0).toDouble(),
-      restartCount: (map['restartCount'] as num?)?.toInt() ?? 0,
+      restartCount: (map['restartCount'] as num?)?.toInt(),
     );
   }
 
@@ -337,9 +362,9 @@ class PolyfencePerformanceMetrics {
         other.uptime == uptime &&
         other.totalLocationUpdates == totalLocationUpdates &&
         other.totalZoneDetections == totalZoneDetections &&
+        other.timedZoneDetections == timedZoneDetections &&
         other.averageDetectionLatency == averageDetectionLatency &&
         other.memoryUsageMB == memoryUsageMB &&
-        other.cpuUsagePercent == cpuUsagePercent &&
         other.restartCount == restartCount;
   }
 
@@ -348,9 +373,9 @@ class PolyfencePerformanceMetrics {
         uptime,
         totalLocationUpdates,
         totalZoneDetections,
+        timedZoneDetections,
         averageDetectionLatency,
         memoryUsageMB,
-        cpuUsagePercent,
         restartCount,
       );
 
@@ -360,52 +385,54 @@ class PolyfencePerformanceMetrics {
       'uptime': uptime.inMilliseconds,
       'totalLocationUpdates': totalLocationUpdates,
       'totalZoneDetections': totalZoneDetections,
+      'timedZoneDetections': timedZoneDetections,
       'averageDetectionLatency': averageDetectionLatency,
       'memoryUsageMB': memoryUsageMB,
-      'cpuUsagePercent': cpuUsagePercent,
       'restartCount': restartCount,
     };
   }
 }
 
+/// Reads a battery percentage, rejecting anything outside 0-100.
+///
+/// A negative value is how older native builds signalled a level the OS had
+/// not populated; passing it through would show a consumer a charge the
+/// device never had, and a `?? default` on their side would not catch it.
+int? _batteryLevelOrNull(Object? raw) {
+  final value = (raw as num?)?.toInt();
+  if (value == null || value < 0 || value > 100) return null;
+  return value;
+}
+
 /// Battery usage metrics for monitoring power consumption.
 class PolyfenceBatteryMetrics {
-  /// Estimated battery drain per hour as a percentage.
-  final double estimatedHourlyDrain;
-
-  /// Percentage of time GPS has been actively polling.
-  final int gpsActiveTimePercent;
-
-  /// Number of times the device was woken from sleep.
-  final int wakeUpCount;
-
   /// Whether the device is currently charging.
   final bool isCharging;
 
   /// Current battery level (0-100).
-  final int batteryLevel;
+  ///
+  /// Null on iOS before the operating system has populated the level, which
+  /// is always the case in the Simulator. A value outside 0-100 is also
+  /// reported as null: older native builds signalled "not populated" with a
+  /// negative sentinel, and a charge no device ever had is not a
+  /// measurement.
+  final int? batteryLevel;
 
   /// Total time the plugin has been actively tracking.
   final Duration totalActiveTime;
 
   /// Creates battery metrics.
   PolyfenceBatteryMetrics({
-    required this.estimatedHourlyDrain,
-    required this.gpsActiveTimePercent,
-    required this.wakeUpCount,
     required this.isCharging,
-    required this.batteryLevel,
+    this.batteryLevel,
     required this.totalActiveTime,
   });
 
   /// Creates battery metrics from a platform channel map.
   factory PolyfenceBatteryMetrics.fromMap(Map<String, dynamic> map) {
     return PolyfenceBatteryMetrics(
-      estimatedHourlyDrain: (map['estimatedHourlyDrain'] ?? 0.0).toDouble(),
-      gpsActiveTimePercent: (map['gpsActiveTimePercent'] as num?)?.toInt() ?? 0,
-      wakeUpCount: (map['wakeUpCount'] as num?)?.toInt() ?? 0,
       isCharging: map['isCharging'] ?? false,
-      batteryLevel: (map['batteryLevel'] as num?)?.toInt() ?? 0,
+      batteryLevel: _batteryLevelOrNull(map['batteryLevel']),
       totalActiveTime:
           Duration(milliseconds: (map['totalActiveTime'] as num?)?.toInt() ?? 0),
     );
@@ -415,9 +442,6 @@ class PolyfenceBatteryMetrics {
   bool operator ==(Object other) {
     if (identical(this, other)) return true;
     return other is PolyfenceBatteryMetrics &&
-        other.estimatedHourlyDrain == estimatedHourlyDrain &&
-        other.gpsActiveTimePercent == gpsActiveTimePercent &&
-        other.wakeUpCount == wakeUpCount &&
         other.isCharging == isCharging &&
         other.batteryLevel == batteryLevel &&
         other.totalActiveTime == totalActiveTime;
@@ -425,9 +449,6 @@ class PolyfenceBatteryMetrics {
 
   @override
   int get hashCode => Object.hash(
-        estimatedHourlyDrain,
-        gpsActiveTimePercent,
-        wakeUpCount,
         isCharging,
         batteryLevel,
         totalActiveTime,
@@ -436,9 +457,6 @@ class PolyfenceBatteryMetrics {
   /// Converts to a map for serialization.
   Map<String, dynamic> toMap() {
     return {
-      'estimatedHourlyDrain': estimatedHourlyDrain,
-      'gpsActiveTimePercent': gpsActiveTimePercent,
-      'wakeUpCount': wakeUpCount,
       'isCharging': isCharging,
       'batteryLevel': batteryLevel,
       'totalActiveTime': totalActiveTime.inMilliseconds,
@@ -457,19 +475,11 @@ class PolyfenceZoneStatus {
   /// Number of polygon zones.
   final int polygonZones;
 
-  /// When zones were last updated.
-  final DateTime lastZoneUpdate;
-
-  /// Map of zone IDs to their event counts.
-  final Map<String, int> zoneEventCounts;
-
   /// Creates zone status.
   PolyfenceZoneStatus({
     required this.activeZones,
     required this.circleZones,
     required this.polygonZones,
-    required this.lastZoneUpdate,
-    required this.zoneEventCounts,
   });
 
   /// Creates zone status from a platform channel map.
@@ -478,10 +488,6 @@ class PolyfenceZoneStatus {
       activeZones: (map['activeZones'] as num?)?.toInt() ?? 0,
       circleZones: (map['circleZones'] as num?)?.toInt() ?? 0,
       polygonZones: (map['polygonZones'] as num?)?.toInt() ?? 0,
-      lastZoneUpdate: DateTime.fromMillisecondsSinceEpoch(
-        (map['lastZoneUpdate'] as num?)?.toInt() ?? 0,
-      ),
-      zoneEventCounts: Map<String, int>.from(map['zoneEventCounts'] ?? {}),
     );
   }
 
@@ -491,26 +497,11 @@ class PolyfenceZoneStatus {
     return other is PolyfenceZoneStatus &&
         other.activeZones == activeZones &&
         other.circleZones == circleZones &&
-        other.polygonZones == polygonZones &&
-        other.lastZoneUpdate == lastZoneUpdate &&
-        mapEquals(other.zoneEventCounts, zoneEventCounts);
+        other.polygonZones == polygonZones;
   }
 
   @override
-  int get hashCode {
-    var mapHash = 0;
-    final sortedKeys = zoneEventCounts.keys.toList()..sort();
-    for (final key in sortedKeys) {
-      mapHash = Object.hash(mapHash, key, zoneEventCounts[key]);
-    }
-    return Object.hash(
-      activeZones,
-      circleZones,
-      polygonZones,
-      lastZoneUpdate,
-      mapHash,
-    );
-  }
+  int get hashCode => Object.hash(activeZones, circleZones, polygonZones);
 
   /// Converts to a map for serialization.
   Map<String, dynamic> toMap() {
@@ -518,8 +509,6 @@ class PolyfenceZoneStatus {
       'activeZones': activeZones,
       'circleZones': circleZones,
       'polygonZones': polygonZones,
-      'lastZoneUpdate': lastZoneUpdate.millisecondsSinceEpoch,
-      'zoneEventCounts': zoneEventCounts,
     };
   }
 }

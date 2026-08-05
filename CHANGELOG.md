@@ -18,6 +18,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`PolyfenceErrorType.osGeofencePermissionDenied`, `osGeofenceRegistrationFailed`, and `osGeofenceQueueDisabled`.** polyfence-core emits all three; without these enum values they arrived as `PolyfenceErrorType.unknown` and a consumer could not tell degraded wake coverage apart from any other unmapped error. All three carry `context['severity'] == 'warning'` and leave tracking running.
 
 ### Changed
+- **`debugInfo()` returns only what was measured, so six fields are gone and five can now be null.** Removed from the typed model: `battery.estimatedHourlyDrain`, `battery.gpsActiveTimePercent`, `battery.wakeUpCount`, `zones.lastZoneUpdate`, `zones.zoneEventCounts` and `performance.cpuUsagePercent`. None of them ever carried a measurement — one was hours-since-start multiplied by five, another divided a duration by itself and so read `100` forever, a third returned zero from a function whose body was a note about what it would one day count. **Any code reading them will no longer compile**, which is deliberate: a silently-removed key would have read as its type's default and been indistinguishable from a real zero.
+
+  Five fields become nullable, because a platform that cannot measure something now says so instead of substituting a value:
+
+  | Field | Null when |
+  |---|---|
+  | `systemStatus.isBatteryOptimizationDisabled` | always on iOS — no such setting exists |
+  | `systemStatus.isWakeLockAcquired` | always on iOS; on Android when no tracking service is running, since nothing could be holding a lock |
+  | `performance.restartCount` | always on iOS — no foreground service to restart |
+  | `performance.averageDetectionLatency` | until at least one crossing has been **timed** |
+  | `battery.batteryLevel` | on iOS before the OS populates the level. Any reading outside 0-100 is also reported as null — older native builds signalled "not populated" with a negative sentinel, and a charge no device ever had is not a measurement |
+
+  New `performance.timedZoneDetections` says how many crossings contributed a latency sample. It is lower than `totalZoneDetections` when the engine synthesised a crossing outside a timed evaluation — a degraded-GPS exit, for instance. Those crossings are real, so they are counted; they simply carry no timing, and folding them in as zero would drag the mean toward a speed nothing achieved.
 - **The listener signal is separate from the sink-attach signal.** `setBridgeAttached` continues to report whether the plugin's own geofence `EventChannel` sink is wired; a new `setEventListenerActive` reports whether a consumer is subscribed to the Dart-side stream. The two happen at different moments — the sink attaches during `initialize()`, the subscription comes after — and only the second means somebody is receiving. The automatic replay keys off the second; keying it off the first would emit the queue into a broadcast stream with no subscribers, which discards it.
 - **Depends on polyfence-core 1.1.0** (bumped from 1.0.14). The bump ships the pending-events store, drain-then-reconcile ordering, and the `setBridgeAttached` hook this plugin now exercises. Every 1.0.x consumer that leaves `pendingEventsQueueSize` at `0` (the default) sees zero behaviour change.
 - **Base tracking on Android requires only foreground location.** `ACCESS_FINE_LOCATION` or `ACCESS_COARSE_LOCATION`, plus `FOREGROUND_SERVICE_LOCATION` on API 34+, is the whole requirement. Tracking runs as a foreground service typed `location`, which holds location access for as long as it runs; `ACCESS_BACKGROUND_LOCATION` governs location access *outside* a foreground service and is therefore needed only for `osGeofenceWakeEnabled`. The plugin's permission check previously demanded it unconditionally on API 29+ and threw `Location permissions not granted` from `startTracking()` before the native engine was consulted. iOS accepts "When In Use"; "Always" is needed only for wake fences.
@@ -180,7 +193,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Dead companion methods removed** — `sendLocationUpdate()`, `sendGeofenceEvent()`, `sendPerformanceEvent()` on Android companion object were never called (superseded by delegate pattern). Removed.
 - **polyfence-core bumped to 1.0.3** — Includes FGS crash fix, GPS cold-start seed, and distance filter deferral.
 - **polyfence-core bumped to 1.0.2** — Plugin calls `setBridgePlatform()` which was added in core 1.0.2. Previously declared 1.0.0, causing build failures for consumers.
-- **Telemetry defaults, retry queue, and platform timeouts** — Audit findings resolved: telemetry field defaults corrected, retry queue backoff improved, platform-specific timeouts tuned.
+- **Telemetry defaults, retry queue, and platform timeouts** — telemetry field defaults corrected, retry queue backoff improved, platform-specific timeouts tuned.
 - **Analytics config consolidation** — `AnalyticsConfig` unified with typed `initialize()` method. Migration guide added.
 - **Haversine bounds and polygon test vectors** — Corrected edge-case calculations in `geofence_algorithms_test`.
 - **Debug overlay nested accessors** — Updated to use `PolyfenceDebugInfo` nested objects (`info.zones.activeZones`, `info.performance.totalZoneDetections`).

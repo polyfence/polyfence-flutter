@@ -1237,26 +1237,18 @@ class PolyfenceService {
   /// nearestZoneDistanceM, intervalMs, currentGpsAccuracy,
   /// secondsSinceLastGpsFix, ...}}` — none of the keys
   /// [PolyfencePerformanceMetrics] reads (`uptime`,
-  /// `averageDetectionLatency`, `cpuUsagePercent`, `restartCount`,
-  /// `memoryUsageMB`) exist on that payload, so every emission maps to
-  /// an all-zeros metrics object. Retained as a getter for
-  /// source-compatibility.
+  /// `averageDetectionLatency`, `restartCount`, `memoryUsageMB`) exist
+  /// on that payload, so every emission maps to an empty metrics
+  /// object. Retained as a getter for source-compatibility.
   ///
   /// For live GPS metrics use [runtimeStatus], which returns a typed
   /// [PolyfenceRuntimeStatus] built from the actual native payload.
-  /// For the CPU / memory / uptime figures this class promises, poll
-  /// [debugInfo] — those come from a one-shot collector, not a stream.
-  /// On iOS today [debugInfo]'s `uptime`, `memoryUsageMB`,
-  /// `cpuUsagePercent` and `totalLocationUpdates` are hard-coded to
-  /// zero at the bridge; only the Android build returns populated
-  /// values. Follow-up work to route the iOS bridge through
-  /// `PolyfenceDebugCollector.shared.collectDebugInfo()` is tracked
-  /// separately.
+  /// For the memory / uptime figures this class promises, poll
+  /// [debugInfo] — those come from a one-shot collector, not a stream,
+  /// and are populated on both platforms.
   @Deprecated(
     'Use runtimeStatus (typed PolyfenceRuntimeStatus) for live GPS '
-    'metrics. For CPU/memory/uptime, poll debugInfo() — those figures '
-    'are populated on Android and stubbed on iOS pending a separate '
-    'bridge fix.',
+    'metrics. For memory and uptime, poll debugInfo().',
   )
   Stream<PolyfencePerformanceMetrics> get performanceStream {
     return _platform.performanceStream

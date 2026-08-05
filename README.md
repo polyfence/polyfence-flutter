@@ -779,7 +779,7 @@ final debugInfo = await Polyfence.instance.debugInfo();
 // System status
 print('Location Permission: ${debugInfo.systemStatus.isLocationPermissionGranted}');
 print('GPS Enabled: ${debugInfo.systemStatus.isGpsEnabled}');
-print('Wake Lock Active: ${debugInfo.systemStatus.isWakeLockAcquired}');
+print('Wake Lock Active: ${debugInfo.systemStatus.isWakeLockAcquired ?? "not measured"}');
 
 // Performance metrics
 print('Uptime: ${debugInfo.performance.uptime}');
@@ -787,7 +787,7 @@ print('Location Updates: ${debugInfo.performance.totalLocationUpdates}');
 print('Memory Usage: ${debugInfo.performance.memoryUsageMB}MB');
 
 // Battery information
-print('Battery Level: ${debugInfo.battery.batteryLevel}%');
+print('Battery Level: ${debugInfo.battery.batteryLevel ?? "unknown"}%');
 print('Is Charging: ${debugInfo.battery.isCharging}');
 
 // Zone status
@@ -859,23 +859,33 @@ current-fix accuracy, and GPS-health counters. Health-score events
 travel on the separate `healthScoreStream`. Cancel the subscription in
 your widget's `dispose()`.
 
-For CPU / memory / uptime and the aggregate session snapshot use the
-one-shot `debugInfo()` and `getSessionTelemetry()` accessors — those
-metrics are not delivered on a stream. **iOS caveat:** the current
-Flutter iOS bridge hand-builds `debugInfo()` inline and hard-codes
-every numeric field under `performance` (including `uptime` and
-`memoryUsageMB`), most of `battery` (including `totalActiveTime`,
-`estimatedHourlyDrain`, `gpsActiveTimePercent`, `wakeUpCount`), and
-every `zones.*` count to `0`. `systemStatus`, `battery.isCharging`,
-`battery.batteryLevel` and `recentErrors` return real values.
-Routing the iOS bridge through
-`PolyfenceDebugCollector.shared.collectDebugInfo()` (real `uptime`,
-`memoryUsageMB`, `battery.totalActiveTime`, error history) is a
-separate follow-up branch; even after that lands, counters like
-`totalLocationUpdates` / `totalZoneDetections` /
-`averageDetectionLatency` / `zones.activeZones` stay `0` on both
-platforms until polyfence-core wires the collector.
-`getSessionTelemetry()` is populated on both platforms.
+For memory / uptime and the aggregate session snapshot use the one-shot
+`debugInfo()` and `getSessionTelemetry()` accessors — those metrics are
+not delivered on a stream. Both are populated on both platforms.
+
+Where a platform cannot measure one of the following, the field is
+**null** rather than a filler value, so absence is distinguishable from a
+genuine zero:
+
+| Field | Null when |
+|---|---|
+| `systemStatus.isBatteryOptimizationDisabled` | always on iOS — no such setting exists |
+| `systemStatus.isWakeLockAcquired` | always on iOS; on Android when no tracking service is running |
+| `performance.restartCount` | always on iOS — no foreground service to restart |
+| `performance.averageDetectionLatency` | until at least one crossing has been *timed* |
+| `battery.batteryLevel` | on iOS before the OS populates the level |
+
+`performance.timedZoneDetections` reports how many crossings contributed
+a latency sample. It is lower than `totalZoneDetections` when the engine
+synthesised a crossing outside a timed evaluation — a degraded-GPS exit,
+for instance. Those crossings are real and are counted; they simply carry
+no timing.
+
+`memoryUsageMB` measures whole-process resident size on iOS and Java heap
+only on Android, so the two are not comparable across platforms.
+
+Two older fields still use sentinels rather than null: `lastKnownAccuracy`
+is `-1` and `lastLocationUpdate` is epoch zero when no fix has arrived.
 
 ## Upgrading
 

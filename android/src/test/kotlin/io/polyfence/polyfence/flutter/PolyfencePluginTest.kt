@@ -306,11 +306,33 @@ class PolyfencePluginTest {
     }
 
     @Test
-    fun testDisposeReturnsNotImplemented() {
-        // dispose is handled on the Dart side, not in the native plugin
+    fun testDisposeSignalsBridgeDetachedAndReturnsSuccess() {
+        // The native "dispose" case exists so the Dart bridge can signal
+        // core that live delivery is going away — critical for the
+        // durable pending-events queue to persist events fired after
+        // teardown instead of dropping them at the delegate boundary.
         val call = MethodCall("dispose", null)
         plugin.onMethodCall(call, result)
-        verify(result).notImplemented()
+        verify(result).success(null)
+        verify(result, never()).notImplemented()
+    }
+
+    @Test
+    fun testDrainPendingEventsIsRecognized() {
+        val call = MethodCall("drainPendingEvents", null)
+        try {
+            plugin.onMethodCall(call, result)
+        } catch (_: Exception) {}
+        verify(result, never()).notImplemented()
+    }
+
+    @Test
+    fun testPendingEventsDroppedCountIsRecognized() {
+        val call = MethodCall("pendingEventsDroppedCount", null)
+        try {
+            plugin.onMethodCall(call, result)
+        } catch (_: Exception) {}
+        verify(result, never()).notImplemented()
     }
 
     @Test

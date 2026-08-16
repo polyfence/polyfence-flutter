@@ -88,9 +88,32 @@ class PolyfencePlugin: FlutterPlugin, MethodCallHandler, ActivityAware {
     private lateinit var performanceChannel: EventChannel
     private lateinit var context: Context
 
+    // Stream handlers kept as fields so tests can drive onListen / onCancel
+    // through the exact production wiring — Flutter's EventChannel does not
+    // expose an accessor for its current handler, and the pending-events
+    // queue's persist-vs-live XOR hangs off setBridgeAttached calls that
+    // must fire from these handlers.
+    private var geofenceStreamHandler: EventChannel.StreamHandler? = null
+
 
     override fun onAttachedToEngine(@NonNull flutterPluginBinding: FlutterPlugin.FlutterPluginBinding) {
         context = flutterPluginBinding.applicationContext
+
+        // Start in the "not-yet-listening" state so any geofence event that
+        // fires between plugin attach and the geofence EventChannel's first
+        // onListen lands in the durable pending-events queue (when opted
+        // in) instead of core delivering to a null sink. Core's own default
+        // is `true`, which would mis-classify this window as live-delivery
+        // and silently drop the event; onListen flips this back to `true`
+        // when the Dart-side subscription is up.
+        LocationTracker.setBridgeAttached(false)
+
+        // Declare that this bridge owns the listener-live signal, before any
+        // method-channel call can register a delegate. Core would otherwise
+        // treat delegate registration as a direct-Kotlin consumer subscribing
+        // and replay the durable queue during initialize() — into a Dart
+        // stream the app has not subscribed to yet.
+        LocationTracker.setEventListenerActive(false)
 
         // Setup error event channel — bridges core PolyfenceErrorManager to Flutter
         errorChannel = EventChannel(flutterPluginBinding.binaryMessenger, ERROR_CHANNEL)
@@ -131,16 +154,25 @@ class PolyfencePlugin: FlutterPlugin, MethodCallHandler, ActivityAware {
             }
         })
         
-        // Setup geofence event channel
+        // Setup geofence event channel. The geofence sink is the load-bearing
+        // signal for the durable pending-events queue: when it goes away,
+        // core must persist events instead of delivering; when it comes
+        // back, core must live-deliver again. Tie setBridgeAttached to
+        // onListen / onCancel so a Dart stream unsubscribe / re-subscribe
+        // cycle correctly flips core's persist gate — initialize / dispose
+        // are not granular enough on their own.
         geofenceChannel = EventChannel(flutterPluginBinding.binaryMessenger, GEOFENCE_CHANNEL)
-        geofenceChannel.setStreamHandler(object : EventChannel.StreamHandler {
+        geofenceStreamHandler = object : EventChannel.StreamHandler {
             override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
                 geofenceSink = events
+                LocationTracker.setBridgeAttached(true)
             }
             override fun onCancel(arguments: Any?) {
                 geofenceSink = null
+                LocationTracker.setBridgeAttached(false)
             }
-        })
+        }
+        geofenceChannel.setStreamHandler(geofenceStreamHandler)
         
         // Setup performance event channel
         performanceChannel = EventChannel(flutterPluginBinding.binaryMessenger, PERFORMANCE_CHANNEL)
@@ -199,6 +231,14 @@ class PolyfencePlugin: FlutterPlugin, MethodCallHandler, ActivityAware {
                 // Wire up delegate so core sends events back to Flutter
                 LocationTracker.setPendingCoreDelegate(coreDelegate)
 
+                // Attach state is authoritative from the geofence stream
+                // handler's onListen / onCancel — initialize() does NOT
+                // pre-flip to `true` because that would misclassify the
+                // post-initialize / pre-listen window as live-delivery and
+                // silently drop events fired in that window (e.g. from a
+                // foreground Service that survived a prior process death
+                // while Analytics initialization is still awaiting).
+
                 result.success(null)
             }
             
@@ -240,7 +280,7 @@ class PolyfencePlugin: FlutterPlugin, MethodCallHandler, ActivityAware {
             }
             
             "requestPermissions" -> {
-                result.success(hasAllRequiredPerms(context))
+                result.success(hasCoreTrackingPerms(context))
             }
             
             "isLocationServiceEnabled" -> {
@@ -391,6 +431,47 @@ class PolyfencePlugin: FlutterPlugin, MethodCallHandler, ActivityAware {
                 }
             }
 
+            "drainPendingEvents" -> {
+                try {
+                    val raw = LocationTracker.drainPendingEvents(context)
+                    val nowMs = System.currentTimeMillis()
+                    val enriched = raw.map { event ->
+                        val capturedTs = (event["timestamp"] as? Number)?.toLong() ?: nowMs
+                        val queued = (nowMs - capturedTs).coerceAtLeast(0L)
+                        HashMap<String, Any>(event).apply {
+                            put("deliveredLate", true)
+                            put("capturedTs", capturedTs)
+                            put("queuedDurationMs", queued)
+                        }
+                    }
+                    result.success(enriched)
+                } catch (e: Exception) {
+                    Log.e("PolyfencePlugin", "Failed to drain pending events: ${e.message}")
+                    result.error("DRAIN_PENDING_EVENTS_FAILED", e.message, null)
+                }
+            }
+
+            "pendingEventsDroppedCount" -> {
+                try {
+                    result.success(LocationTracker.pendingEventsDroppedCount(context))
+                } catch (e: Exception) {
+                    Log.e("PolyfencePlugin", "Failed to read pending events dropped count: ${e.message}")
+                    result.error("PENDING_EVENTS_DROPPED_COUNT_FAILED", e.message, null)
+                }
+            }
+
+            "setEventListenerActive" -> {
+                val active = call.argument<Boolean>("active") ?: false
+                LocationTracker.setEventListenerActive(active)
+                result.success(null)
+            }
+
+            "dispose" -> {
+                LocationTracker.setBridgeAttached(false)
+                LocationTracker.setEventListenerActive(false)
+                result.success(null)
+            }
+
             else -> {
                 result.notImplemented()
             }
@@ -419,18 +500,32 @@ class PolyfencePlugin: FlutterPlugin, MethodCallHandler, ActivityAware {
         }
     }
 
-    private fun hasAllRequiredPerms(context: Context): Boolean {
+    /**
+     * Permissions required to run the tracker at all. Mirrors
+     * `LocationTracker.hasCoreTrackingPerms` in polyfence-core — this gate must
+     * never be stricter than the engine's own, or it refuses work the engine
+     * would have done.
+     *
+     * `ACCESS_BACKGROUND_LOCATION` is deliberately NOT part of this. The tracker
+     * is a foreground service, and a foreground service typed `location` has
+     * location access for as long as it runs. The background permission governs
+     * location access *outside* a foreground service — passive geofences, jobs,
+     * receivers — which is what OS wake fences use and nothing else here does.
+     * Requiring it unconditionally would refuse to start for consumers who
+     * never asked for that capability, and force every integrator through
+     * Google Play's background-location review for a feature they are not
+     * using. iOS accepts "when in use" here, so this is also what makes the
+     * platforms agree.
+     */
+    private fun hasCoreTrackingPerms(context: Context): Boolean {
         val fine = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
         val coarse = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
-        val bgOk = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_BACKGROUND_LOCATION) == PackageManager.PERMISSION_GRANTED
-        } else true
         // API 34 (Android 14) requires FOREGROUND_SERVICE_LOCATION permission
         // Use SDK_INT >= 34 instead of UPSIDE_DOWN_CAKE constant (not available in older SDKs)
         val fgsOk = if (Build.VERSION.SDK_INT >= 34) {
             ContextCompat.checkSelfPermission(context, Manifest.permission.FOREGROUND_SERVICE_LOCATION) == PackageManager.PERMISSION_GRANTED
         } else true
-        return (fine || coarse) && bgOk && fgsOk
+        return (fine || coarse) && fgsOk
     }
     
     private fun startLocationTracking() {
@@ -629,13 +724,22 @@ class PolyfencePlugin: FlutterPlugin, MethodCallHandler, ActivityAware {
     }
     
     override fun onDetachedFromEngine(@NonNull binding: FlutterPlugin.FlutterPluginBinding) {
+        // Signal to core that live delivery is going away BEFORE the sinks
+        // are nulled so subsequent geofence events land in the durable
+        // pending-events queue (when opted in via pendingEventsQueueSize > 0)
+        // instead of dropping. Ordering matters: setBridgeAttached(false)
+        // must be observed by core before any in-flight event races into a
+        // just-nulled sink.
+        LocationTracker.setBridgeAttached(false)
+        LocationTracker.setEventListenerActive(false)
+
         methodChannel.setMethodCallHandler(null)
         locationChannel.setStreamHandler(null)
         geofenceChannel.setStreamHandler(null)
         locationSink = null
         geofenceSink = null
     }
-    
+
     // PolyfenceCoreDelegate — bridges core events to Flutter EventChannel sinks
     // Every delegate callback marshals to the platform-message
     // (main) thread before touching an EventChannel.EventSink — those
@@ -649,6 +753,16 @@ class PolyfencePlugin: FlutterPlugin, MethodCallHandler, ActivityAware {
         }
 
         override fun onGeofenceEvent(eventData: Map<String, Any>) {
+            // Attach state is the authoritative gate — the geofence
+            // EventChannel's onListen / onCancel wire setBridgeAttached to
+            // this sink's lifecycle, so core only invokes this delegate
+            // when a sink was attached at the time of the check. The
+            // null-safe post covers the tiny race between core reading
+            // bridgeAttached=true and this callback running after an
+            // onCancel raced in on the platform thread; an in-flight
+            // event may drop silently in that window, which is acceptable
+            // because setBridgeAttached(false) has already flipped so the
+            // next event lands in the durable queue (when opted in).
             mainHandler.post { geofenceSink?.success(eventData) }
         }
 

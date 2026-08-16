@@ -1,13 +1,31 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
-    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
-    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
+    <!-- This app declares only what a consumer of the plugin has to declare.
+         ACCESS_FINE_LOCATION, ACCESS_COARSE_LOCATION, FOREGROUND_SERVICE,
+         FOREGROUND_SERVICE_LOCATION, WAKE_LOCK, POST_NOTIFICATIONS, VIBRATE and
+         RECEIVE_BOOT_COMPLETED are merged in from the plugin's own manifest and
+         must not be repeated here. See doc/ANDROID_PERMISSIONS.md. -->
     <uses-permission android:name="android.permission.INTERNET" />
-    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-    <uses-permission android:name="android.permission.VIBRATE" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
-    <uses-permission android:name="android.permission.WAKE_LOCK" />
+
+    <!-- Buys OS wake fences (osGeofenceWakeEnabled) and nothing else. Tracking
+         itself runs as a foreground service typed "location", which holds
+         location access without this. Declaring it is what puts an app into
+         Google Play's manual background-location review, so an app that does
+         not need crossings to survive its own process being killed should leave
+         it out entirely.
+
+         Must be requested at runtime only after foreground location is already
+         granted; from API 30 the OS shows no dialog for it and the user has to
+         choose "Allow all the time" in app settings. -->
+    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
+
+    <!-- Backs requestBatteryOptimizationExemption(). Without it the exemption
+         dialog cannot be shown and the call does nothing. -->
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+
+    <!-- Minute-accurate scheduled tracking windows. Scheduling still works
+         without it — alarms degrade to inexact and a window may open late. -->
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+
     <!-- Activity recognition powers the SmartGPS intelligent strategy
          (still / walking / running / cycling / driving). Optional at
          runtime — the example continues without it if denied. -->
@@ -36,11 +54,19 @@
             </intent-filter>
         </activity>
 
-        <!-- LocationTracker service for background geofencing.
-             Class lives in the plugin under the io.polyfence.polyfence
-             package (see plugin android/build.gradle namespace). -->
+        <!-- The background geofencing service. The plugin's manifest already
+             declares it, so a consumer app does not have to repeat this block;
+             it is spelled out here because the two attributes below are the ones
+             that break silently when hand-written.
+
+             The class ships in polyfence-core under io.polyfence.core, so the
+             name must be fully qualified — a relative name would resolve against
+             this app's own package and fail with ClassNotFoundException.
+
+             foregroundServiceType="location" is required from API 29 and hard
+             enforced from API 34, where startForeground() throws without it. -->
         <service
-            android:name="io.polyfence.polyfence.core.LocationTracker"
+            android:name="io.polyfence.core.LocationTracker"
             android:foregroundServiceType="location"
             android:exported="false"
             android:enabled="true" />

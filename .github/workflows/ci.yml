@@ -40,7 +40,15 @@ jobs:
         with:
           channel: stable
 
+      # Pinned, and pinned to the same version example/android's wrapper
+      # properties name. The wrapper script and jar are gitignored, so this
+      # step runs `gradle` rather than `./gradlew` and takes whatever the
+      # action installs by default — which is now Gradle 9.x. AGP 8.x cannot
+      # run on Gradle 9.6+: it reaches for an internal API removed there, and
+      # the build fails while configuring, before any test runs.
       - uses: gradle/actions/setup-gradle@v6
+        with:
+          gradle-version: '8.14'
 
       - name: Resolve Flutter dependencies
         run: cd example && flutter pub get

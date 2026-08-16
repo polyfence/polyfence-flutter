@@ -395,10 +395,21 @@ class PolyfencePluginTests: XCTestCase {
     func testDisposeMethodHandledGracefully() {
         let call = FlutterMethodCall(methodName: "dispose", arguments: nil)
         var resultCalled = false
-        let result: FlutterResult = { _ in resultCalled = true }
+        var receivedResult: Any?
+        let result: FlutterResult = { value in
+            resultCalled = true
+            receivedResult = value
+        }
 
         plugin.handle(call, result: result)
         XCTAssertTrue(resultCalled, "Dispose should handle result gracefully")
+        // Dispose now routes to the bridge-detached signal path, returning
+        // nil rather than FlutterMethodNotImplemented so the durable
+        // pending-events queue can pick up events fired after the Dart
+        // engine tears down.
+        let flutterErr = receivedResult as? FlutterError
+        XCTAssertNotEqual(flutterErr?.code, "FlutterMethodNotImplemented",
+                          "dispose must be a first-class case, not the default branch")
     }
 }
 

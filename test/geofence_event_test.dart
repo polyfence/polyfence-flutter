@@ -232,5 +232,75 @@ void main() {
         expect(restored.type, type);
       }
     });
+
+    test(
+        'deliveredLate defaults to false and drain metadata defaults to null',
+        () {
+      final event = GeofenceEvent(
+        zoneId: 'z1',
+        type: GeofenceEventType.enter,
+        location: testLocation,
+        timestamp: testTimestamp,
+      );
+
+      expect(event.deliveredLate, isFalse);
+      expect(event.capturedTs, isNull);
+      expect(event.queuedDurationMs, isNull);
+    });
+
+    test('round-trips deliveredLate, capturedTs, queuedDurationMs', () {
+      final event = GeofenceEvent(
+        zoneId: 'zone-late',
+        zoneName: 'Congestion Zone',
+        type: GeofenceEventType.enter,
+        location: testLocation,
+        timestamp: testTimestamp,
+        deliveredLate: true,
+        capturedTs: 1700000000000,
+        queuedDurationMs: 45000,
+      );
+
+      final restored = GeofenceEvent.fromJson(event.toJson());
+      expect(restored.deliveredLate, isTrue);
+      expect(restored.capturedTs, 1700000000000);
+      expect(restored.queuedDurationMs, 45000);
+      expect(restored, event);
+    });
+
+    test('fromJson tolerates missing drain metadata for backward compat', () {
+      final json = {
+        'zoneId': 'z',
+        'zoneName': '',
+        'type': 'enter',
+        'location': testLocation.toJson(),
+        'timestamp': testTimestamp.millisecondsSinceEpoch,
+      };
+      final event = GeofenceEvent.fromJson(json);
+      expect(event.deliveredLate, isFalse);
+      expect(event.capturedTs, isNull);
+      expect(event.queuedDurationMs, isNull);
+    });
+
+    test('equality distinguishes live and late deliveries of the same event',
+        () {
+      final live = GeofenceEvent(
+        zoneId: 'z',
+        type: GeofenceEventType.enter,
+        location: testLocation,
+        timestamp: testTimestamp,
+      );
+      final late = GeofenceEvent(
+        zoneId: 'z',
+        type: GeofenceEventType.enter,
+        location: testLocation,
+        timestamp: testTimestamp,
+        deliveredLate: true,
+        capturedTs: testTimestamp.millisecondsSinceEpoch,
+        queuedDurationMs: 1000,
+      );
+
+      expect(live, isNot(equals(late)));
+      expect(live.hashCode, isNot(equals(late.hashCode)));
+    });
   });
 }

@@ -66,10 +66,10 @@ All three zone-sourcing approaches use the **same plugin API** — switch anytim
 ```yaml
 # pubspec.yaml
 dependencies:
-  polyfence: <!-- pf:version -->^2.1.1<!-- /pf:version -->
+  polyfence: <!-- pf:version -->^3.0.0<!-- /pf:version -->
 ```
 
-**Current version:** <!-- pf:version-plain -->2.1.1<!-- /pf:version-plain -->
+**Current version:** <!-- pf:version-plain -->3.0.0<!-- /pf:version-plain -->
 
 > **Native dependency:** Polyfence uses [polyfence-core](https://github.com/polyfence/polyfence-core) for native geofencing engines. It's included automatically — Maven for Android, CocoaPods for iOS. On iOS, run `cd ios && pod install` after adding the dependency.
 
@@ -83,15 +83,46 @@ flutter pub get
 
 ### Android — `android/app/src/main/AndroidManifest.xml`
 
+**Base integration needs no manifest changes.** The plugin declares the permissions its own foreground service and receiver cannot run without, and manifest merging pulls them into your app: `ACCESS_FINE_LOCATION`, `ACCESS_COARSE_LOCATION`, `FOREGROUND_SERVICE`, `FOREGROUND_SERVICE_LOCATION`, `WAKE_LOCK`, `POST_NOTIFICATIONS`, `VIBRATE`, `RECEIVE_BOOT_COMPLETED`.
+
+Permissions that carry a Google Play review cost, or that gate a feature you opt into, are **declared by your app** so only apps that use the feature pay for them:
+
 ```xml
-<uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
-<uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+<!-- Tracking while your app is backgrounded or closed -->
 <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
-<uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-<uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
-<uses-permission android:name="android.permission.WAKE_LOCK" />
+
+<!-- requestBatteryOptimizationExemption() -->
 <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+
+<!-- Minute-accurate scheduled tracking windows -->
+<uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+
+<!-- Activity-based GPS tuning -->
+<uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" />
+<uses-permission android:name="com.google.android.gms.permission.ACTIVITY_RECOGNITION" />
 ```
+
+Paste only the blocks for features you use — every one of them costs you something at review time or adds a runtime prompt.
+
+> **An undeclared permission cannot be granted.** Requesting one that is absent from your merged manifest returns denied immediately, with no dialog shown and nothing in logcat. `Permission.locationAlways.request()` without `ACCESS_BACKGROUND_LOCATION` above is the common case: it silently fails on every call and background tracking never starts.
+
+If the background grant is missing or revoked, **tracking still runs**: wake fences degrade to polling-only and emit a `PolyfenceErrorType.osGeofencePermissionDenied` event on `onError` with `context['severity'] == 'warning'`, and `debugInfo().systemStatus.osGeofenceRegistrationHealth` reports `lastError == 'background_location_denied'`.
+
+[**doc/ANDROID_PERMISSIONS.md**](doc/ANDROID_PERMISSIONS.md) has the per-feature detail — which runtime request goes with which declaration, what each feature degrades to when the permission is missing, and how to verify the merged result.
+
+#### The foreground service declaration
+
+The plugin declares the tracking service, so you don't need to add it:
+
+```xml
+<service
+    android:name="io.polyfence.core.LocationTracker"
+    android:foregroundServiceType="location"
+    android:stopWithTask="false"
+    android:exported="false" />
+```
+
+If you do hand-write it, keep both details exact: `android:foregroundServiceType="location"` is required from API 29 and hard-enforced from API 34, where `startForeground()` throws `MissingForegroundServiceTypeException` without it; and the class name must be fully qualified, since `LocationTracker` ships in polyfence-core under `io.polyfence.core` rather than in your own package.
 
 - **minSdk**: 24+ (Android 7.0)
 - **tested**: up to API 35 (Android 15)
@@ -181,22 +212,37 @@ await Polyfence.instance.initialize();
 
 ### Step 2: Request Permissions
 
-**iOS:** `requestPermissions(always: true)` triggers the system permission dialog.
+Foreground location is the whole requirement — "While in use" on Android, "When In Use" on iOS. The stronger background grant is needed only for `osGeofenceWakeEnabled`; request it only when you set that flag, and never otherwise. On Android, `Permission.locationAlways.request()` on an already-denied permission shows no prompt and sends the user to the system settings screen.
+
+**iOS:** `requestPermissions()` triggers the system permission dialog. Pass `always: true` only alongside `osGeofenceWakeEnabled: true`.
 
 **Android:** `requestPermissions()` **does not show a dialog** — it only reads the current permission state and returns a boolean. To trigger the OS dialog on Android, use a package like [`permission_handler`](https://pub.dev/packages/permission_handler) first, then call `requestPermissions()` to verify the result.
 
+> **`Permission.locationAlways` needs `ACCESS_BACKGROUND_LOCATION` in your own manifest** — see [doc/ANDROID_PERMISSIONS.md](doc/ANDROID_PERMISSIONS.md). Requesting a permission your merged manifest doesn't declare returns denied with no dialog shown.
+
 ```dart
 import 'dart:io' show Platform;
+
+// One flag drives both the permission request and the configuration —
+// requesting the background grant without enabling the feature buys a Play
+// review for nothing, and enabling the feature without the grant leaves it
+// permanently degraded.
+const bool osGeofenceWakeEnabled = false;
+
 // Android only — trigger the OS permission dialog.
 // import 'package:permission_handler/permission_handler.dart';
 // if (Platform.isAndroid) {
 //   await Permission.location.request();
-//   await Permission.locationAlways.request();
+//   if (osGeofenceWakeEnabled) {
+//     await Permission.locationAlways.request();
+//   }
 // }
 
 // Both platforms — verify the result. On iOS this ALSO shows the
 // system dialog on first call.
-final hasPermission = await Polyfence.instance.requestPermissions(always: true);
+final hasPermission = await Polyfence.instance.requestPermissions(
+  always: osGeofenceWakeEnabled,
+);
 if (!hasPermission) {
   // Handle permission denied — e.g. guide the user to Settings.
   return;
@@ -518,6 +564,13 @@ await Polyfence.instance.updateConfiguration(
 
 **Notes:** Schedule persists across app restarts and device reboots. Time windows that span midnight are supported (e.g., 22:00 - 06:00). Multiple overlapping windows are supported — tracking is active during any of them. On Android, uses AlarmManager for reliable wake-up at scheduled times.
 
+**Android permission (optional)** — for minute-accurate window boundaries, add to `AndroidManifest.xml`:
+```xml
+<uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+```
+
+Without it, scheduling still works: the plugin detects that exact alarms are unavailable and falls back to inexact ones, so a window may open or close a few minutes late while the device is dozing. Declare it only if that drift matters — it is subject to Play policy review.
+
 ### Activity Recognition
 
 Automatically detect user activity (still, walking, running, cycling, driving) and optimize GPS intervals accordingly. This feature is **opt-in** and requires additional permissions.
@@ -562,10 +615,13 @@ await Polyfence.instance.updateConfiguration(
 
 **Additional Permissions Required:**
 
-**Android** — Add to `AndroidManifest.xml` (only if using activity recognition):
+**Android** — Add to `AndroidManifest.xml` (only if using activity recognition). Both are required — the platform permission and the Play Services one:
 ```xml
 <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" />
+<uses-permission android:name="com.google.android.gms.permission.ACTIVITY_RECOGNITION" />
 ```
+
+Declining the runtime prompt is safe: GPS intervals fall back to the profile defaults and zone detection is unaffected.
 
 **iOS** — Add to `Info.plist` (only if using activity recognition):
 ```xml
@@ -604,12 +660,62 @@ Events fire whether the app is foregrounded, backgrounded, or the screen is lock
 
 Android may kill background services if battery optimization is enabled. Use the built-in API to request exemption:
 
+**Android permission** — required for the exemption dialog to appear at all. Without it the call is a no-op:
+```xml
+<uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+```
+
 ```dart
 final status = await Polyfence.instance.batteryOptimizationStatus();
 if (status['isOptimized'] == true && status['canRequest'] == true) {
   await Polyfence.instance.requestBatteryOptimizationExemption();
 }
 ```
+
+## Durable Pending-Events Queue (opt-in)
+
+Geofence events fired while the Flutter engine is torn down — mid app-switch, in the gap between a foreground-service wake and the Dart runtime coming back up, or after a crash — normally drop silently at the delivery boundary. Enable the durable queue and those events are persisted natively to a bounded on-disk ring buffer, then replayed when your app next attaches.
+
+Off by default. Opt in via `PolyfenceConfiguration.pendingEventsQueueSize`:
+
+```dart
+await Polyfence.instance.initialize(
+  config: PolyfenceConfiguration(
+    pendingEventsQueueSize: 500, // 0 disables the queue (default)
+  ),
+);
+```
+
+Drain on resume:
+
+```dart
+final missed = await Polyfence.instance.drainPendingEvents();
+for (final event in missed) {
+  // event.deliveredLate is `true`, event.capturedTs is the original
+  // detection moment, event.queuedDurationMs is how long it waited.
+  handleZoneCrossing(event);
+}
+```
+
+### Replayed events arrive out of order — sort by event time, not arrival
+
+A replayed crossing carries the timestamp of **when it happened**, not when you received it. It is delivered
+through the same callback as a live event, so an event list that simply prepends new arrivals will put a crossing
+from half an hour ago above one that happened since — reading as though the driver were entering that zone *now*.
+
+That is the exact confusion this feature exists to prevent: a late-delivered congestion-charge entry presenting as
+current. Order by the event's own time:
+
+```dart
+events.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+```
+
+Use `deliveredLate` to mark a replayed crossing in your UI rather than folding it into the event type — anything
+that compares the type by equality will silently misclassify a decorated value. `capturedTs` and
+`queuedDurationMs` tell you when it happened and how long it waited, so you can decide whether an action that made
+sense at the time still makes sense now.
+
+When the queue reaches capacity, oldest events evict first and surface via the standard error stream as `PolyfenceErrorType.pendingEventsEvicted` (with `context['severity'] == 'warning'` and `context['droppedCount']`) — a signal to raise the cap or drain more often. The cumulative eviction counter is readable via `Polyfence.instance.pendingEventsDroppedCount()`. Every consumer that leaves `pendingEventsQueueSize` at `0` sees zero behaviour change.
 
 ## Error Handling & Recovery
 
@@ -673,7 +779,7 @@ final debugInfo = await Polyfence.instance.debugInfo();
 // System status
 print('Location Permission: ${debugInfo.systemStatus.isLocationPermissionGranted}');
 print('GPS Enabled: ${debugInfo.systemStatus.isGpsEnabled}');
-print('Wake Lock Active: ${debugInfo.systemStatus.isWakeLockAcquired}');
+print('Wake Lock Active: ${debugInfo.systemStatus.isWakeLockAcquired ?? "not measured"}');
 
 // Performance metrics
 print('Uptime: ${debugInfo.performance.uptime}');
@@ -681,7 +787,7 @@ print('Location Updates: ${debugInfo.performance.totalLocationUpdates}');
 print('Memory Usage: ${debugInfo.performance.memoryUsageMB}MB');
 
 // Battery information
-print('Battery Level: ${debugInfo.battery.batteryLevel}%');
+print('Battery Level: ${debugInfo.battery.batteryLevel ?? "unknown"}%');
 print('Is Charging: ${debugInfo.battery.isCharging}');
 
 // Zone status
@@ -753,25 +859,60 @@ current-fix accuracy, and GPS-health counters. Health-score events
 travel on the separate `healthScoreStream`. Cancel the subscription in
 your widget's `dispose()`.
 
-For CPU / memory / uptime and the aggregate session snapshot use the
-one-shot `debugInfo()` and `getSessionTelemetry()` accessors — those
-metrics are not delivered on a stream. **iOS caveat:** the current
-Flutter iOS bridge hand-builds `debugInfo()` inline and hard-codes
-every numeric field under `performance` (including `uptime` and
-`memoryUsageMB`), most of `battery` (including `totalActiveTime`,
-`estimatedHourlyDrain`, `gpsActiveTimePercent`, `wakeUpCount`), and
-every `zones.*` count to `0`. `systemStatus`, `battery.isCharging`,
-`battery.batteryLevel` and `recentErrors` return real values.
-Routing the iOS bridge through
-`PolyfenceDebugCollector.shared.collectDebugInfo()` (real `uptime`,
-`memoryUsageMB`, `battery.totalActiveTime`, error history) is a
-separate follow-up branch; even after that lands, counters like
-`totalLocationUpdates` / `totalZoneDetections` /
-`averageDetectionLatency` / `zones.activeZones` stay `0` on both
-platforms until polyfence-core wires the collector.
-`getSessionTelemetry()` is populated on both platforms.
+For memory / uptime and the aggregate session snapshot use the one-shot
+`debugInfo()` and `getSessionTelemetry()` accessors — those metrics are
+not delivered on a stream. Both are populated on both platforms.
+
+Where a platform cannot measure one of the following, the field is
+**null** rather than a filler value, so absence is distinguishable from a
+genuine zero:
+
+| Field | Null when |
+|---|---|
+| `systemStatus.isBatteryOptimizationDisabled` | always on iOS — no such setting exists |
+| `systemStatus.isWakeLockAcquired` | always on iOS; on Android when no tracking service is running |
+| `performance.restartCount` | always on iOS — no foreground service to restart |
+| `performance.averageDetectionLatency` | until at least one crossing has been *timed* |
+| `battery.batteryLevel` | on iOS before the OS populates the level |
+
+`performance.timedZoneDetections` reports how many crossings contributed
+a latency sample. It is lower than `totalZoneDetections` when the engine
+synthesised a crossing outside a timed evaluation — a degraded-GPS exit,
+for instance. Those crossings are real and are counted; they simply carry
+no timing.
+
+`memoryUsageMB` measures whole-process resident size on iOS and Java heap
+only on Android, so the two are not comparable across platforms.
+
+Two older fields still use sentinels rather than null: `lastKnownAccuracy`
+is `-1` and `lastLocationUpdate` is epoch zero when no fix has arrived.
 
 ## Upgrading
+
+### Android manifest permissions are consumer-declared
+
+Five permissions the plugin used to declare are now declared by your app instead: `ACCESS_BACKGROUND_LOCATION`, `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS`, `SCHEDULE_EXACT_ALARM`, and both `ACTIVITY_RECOGNITION` permissions. Each one either triggers a Google Play review or gates a feature you opt into, so the cost now falls only on apps that use it.
+
+**This is a breaking change for any app that relies on one of those features and does not declare the permission itself.** The failure is silent — an undeclared permission cannot be granted, so a runtime request returns denied without ever prompting the user. If your app calls `Permission.locationAlways.request()` (the pattern the example app used to demonstrate) and does nothing else, background tracking stops working with no error anywhere.
+
+Add whichever blocks apply to `android/app/src/main/AndroidManifest.xml`:
+
+```xml
+<!-- Tracking while your app is backgrounded or closed -->
+<uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
+
+<!-- requestBatteryOptimizationExemption() -->
+<uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+
+<!-- Minute-accurate scheduled tracking windows -->
+<uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+
+<!-- Activity-based GPS tuning -->
+<uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" />
+<uses-permission android:name="com.google.android.gms.permission.ACTIVITY_RECOGNITION" />
+```
+
+Nothing else changes: the eight permissions the plugin's own service and receiver need are still merged in for you, as are the `<service>` and `<receiver>` declarations. Apps that use only foreground tracking need no manifest change at all. Full detail — including what each feature degrades to without its permission — is in [doc/ANDROID_PERMISSIONS.md](doc/ANDROID_PERMISSIONS.md).
 
 ### From `2.0.x` to `2.1.0`
 

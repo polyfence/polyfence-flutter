@@ -69,6 +69,40 @@ enum PolyfenceErrorType {
   /// Device is running low on memory.
   memoryLow,
 
+  /// The durable pending-events queue evicted its oldest entries because it
+  /// was at capacity when a new event arrived. Emitted with
+  /// `context['severity'] == 'warning'` and `context['droppedCount']` set to
+  /// how many events this eviction dropped — a signal that
+  /// `PolyfenceConfiguration.pendingEventsQueueSize` is too small for the
+  /// consumer app's offline gap.
+  pendingEventsEvicted,
+
+  // OS Wake Fences
+
+  /// OS wake fences are enabled but the grant they need is missing —
+  /// `ACCESS_BACKGROUND_LOCATION` on Android, "Always" authorization on iOS
+  /// ("When In Use" cannot deliver region callbacks after process death, so it
+  /// counts as denied here). Emitted with `context['severity'] == 'warning'`
+  /// and rate-limited to once a minute. Tracking is unaffected: the in-process
+  /// engine keeps polling and only the wake-after-process-kill capability is
+  /// lost.
+  osGeofencePermissionDenied,
+
+  /// The operating system refused a wake-fence registration for a reason other
+  /// than a missing grant. Emitted with `context['severity'] == 'warning'`;
+  /// the in-process engine is unaffected. Inspect
+  /// [PolyfenceSystemStatus.osGeofenceRegistrationHealth] for how many regions
+  /// are actually being monitored.
+  osGeofenceRegistrationFailed,
+
+  /// A zone crossing woke the app through an OS wake fence while
+  /// [PolyfenceConfiguration.pendingEventsQueueSize] was `0`, so there was
+  /// nowhere durable to record it and the crossing was lost. Emitted with
+  /// `context['severity'] == 'warning'`. Wake fences need the durable queue to
+  /// deliver anything — set a positive queue size alongside
+  /// [PolyfenceConfiguration.osGeofenceWakeEnabled].
+  osGeofenceQueueDisabled,
+
   /// An unknown error occurred.
   unknown,
 }
@@ -204,12 +238,18 @@ class PolyfenceError {
     // handles the even-odd interior correctly). Consumers filter
     // real errors from warnings via
     // `error.context['severity'] == 'warning'`.
+    // `gps_error` is the iOS CLLocationManager `didFailWithError` passthrough.
+    // It carries no failure classification of its own — the actionable
+    // conditions it can stand for already have dedicated types
+    // (`gpsTimeout`, `gpsServiceDisabled`, `gpsUnreliable`), so it resolves
+    // here rather than widening the public enum with a synonym.
     'unknown': [
       'wake_lock_timeout',
       'activity_recognition_unavailable',
       'configuration_error',
       'battery_check_failed',
       'polygon_self_intersecting',
+      'gps_error',
     ],
   };
 

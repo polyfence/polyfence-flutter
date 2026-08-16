@@ -4,7 +4,7 @@ import CoreLocation
 import UserNotifications
 import PolyfenceCore
 
-public class PolyfencePlugin: NSObject, FlutterPlugin {
+public class PolyfencePlugin: NSObject, FlutterPlugin, PolyfenceCoreDelegate {
     
     // MARK: - Singleton
     private static var sharedInstance: PolyfencePlugin?
@@ -29,6 +29,15 @@ public class PolyfencePlugin: NSObject, FlutterPlugin {
     private var geofenceSink: FlutterEventSink?
     private var errorSink: FlutterEventSink?
     private var performanceSink: FlutterEventSink?
+
+    deinit {
+        if let observer = terminationObserver {
+            NotificationCenter.default.removeObserver(observer)
+        }
+        locationTracker?.setBridgeAttached(false)
+        LocationTracker.setEventListenerActive(false)
+        locationTracker?.coreDelegate = nil
+    }
     
     // MARK: - Flutter Plugin Registration
     
@@ -39,6 +48,13 @@ public class PolyfencePlugin: NSObject, FlutterPlugin {
         let errorChannel = FlutterEventChannel(name: "polyfence/error", binaryMessenger: registrar.messenger())
         let performanceChannel = FlutterEventChannel(name: "polyfence/performance", binaryMessenger: registrar.messenger())
         
+        // Declare that this bridge owns the listener-live signal, before any
+        // tracker is constructed. Core would otherwise treat delegate
+        // registration as a direct-Swift consumer subscribing and replay the
+        // durable queue during initialize() — into a Dart stream the app has
+        // not subscribed to yet.
+        LocationTracker.setEventListenerActive(false)
+
         let instance = PolyfencePlugin()
         sharedInstance = instance
         
@@ -102,6 +118,17 @@ public class PolyfencePlugin: NSObject, FlutterPlugin {
             getCurrentZoneStates(result: result)
         case "getSessionTelemetry":
             getSessionTelemetry(result: result)
+        case "drainPendingEvents":
+            drainPendingEvents(result: result)
+        case "pendingEventsDroppedCount":
+            pendingEventsDroppedCount(result: result)
+        case "setEventListenerActive":
+            let active = (call.arguments as? [String: Any])?["active"] as? Bool ?? false
+            LocationTracker.setEventListenerActive(active)
+            result(nil)
+        case "dispose":
+            signalBridgeDetached()
+            result(nil)
         case "requestBatteryOptimization":
             // iOS does not have a battery-optimization-exemption dialog —
             // the concept is Android-only. No-op so the cross-platform
@@ -153,28 +180,118 @@ public class PolyfencePlugin: NSObject, FlutterPlugin {
                 }
             }
 
-            // Setup callbacks
-            locationTracker?.setLocationCallback { [weak self] locationData in
-                self?.locationSink?(locationData)
-            }
-            
-            locationTracker?.setGeofenceCallback { [weak self] eventData in
-                // Terse geofence event log
-                let eventType = eventData["eventType"] as? String ?? "?"
-                let zoneName = eventData["zoneName"] as? String ?? ""
-                let zoneId = eventData["zoneId"] as? String ?? ""
-                let displayName = zoneName.isEmpty ? zoneId : zoneName
-                NSLog("PF: EVENT %@ zone=%@ ts=%lld", eventType, displayName, Int64(Date().timeIntervalSince1970 * 1000))
+            // Wire the plugin as core's delegate. Geofence + location events
+            // flow through PolyfenceCoreDelegate methods (onGeofenceEvent
+            // etc.), which routes to the Flutter EventChannel sink. Using
+            // the delegate — not setGeofenceCallback / setLocationCallback —
+            // preserves core's XOR contract: when the queue is enabled
+            // (pendingEventsQueueSize > 0), core delivers via the delegate
+            // OR persists to disk, never both. The direct-Swift callbacks
+            // fire unconditionally and would double-emit every event.
+            locationTracker?.coreDelegate = self
 
-                if let sink = self?.geofenceSink {
-                    sink(eventData)
-                }
-            }
-            
+            // Start in the "not-yet-listening" state so any geofence event
+            // that fires between initialize returning and the geofence
+            // FlutterStreamHandler's first onListen lands in the durable
+            // pending-events queue (when opted in) instead of core
+            // delivering to a nil sink. Core's own default is `true`, which
+            // would mis-classify this window as live-delivery and silently
+            // drop the event; onListen flips this back to `true` when the
+            // Dart-side subscription is up.
+            locationTracker?.setBridgeAttached(false)
+            observeTerminationForBridgeDetach()
+
             result(nil)
         } catch {
             result(FlutterError(code: "INITIALIZATION_FAILED", message: error.localizedDescription, details: nil))
         }
+    }
+
+    // MARK: - PolyfenceCoreDelegate
+
+    public func onGeofenceEvent(_ eventData: [String: Any]) {
+        let eventType = eventData["eventType"] as? String ?? "?"
+        let zoneName = eventData["zoneName"] as? String ?? ""
+        let zoneId = eventData["zoneId"] as? String ?? ""
+        let displayName = zoneName.isEmpty ? zoneId : zoneName
+        NSLog("PF: EVENT %@ zone=%@ ts=%lld", eventType, displayName, Int64(Date().timeIntervalSince1970 * 1000))
+        // FlutterEventSink is main-thread-only; core already dispatches
+        // delegate callbacks on main.
+        geofenceSink?(eventData)
+    }
+
+    public func onLocationUpdate(_ locationData: [String: Any]) {
+        locationSink?(locationData)
+    }
+
+    public func onPerformanceEvent(_ performanceData: [String: Any]) {
+        performanceSink?(performanceData)
+    }
+
+    public func onError(_ errorData: [String: Any]) {
+        errorSink?(errorData)
+    }
+
+    public func isTrackingEnabled() -> Bool {
+        return locationTracker?.isTracking() ?? false
+    }
+
+    /// Register a one-shot observer that detaches the bridge when the host
+    /// app is about to terminate. The paired queue-persist path only kicks in
+    /// when core knows the bridge is gone; without this hook a foreground
+    /// termination would let events fire after the app is dead but before the
+    /// process is fully torn down, and they would drop at the delegate boundary.
+    private var terminationObserver: NSObjectProtocol?
+    private func observeTerminationForBridgeDetach() {
+        if terminationObserver != nil { return }
+        terminationObserver = NotificationCenter.default.addObserver(
+            forName: UIApplication.willTerminateNotification,
+            object: nil,
+            queue: nil
+        ) { [weak self] _ in
+            self?.signalBridgeDetached()
+        }
+    }
+
+    /// Signal to core that the bridge's delivery sink is no longer receiving,
+    /// so subsequent geofence events land in the durable queue (when opted-in
+    /// via pendingEventsQueueSize > 0) instead of dropping.
+    private func signalBridgeDetached() {
+        locationTracker?.setBridgeAttached(false)
+        LocationTracker.setEventListenerActive(false)
+    }
+
+    private func drainPendingEvents(result: @escaping FlutterResult) {
+        guard let locationTracker = locationTracker else {
+            result([[String: Any]]())
+            return
+        }
+        let raw = locationTracker.drainPendingEvents()
+        let nowMs = Int64(Date().timeIntervalSince1970 * 1000)
+        let enriched: [[String: Any]] = raw.map { event in
+            var out = event
+            let capturedTs: Int64
+            if let ts = event["timestamp"] as? Int64 {
+                capturedTs = ts
+            } else if let n = event["timestamp"] as? NSNumber {
+                capturedTs = n.int64Value
+            } else {
+                capturedTs = nowMs
+            }
+            out["deliveredLate"] = true
+            out["capturedTs"] = capturedTs
+            out["queuedDurationMs"] = max(0, nowMs - capturedTs)
+            return out
+        }
+        result(enriched)
+    }
+
+    private func pendingEventsDroppedCount(result: @escaping FlutterResult) {
+        guard let locationTracker = locationTracker else {
+            result(0)
+            return
+        }
+        result(locationTracker.pendingEventsDroppedCount())
     }
     
     private func requestLocationPermissions(always: Bool, result: @escaping FlutterResult) {
@@ -422,6 +539,14 @@ extension PolyfencePlugin: FlutterStreamHandler {
                 }
             case "geofence":
                 geofenceSink = events
+                // The geofence sink is the load-bearing signal for the
+                // durable pending-events queue: when it goes away, core
+                // must persist; when it comes back, core must live-deliver.
+                // Tie setBridgeAttached to onListen / onCancel so a Dart
+                // stream unsubscribe / re-subscribe cycle correctly flips
+                // core's persist gate — initialize / dispose are not
+                // granular enough on their own.
+                locationTracker?.setBridgeAttached(true)
             case "error":
                 errorSink = events
                 // Bridge error manager to Flutter via closure wrapper
@@ -437,6 +562,7 @@ extension PolyfencePlugin: FlutterStreamHandler {
                 locationSink = events
             } else if geofenceSink == nil {
                 geofenceSink = events
+                locationTracker?.setBridgeAttached(true)
             } else if errorSink == nil {
                 errorSink = events
                 PolyfenceErrorManager.shared.initialize(errorCallback: { data in events(data) })
@@ -446,7 +572,7 @@ extension PolyfencePlugin: FlutterStreamHandler {
         }
         return nil
     }
-    
+
     public func onCancel(withArguments arguments: Any?) -> FlutterError? {
         // Clear sink based on argument from Dart
         if let arg = arguments as? String {
@@ -455,6 +581,11 @@ extension PolyfencePlugin: FlutterStreamHandler {
                 locationSink = nil
             case "geofence":
                 geofenceSink = nil
+                // Sink for geofence events is gone — signal core to persist
+                // to the durable queue (when pendingEventsQueueSize > 0)
+                // instead of delivering via the delegate that no longer has
+                // a Flutter sink to forward to.
+                locationTracker?.setBridgeAttached(false)
             case "error":
                 errorSink = nil
                 PolyfenceErrorManager.shared.dispose()
@@ -467,6 +598,7 @@ extension PolyfencePlugin: FlutterStreamHandler {
             // Fallback: clear all sinks
             locationSink = nil
             geofenceSink = nil
+            locationTracker?.setBridgeAttached(false)
             errorSink = nil
             PolyfenceErrorManager.shared.dispose()
             performanceSink = nil
@@ -478,11 +610,7 @@ extension PolyfencePlugin: FlutterStreamHandler {
     
     private func getDebugInfo(result: @escaping FlutterResult) {
         // All bridges share a single collector so the debugInfo()
-        // payload has one authoritative source. Location and
-        // zone-detection counters (`totalLocationUpdates`,
-        // `totalZoneDetections`, `averageDetectionLatency`) are `0`
-        // until polyfence-core's LocationTracker calls the collector's
-        // `recordLocationUpdate` / `recordZoneDetection` accessors.
+        // payload has one authoritative source.
         result(PolyfenceDebugCollector.shared.collectDebugInfo())
     }
     

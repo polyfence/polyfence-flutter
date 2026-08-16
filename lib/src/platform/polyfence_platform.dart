@@ -83,6 +83,37 @@ abstract class PolyfencePlatform extends PlatformInterface {
   /// **not** a fresh GPS point-in-polygon calculation, and only zones currently
   /// tracked by the engine are included.
   Future<Map<String, bool>> getZoneStates();
+
+  /// Drain every geofence event the native engine persisted while the bridge
+  /// was not attached. Returns raw event maps in oldest-first order and removes
+  /// them from disk in the same serialised block. Returns an empty list when
+  /// no events are queued or the queue is disabled
+  /// (`pendingEventsQueueSize == 0`).
+  Future<List<Map<String, dynamic>>> drainPendingEvents() async {
+    throw UnimplementedError('drainPendingEvents() has not been implemented.');
+  }
+
+  /// Cumulative count of events the native durable queue has evicted since
+  /// first construction of a store on this device (oldest-first eviction fires
+  /// when the queue cap is reached). Persists across process restarts. Returns
+  /// `0` when the queue has never evicted and when it is disabled.
+  Future<int> pendingEventsDroppedCount() async {
+    throw UnimplementedError(
+        'pendingEventsDroppedCount() has not been implemented.');
+  }
+
+  /// Tell the native engine whether a consumer's geofence-event listener is
+  /// live. Distinct from the plugin's own platform-channel subscription, which
+  /// is attached during `initialize()` and therefore says nothing about a
+  /// subscriber existing. The native side replays the durable queue on the
+  /// false→true edge.
+  ///
+  /// Advisory, and fired on every subscribe / unsubscribe rather than by
+  /// consumer request — so the default is a no-op rather than the
+  /// `UnimplementedError` the request-driven methods above throw. An
+  /// implementation that ignores it leaves the queue pull-only, which is the
+  /// same behaviour as opting out.
+  Future<void> setEventListenerActive(bool active) async {}
 }
 
 class MethodChannelPolyfence extends PolyfencePlatform {
@@ -283,6 +314,29 @@ class MethodChannelPolyfence extends PolyfencePlatform {
         .invokeMethod<Map<Object?, Object?>>('getSessionTelemetry');
     if (result == null) return {};
     return _deepCastMap(result);
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> drainPendingEvents() async {
+    final result =
+        await _channel.invokeMethod<List<Object?>>('drainPendingEvents');
+    if (result == null) return const <Map<String, dynamic>>[];
+    return result
+        .map((e) => _deepCastMap(Map<Object?, Object?>.from(e as Map)))
+        .toList();
+  }
+
+  @override
+  Future<int> pendingEventsDroppedCount() async {
+    final result =
+        await _channel.invokeMethod<Object?>('pendingEventsDroppedCount');
+    if (result == null) return 0;
+    return (result as num).toInt();
+  }
+
+  @override
+  Future<void> setEventListenerActive(bool active) async {
+    await _channel.invokeMethod('setEventListenerActive', {'active': active});
   }
 
   @override

@@ -77,9 +77,19 @@ class PolyfenceService {
   // When false, lifecycle cleanup is skipped during dispose.
   bool _lifecycleManagerAvailable = false;
 
-  // Event streams for the app
-  final StreamController<GeofenceEvent> _eventController =
-      StreamController<GeofenceEvent>.broadcast();
+  // Event streams for the app.
+  //
+  // The geofence controller reports its own subscriber lifecycle to the native
+  // engine. Nothing else in this class can: the platform-channel subscription
+  // below is opened by [initialize] and stays open for the plugin's lifetime,
+  // so it is attached long before any consumer subscribes. A broadcast
+  // controller with no subscribers discards what it is given, which is exactly
+  // where replayed events would be lost.
+  late final StreamController<GeofenceEvent> _eventController =
+      StreamController<GeofenceEvent>.broadcast(
+    onListen: () => _setGeofenceListenerActive(true),
+    onCancel: () => _setGeofenceListenerActive(false),
+  );
   final StreamController<PolyfenceLocation> _locationController =
       StreamController<PolyfenceLocation>.broadcast();
   final StreamController<PolyfenceError> _errorController =
@@ -221,6 +231,31 @@ class PolyfenceService {
   StreamSubscription<dynamic>? _geofenceSubscription;
   StreamSubscription<dynamic>? _errorSubscription;
   StreamSubscription<Map<String, dynamic>>? _performanceSubscription;
+
+  // Latest subscriber state of [onGeofenceEvent], mirrored to the native
+  // engine. Held here as well as pushed so a subscription taken before
+  // [initialize] is replayed to native once the channel is usable.
+  bool _geofenceListenerActive = false;
+
+  void _setGeofenceListenerActive(bool active) {
+    _geofenceListenerActive = active;
+    _syncGeofenceListenerState();
+  }
+
+  void _syncGeofenceListenerState() {
+    if (!_isInitialized) return;
+    // Fire-and-forget: a consumer subscribing must never be able to throw, and
+    // the native side treats a missed signal as "no listener", which is the
+    // safe reading — events stay queued rather than being replayed into
+    // nothing.
+    _platform.setEventListenerActive(_geofenceListenerActive).catchError(
+      (Object error, StackTrace stackTrace) {
+        if (kDebugMode) {
+          debugPrint('Polyfence: listener signal failed: $error');
+        }
+      },
+    );
+  }
 
   // Zone cache for event creation (read-only)
   final Map<String, Zone> _zones = {};
@@ -412,6 +447,11 @@ class PolyfenceService {
       );
 
       _isInitialized = true;
+
+      // A consumer that subscribed before initialize() had no usable channel to
+      // signal through. Replay the current subscriber state now that there is
+      // one, so the queue is drained for them too.
+      _syncGeofenceListenerState();
     } on PlatformException catch (e, stackTrace) {
       throw PlatformOperationException(
         'initialize',
@@ -608,8 +648,15 @@ class PolyfenceService {
   /// 4. Begin monitoring all added zones for entry/exit events
   ///
   /// **Permissions:**
-  /// - Android: Requires `ACCESS_FINE_LOCATION` and `ACCESS_BACKGROUND_LOCATION`
-  /// - iOS: Requires "Always" location permission for background tracking
+  /// - Android: `ACCESS_FINE_LOCATION` or `ACCESS_COARSE_LOCATION`, plus
+  ///   `FOREGROUND_SERVICE_LOCATION` on API 34+. Tracking runs in a foreground
+  ///   service typed `location`, which holds location access on its own —
+  ///   `ACCESS_BACKGROUND_LOCATION` is required only when
+  ///   [PolyfenceConfiguration.osGeofenceWakeEnabled] is set, and without it
+  ///   wake fences degrade to polling while tracking continues.
+  /// - iOS: "When In Use" is enough. "Always" is required only when
+  ///   [PolyfenceConfiguration.osGeofenceWakeEnabled] is set, because region
+  ///   callbacks after process death cannot be delivered under "When In Use".
   ///
   /// **Example:**
   /// ```dart
@@ -793,6 +840,11 @@ class PolyfenceService {
         ));
       }
 
+      final deliveredLate = (eventData['deliveredLate'] as bool?) ?? false;
+      final capturedTs = (eventData['capturedTs'] as num?)?.toInt();
+      final queuedDurationMs =
+          (eventData['queuedDurationMs'] as num?)?.toInt();
+
       final event = GeofenceEvent(
         zoneId: zoneId,
         zoneName: zoneName,
@@ -809,6 +861,9 @@ class PolyfenceService {
         detectionTimeMs: detectionTimeMs,
         distanceToBoundaryM: distanceToBoundaryM,
         dwellDurationMs: dwellDurationMs,
+        deliveredLate: deliveredLate,
+        capturedTs: capturedTs,
+        queuedDurationMs: queuedDurationMs,
         zone: zone,
       );
 
@@ -966,18 +1021,28 @@ class PolyfenceService {
     }
   }
 
-  /// Requests location permissions from the user.
+  /// Reports whether the permissions tracking needs are held, and on iOS asks
+  /// for them if they have not been decided yet.
   ///
-  /// **Android:**
-  /// - `always: false` - Requests "While in use" permission
-  /// - `always: true` - Requests "Always allow" permission (required for background)
+  /// **Android:** check-only. Runtime permission dialogs need an `Activity` and
+  /// an `onRequestPermissionsResult` callback, neither of which a plugin can
+  /// reach from here — drive the request from your app (for example with
+  /// `permission_handler`) and call this to confirm the outcome. Returns `true`
+  /// once fine or coarse location is granted, plus `FOREGROUND_SERVICE_LOCATION`
+  /// on API 34+.
   ///
-  /// **iOS:**
-  /// - Always requests "Always" permission (required for background geofencing)
+  /// **iOS:** requests "When In Use" when [always] is `false`, and "Always"
+  /// when it is `true`. Returns `true` for either grant.
+  ///
+  /// [always] asks for the stronger background grant on both platforms. Set it
+  /// only when [PolyfenceConfiguration.osGeofenceWakeEnabled] is on — that is
+  /// the only feature that needs location access outside the foreground
+  /// service, and asking for it otherwise puts an Android app through Google
+  /// Play's manual background-location review for nothing.
   ///
   /// **Example:**
   /// ```dart
-  /// final granted = await Polyfence.instance.requestPermissions(always: true);
+  /// final granted = await Polyfence.instance.requestPermissions();
   /// if (!granted) {
   ///   print('Location permission denied');
   /// }
@@ -1172,26 +1237,18 @@ class PolyfenceService {
   /// nearestZoneDistanceM, intervalMs, currentGpsAccuracy,
   /// secondsSinceLastGpsFix, ...}}` — none of the keys
   /// [PolyfencePerformanceMetrics] reads (`uptime`,
-  /// `averageDetectionLatency`, `cpuUsagePercent`, `restartCount`,
-  /// `memoryUsageMB`) exist on that payload, so every emission maps to
-  /// an all-zeros metrics object. Retained as a getter for
-  /// source-compatibility.
+  /// `averageDetectionLatency`, `restartCount`, `memoryUsageMB`) exist
+  /// on that payload, so every emission maps to an empty metrics
+  /// object. Retained as a getter for source-compatibility.
   ///
   /// For live GPS metrics use [runtimeStatus], which returns a typed
   /// [PolyfenceRuntimeStatus] built from the actual native payload.
-  /// For the CPU / memory / uptime figures this class promises, poll
-  /// [debugInfo] — those come from a one-shot collector, not a stream.
-  /// On iOS today [debugInfo]'s `uptime`, `memoryUsageMB`,
-  /// `cpuUsagePercent` and `totalLocationUpdates` are hard-coded to
-  /// zero at the bridge; only the Android build returns populated
-  /// values. Follow-up work to route the iOS bridge through
-  /// `PolyfenceDebugCollector.shared.collectDebugInfo()` is tracked
-  /// separately.
+  /// For the memory / uptime figures this class promises, poll
+  /// [debugInfo] — those come from a one-shot collector, not a stream,
+  /// and are populated on both platforms.
   @Deprecated(
     'Use runtimeStatus (typed PolyfenceRuntimeStatus) for live GPS '
-    'metrics. For CPU/memory/uptime, poll debugInfo() — those figures '
-    'are populated on Android and stubbed on iOS pending a separate '
-    'bridge fix.',
+    'metrics. For memory and uptime, poll debugInfo().',
   )
   Stream<PolyfencePerformanceMetrics> get performanceStream {
     return _platform.performanceStream
@@ -1335,6 +1392,170 @@ class PolyfenceService {
         stackTrace: stackTrace,
       );
     }
+  }
+
+  /// Drain every geofence event the native engine persisted while the Dart
+  /// bridge was not receiving live deliveries. Returns the events in
+  /// oldest-first order and removes them from the on-disk store in the same
+  /// serialised block on the native side. Every returned event carries
+  /// [GeofenceEvent.deliveredLate] `true`, its original detection moment on
+  /// [GeofenceEvent.capturedTs], and how long it waited on
+  /// [GeofenceEvent.queuedDurationMs].
+  ///
+  /// Requires opt-in via [PolyfenceConfiguration.pendingEventsQueueSize] `> 0`.
+  /// Returns an empty list when the queue is disabled or when no events were
+  /// buffered.
+  ///
+  /// Native core also applies the drained events to its persisted zone-state
+  /// map before returning them, so a subsequent
+  /// `RECOVERY_ENTER`/`RECOVERY_EXIT` reconcile only fires when the drain's
+  /// final state genuinely disagrees with current position — no double-report.
+  ///
+  /// **Example:**
+  /// ```dart
+  /// final missed = await Polyfence.instance.drainPendingEvents();
+  /// for (final event in missed) {
+  ///   analytics.recordLateCrossing(event);
+  /// }
+  /// ```
+  ///
+  /// Throws [PolyfenceNotInitializedException] if not initialized.
+  /// Throws [PlatformOperationException] if a platform error occurs.
+  Future<List<GeofenceEvent>> drainPendingEvents() async {
+    _assertNotDisposed();
+    if (!_isInitialized) throw PolyfenceNotInitializedException();
+
+    try {
+      final raw = await _platform.drainPendingEvents();
+      final events = <GeofenceEvent>[];
+      for (final map in raw) {
+        final parsed = _parseDrainedEvent(map);
+        if (parsed != null) {
+          events.add(parsed);
+        } else {
+          // Native side has already deleted this event from the on-disk
+          // store as part of the atomic drain, so an unparseable drained
+          // entry is lost content — the consumer must at minimum learn
+          // about it to reason about their zone-crossing history.
+          if (!_errorController.isClosed) {
+            _errorController.add(PolyfenceError(
+              type: PolyfenceErrorType.unknown,
+              message:
+                  'Drained pending event dropped: unparseable payload from native queue',
+              context: {
+                'severity': 'warning',
+                'rawEvent': map,
+              },
+              timestamp: DateTime.now(),
+            ));
+          }
+        }
+      }
+      return events;
+    } on PlatformException catch (e, stackTrace) {
+      throw PlatformOperationException(
+        'drainPendingEvents',
+        e.message ?? 'Unknown error',
+        details: {'code': e.code, 'details': e.details},
+        innerException: e,
+        stackTrace: stackTrace,
+      );
+    }
+  }
+
+  /// Cumulative count of events the native durable queue has evicted since
+  /// first construction of a store on this device. Oldest-first eviction
+  /// fires whenever a new event arrives with the queue at capacity. The
+  /// counter persists across process restarts and never resets — it is an
+  /// observability signal for `pendingEventsQueueSize` being too small.
+  ///
+  /// Returns `0` when the queue has never evicted and when it is disabled.
+  ///
+  /// Throws [PolyfenceNotInitializedException] if not initialized.
+  /// Throws [PlatformOperationException] if a platform error occurs.
+  Future<int> pendingEventsDroppedCount() async {
+    _assertNotDisposed();
+    if (!_isInitialized) throw PolyfenceNotInitializedException();
+
+    try {
+      return await _platform.pendingEventsDroppedCount();
+    } on PlatformException catch (e, stackTrace) {
+      throw PlatformOperationException(
+        'pendingEventsDroppedCount',
+        e.message ?? 'Unknown error',
+        details: {'code': e.code, 'details': e.details},
+        innerException: e,
+        stackTrace: stackTrace,
+      );
+    }
+  }
+
+  GeofenceEvent? _parseDrainedEvent(Map<String, dynamic> eventData) {
+    final zoneId = eventData['zoneId'] as String?;
+    final eventTypeRaw = (eventData['eventType'] as String?)?.toUpperCase();
+    if (zoneId == null || eventTypeRaw == null) return null;
+
+    final GeofenceEventType? geofenceEventType = switch (eventTypeRaw) {
+      'ENTER' => GeofenceEventType.enter,
+      'EXIT' => GeofenceEventType.exit,
+      'DWELL' => GeofenceEventType.dwell,
+      'RECOVERY_ENTER' => GeofenceEventType.recoveryEnter,
+      'RECOVERY_EXIT' => GeofenceEventType.recoveryExit,
+      'SIGNAL_LOST' => GeofenceEventType.signalLost,
+      'SIGNAL_RESTORED' => GeofenceEventType.signalRestored,
+      _ => null,
+    };
+    if (geofenceEventType == null) return null;
+
+    final timestampRaw = eventData['timestamp'];
+    final int timestamp = timestampRaw is int
+        ? timestampRaw
+        : (timestampRaw is num
+            ? timestampRaw.toInt()
+            : DateTime.now().millisecondsSinceEpoch);
+
+    final capturedTs = (eventData['capturedTs'] as num?)?.toInt() ?? timestamp;
+    final nowMs = DateTime.now().millisecondsSinceEpoch;
+    final queuedDurationMs =
+        (eventData['queuedDurationMs'] as num?)?.toInt() ??
+            (nowMs - capturedTs);
+
+    final lat = (eventData['latitude'] as num?)?.toDouble();
+    final lng = (eventData['longitude'] as num?)?.toDouble();
+    final acc = (eventData['gpsAccuracy'] as num?)?.toDouble() ??
+        (eventData['accuracy'] as num?)?.toDouble();
+    final speed = (eventData['speedMps'] as num?)?.toDouble();
+    final activity = eventData['activityAtEvent'] as String?;
+    final detectionTimeMs =
+        (eventData['detectionTimeMs'] as num?)?.toDouble();
+    final distanceToBoundaryM =
+        (eventData['distanceToBoundaryM'] as num?)?.toDouble();
+    final dwellDurationMs =
+        (eventData['dwellDurationMs'] as num?)?.toDouble();
+    final zoneName = (eventData['zoneName'] as String?) ?? '';
+    final zone = _zones[zoneId];
+
+    return GeofenceEvent(
+      zoneId: zoneId,
+      zoneName: zoneName,
+      type: geofenceEventType,
+      location: PolyfenceLocation(
+        latitude: lat ?? 0.0,
+        longitude: lng ?? 0.0,
+        accuracy: acc,
+        speed: speed,
+        timestamp: DateTime.fromMillisecondsSinceEpoch(timestamp),
+        activity: activity,
+      ),
+      timestamp: DateTime.fromMillisecondsSinceEpoch(timestamp),
+      detectionTimeMs: detectionTimeMs,
+      distanceToBoundaryM: distanceToBoundaryM,
+      dwellDurationMs: dwellDurationMs,
+      deliveredLate: true,
+      capturedTs: capturedTs,
+      queuedDurationMs: queuedDurationMs,
+      zone: zone,
+    );
   }
 
   /// Sets GPS accuracy profile for common use cases.
@@ -1507,20 +1728,35 @@ class PolyfenceService {
         await _stopTrackingDuringDispose();
       }
 
-      // 2. Cancel all stream subscriptions
+      // 2. Notify platform of disposal FIRST, before the subscriptions are
+      // cancelled. The native `dispose` handler calls
+      // LocationTracker.setBridgeAttached(false), which flips core into the
+      // persist branch — so any geofence event in flight between the
+      // signal and the sink-teardown lands in the durable pending-events
+      // queue (when opted in via pendingEventsQueueSize > 0) instead of
+      // firing into a sink that is about to die. Cancelling the
+      // subscriptions first left a window where core still believed the
+      // bridge was attached and would deliver-then-lose events.
+      try {
+        await _platform.dispose();
+      } catch (_) {
+        // Platform disposal is best-effort
+      }
+
+      // 3. Cancel all stream subscriptions
       await _locationSubscription?.cancel();
       await _geofenceSubscription?.cancel();
       await _errorSubscription?.cancel();
       await _performanceSubscription?.cancel();
 
-      // 3. Close all stream controllers
+      // 4. Close all stream controllers
       await _runtimeStatusController.close();
       await _eventController.close();
       await _locationController.close();
       await _errorController.close();
       await _statusController.close();
 
-      // 4. Cleanup analytics session (only if analytics initialized)
+      // 5. Cleanup analytics session (only if analytics initialized)
       if (_analyticsAvailable) {
         try {
           await PolyfenceAnalytics.instance.endSession();
@@ -1529,7 +1765,7 @@ class PolyfenceService {
         }
       }
 
-      // 5. Dispose app lifecycle manager (independent of analytics)
+      // 6. Dispose app lifecycle manager (independent of analytics)
       if (_lifecycleManagerAvailable) {
         try {
           AppLifecycleManager.instance.dispose();
@@ -1538,20 +1774,13 @@ class PolyfenceService {
         }
       }
 
-      // 6. Clear zone cache
+      // 7. Clear zone cache
       _zones.clear();
 
-      // 7. Reset initialization, analytics, and lifecycle flags
+      // 8. Reset initialization, analytics, and lifecycle flags
       _isInitialized = false;
       _analyticsAvailable = false;
       _lifecycleManagerAvailable = false;
-
-      // 8. Notify platform of disposal
-      try {
-        await _platform.dispose();
-      } catch (_) {
-        // Platform disposal is best-effort
-      }
     } catch (e) {
       // Log disposal error but don't throw (disposal should never fail)
       if (kDebugMode) {

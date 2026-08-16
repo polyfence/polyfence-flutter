@@ -1,5 +1,5 @@
 group 'io.polyfence.polyfence'
-version '2.1.1'
+version '3.0.0'
 
 buildscript {
     ext.kotlin_version = '1.8.22'
@@ -50,6 +50,9 @@ android {
 
     testOptions {
         unitTests.returnDefaultValues = true
+        // Robolectric needs Android resources on the unit-test classpath
+        // to instantiate the LocationTracker Service without a device.
+        unitTests.includeAndroidResources = true
     }
 }
 
@@ -58,11 +61,28 @@ dependencies {
     implementation 'androidx.core:core-ktx:1.10.1'
     implementation 'com.google.android.gms:play-services-location:21.0.1'
     implementation 'androidx.work:work-runtime-ktx:2.8.1'
-    implementation 'io.polyfence:polyfence-core:1.0.14'
+    // polyfence-core 3.0.0 ships the durable pending-events queue
+    // primitive, the drain-then-reconcile ordering, and the
+    // LocationTracker.setBridgeAttached companion this plugin depends on.
+    // Until that tag lands on Maven Central, the paired polyfence-core
+    // branch must be published to mavenLocal for local builds to resolve
+    // this coordinate.
+    implementation 'io.polyfence:polyfence-core:3.0.0'
     testImplementation 'junit:junit:4.13.2'
     testImplementation 'org.mockito:mockito-core:5.2.0'
     testImplementation 'org.mockito:mockito-inline:5.2.0'
     testImplementation 'org.mockito.kotlin:mockito-kotlin:5.1.0'
+    // MockK handles Kotlin companion objects natively — the pending-events
+    // bridge tests need to stub polyfence-core companion functions
+    // (LocationTracker.drainPendingEvents / pendingEventsDroppedCount), which
+    // Mockito's mockStatic cannot intercept without @JvmStatic on core.
+    testImplementation 'io.mockk:mockk:1.12.5'
+    // Robolectric unlocks a real LocationTracker Service instance in unit
+    // tests — the XOR behavioural test wires the bridge's coreDelegate to a
+    // real core tracker and asserts on the delivery-vs-persist branching
+    // core's handleGeofenceEvent implements.
+    testImplementation 'org.robolectric:robolectric:4.11.1'
+    testImplementation 'androidx.test:core:1.5.0'
     androidTestImplementation 'androidx.test:runner:1.5.2'
     androidTestImplementation 'androidx.test.espresso:espresso-core:3.5.1'
 }

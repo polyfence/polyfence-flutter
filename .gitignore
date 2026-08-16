@@ -45,6 +45,7 @@ INDEX.md
 doc/*
 !doc/TELEMETRY.md
 !doc/ARCHITECTURE.md
+!doc/ANDROID_PERMISSIONS.md
 
 # Security - Never commit API keys or secrets
 ADMIN_API_KEYS

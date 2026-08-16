@@ -51,6 +51,10 @@ void main() {
             return <String, dynamic>{};
           case 'getErrorHistory':
             return <Map<String, dynamic>>[];
+          case 'drainPendingEvents':
+            return const <Map<String, dynamic>>[];
+          case 'pendingEventsDroppedCount':
+            return 0;
           default:
             return null;
         }
@@ -251,6 +255,71 @@ void main() {
       expect(log[0].method, 'getErrorHistory');
       expect(log[0].arguments['timeRangeMs'], 3600000);
       expect(result, isA<List<Map<String, dynamic>>>());
+    });
+
+    test('drainPendingEvents returns empty list when native queue is empty',
+        () async {
+      final result = await platform.drainPendingEvents();
+
+      expect(log, hasLength(1));
+      expect(log[0].method, 'drainPendingEvents');
+      expect(result, isEmpty);
+    });
+
+    test('drainPendingEvents deep-casts nested platform maps', () async {
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(
+        const MethodChannel('polyfence'),
+        (MethodCall call) async {
+          if (call.method == 'drainPendingEvents') {
+            return <Object?>[
+              <Object?, Object?>{
+                'zoneId': 'z1',
+                'eventType': 'ENTER',
+                'timestamp': 1700000000000,
+                'deliveredLate': true,
+                'capturedTs': 1700000000000,
+                'queuedDurationMs': 15000,
+              }
+            ];
+          }
+          return null;
+        },
+      );
+
+      final result = await platform.drainPendingEvents();
+
+      expect(result, hasLength(1));
+      expect(result[0], isA<Map<String, dynamic>>());
+      expect(result[0]['zoneId'], 'z1');
+      expect(result[0]['eventType'], 'ENTER');
+      expect(result[0]['deliveredLate'], true);
+      expect(result[0]['queuedDurationMs'], 15000);
+    });
+
+    test('pendingEventsDroppedCount returns int', () async {
+      final result = await platform.pendingEventsDroppedCount();
+
+      expect(log, hasLength(1));
+      expect(log[0].method, 'pendingEventsDroppedCount');
+      expect(result, isA<int>());
+      expect(result, 0);
+    });
+
+    test('pendingEventsDroppedCount coerces platform Number to int', () async {
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(
+        const MethodChannel('polyfence'),
+        (MethodCall call) async {
+          if (call.method == 'pendingEventsDroppedCount') {
+            return 42;
+          }
+          return null;
+        },
+      );
+
+      final result = await platform.pendingEventsDroppedCount();
+      expect(result, 42);
     });
   });
 

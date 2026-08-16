@@ -6,8 +6,8 @@ We actively support the following versions with security updates:
 
 | Version | Supported          |
 | ------- | ------------------ |
-| 1.0.x   | :white_check_mark: |
-| < 1.0   | :x:                |
+| 3.0.x   | :white_check_mark: |
+| < 3.0   | :x:                |
 
 ## Reporting a Vulnerability
 
@@ -220,7 +220,7 @@ No location data is retained on external servers (unless you've enabled analytic
 
 ## Security Updates
 
-Security updates will be released as patch versions (e.g., 0.2.1) and announced via:
+Security updates will be released as patch versions (e.g., 3.0.1) and announced via:
 
 - GitHub Security Advisories
 - CHANGELOG.md

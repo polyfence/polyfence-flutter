@@ -90,6 +90,58 @@ class PolyfenceConfiguration {
   /// a signal-lost event is emitted (resolved by signal-restored or exit).
   final int gpsStalenessTimeoutMs;
 
+  /// Durable pending-events queue capacity. `0` (default) disables persistence
+  /// entirely — geofence events fired while the Dart bridge is not attached
+  /// simply drop, matching every prior release's behaviour. When `> 0`, the
+  /// native engine persists those events to a bounded on-disk ring buffer of
+  /// this many entries; the consumer drains them via
+  /// [PolyfenceService.drainPendingEvents] on next attach. Oldest events evict
+  /// first when the cap is reached and surface through [PolyfenceService.onError]
+  /// as `PolyfenceErrorType.pendingEventsEvicted`. Recommended when enabled:
+  /// `500`.
+  final int pendingEventsQueueSize;
+
+  /// Whether queued events are delivered automatically the moment a consumer
+  /// starts listening. `true` (default) replays the durable queue through
+  /// [PolyfenceService.onGeofenceEvent] on the first subscription, so a
+  /// crossing captured while the app was dead arrives without the consumer
+  /// asking for it. `false` leaves the queue pull-only —
+  /// [PolyfenceService.drainPendingEvents] is then the only way to get the
+  /// events out. Only meaningful when [pendingEventsQueueSize] `> 0`.
+  final bool pendingEventsAutoDrainEnabled;
+
+  /// Registers the nearest active zones with the operating system's geofence
+  /// service so a crossing can still be captured after the app's process is
+  /// fully killed. `false` (default) registers nothing with the OS and shares
+  /// no zone data with it — Polyfence's own engine remains the sole detector
+  /// either way; this is only a wake source.
+  ///
+  /// Requires [pendingEventsQueueSize] `> 0` to be useful: an OS wake writes
+  /// the crossing into that queue and it is delivered on the next
+  /// [PolyfenceService.drainPendingEvents]. With the queue off, the woken
+  /// crossing has nowhere to go and the engine reports
+  /// `PolyfenceErrorType.osGeofenceQueueDisabled`.
+  ///
+  /// Costs the stronger background-location grant: `ACCESS_BACKGROUND_LOCATION`
+  /// (and `RECEIVE_BOOT_COMPLETED`) on Android, "Always" authorization on iOS.
+  /// Without it, wake fences degrade to polling-only and the engine reports
+  /// `PolyfenceErrorType.osGeofencePermissionDenied` — tracking is unaffected.
+  /// Request that grant only when this is on; it puts an Android app through
+  /// Google Play's manual background-location review.
+  final bool osGeofenceWakeEnabled;
+
+  /// How many OS geofence slots Polyfence may occupy while the app is
+  /// backgrounded. `null` (default) uses the native engine's per-platform
+  /// default — 50 of Android's 100-per-app allocation, leaving half free for
+  /// geofences the consumer app registers itself, and 20 on iOS, which is
+  /// already Apple's hard per-app cap.
+  ///
+  /// Values outside the platform's usable range are clamped by the native
+  /// engine, so the effective budget is whatever `getConfiguration()` reports
+  /// back rather than necessarily the value passed here. Only meaningful when
+  /// [osGeofenceWakeEnabled] is `true`.
+  final int? osGeofenceMaxRegions;
+
   /// Enable debug logging for GPS configuration changes
   final bool enableDebugLogging;
 
@@ -109,6 +161,10 @@ class PolyfenceConfiguration {
     this.disableAlertNotifications = false,
     this.gpsAccuracyThreshold = 100.0,
     this.gpsStalenessTimeoutMs = 0,
+    this.pendingEventsQueueSize = 0,
+    this.pendingEventsAutoDrainEnabled = true,
+    this.osGeofenceWakeEnabled = false,
+    this.osGeofenceMaxRegions,
     this.enableDebugLogging = false,
   }) {
     if (gpsAccuracyThreshold <= 0) {
@@ -122,6 +178,13 @@ class PolyfenceConfiguration {
       throw ArgumentError.value(
         gpsStalenessTimeoutMs,
         'gpsStalenessTimeoutMs',
+        'must not be negative',
+      );
+    }
+    if (pendingEventsQueueSize < 0) {
+      throw ArgumentError.value(
+        pendingEventsQueueSize,
+        'pendingEventsQueueSize',
         'must not be negative',
       );
     }
@@ -141,6 +204,10 @@ class PolyfenceConfiguration {
     bool? disableAlertNotifications,
     double? gpsAccuracyThreshold,
     int? gpsStalenessTimeoutMs,
+    int? pendingEventsQueueSize,
+    bool? pendingEventsAutoDrainEnabled,
+    bool? osGeofenceWakeEnabled,
+    int? osGeofenceMaxRegions,
     bool? enableDebugLogging,
   }) {
     return PolyfenceConfiguration(
@@ -156,6 +223,11 @@ class PolyfenceConfiguration {
       disableAlertNotifications: disableAlertNotifications ?? this.disableAlertNotifications,
       gpsAccuracyThreshold: gpsAccuracyThreshold ?? this.gpsAccuracyThreshold,
       gpsStalenessTimeoutMs: gpsStalenessTimeoutMs ?? this.gpsStalenessTimeoutMs,
+      pendingEventsQueueSize: pendingEventsQueueSize ?? this.pendingEventsQueueSize,
+      pendingEventsAutoDrainEnabled:
+          pendingEventsAutoDrainEnabled ?? this.pendingEventsAutoDrainEnabled,
+      osGeofenceWakeEnabled: osGeofenceWakeEnabled ?? this.osGeofenceWakeEnabled,
+      osGeofenceMaxRegions: osGeofenceMaxRegions ?? this.osGeofenceMaxRegions,
       enableDebugLogging: enableDebugLogging ?? this.enableDebugLogging,
     );
   }
@@ -179,6 +251,13 @@ class PolyfenceConfiguration {
       'disableAlertNotifications': disableAlertNotifications,
       'gpsAccuracyThreshold': gpsAccuracyThreshold,
       'gpsStalenessTimeoutMs': gpsStalenessTimeoutMs,
+      'pendingEventsQueueSize': pendingEventsQueueSize,
+      'pendingEventsAutoDrainEnabled': pendingEventsAutoDrainEnabled,
+      'osGeofenceWakeEnabled': osGeofenceWakeEnabled,
+      // Omitted when null so the native engine keeps its own per-platform
+      // default rather than having one platform's number forced onto both.
+      if (osGeofenceMaxRegions != null)
+        'osGeofenceMaxRegions': osGeofenceMaxRegions,
       'enableDebugLogging': enableDebugLogging,
     };
   }
@@ -222,6 +301,12 @@ class PolyfenceConfiguration {
           (map['gpsAccuracyThreshold'] as num?)?.toDouble() ?? 100.0,
       gpsStalenessTimeoutMs:
           (map['gpsStalenessTimeoutMs'] as num?)?.toInt() ?? 0,
+      pendingEventsQueueSize:
+          (map['pendingEventsQueueSize'] as num?)?.toInt() ?? 0,
+      pendingEventsAutoDrainEnabled:
+          map['pendingEventsAutoDrainEnabled'] as bool? ?? true,
+      osGeofenceWakeEnabled: map['osGeofenceWakeEnabled'] ?? false,
+      osGeofenceMaxRegions: (map['osGeofenceMaxRegions'] as num?)?.toInt(),
       enableDebugLogging: map['enableDebugLogging'] ?? false,
     );
   }
@@ -242,6 +327,10 @@ class PolyfenceConfiguration {
         other.disableAlertNotifications == disableAlertNotifications &&
         other.gpsAccuracyThreshold == gpsAccuracyThreshold &&
         other.gpsStalenessTimeoutMs == gpsStalenessTimeoutMs &&
+        other.pendingEventsQueueSize == pendingEventsQueueSize &&
+        other.pendingEventsAutoDrainEnabled == pendingEventsAutoDrainEnabled &&
+        other.osGeofenceWakeEnabled == osGeofenceWakeEnabled &&
+        other.osGeofenceMaxRegions == osGeofenceMaxRegions &&
         other.enableDebugLogging == enableDebugLogging;
   }
 
@@ -259,6 +348,10 @@ class PolyfenceConfiguration {
         disableAlertNotifications,
         gpsAccuracyThreshold,
         gpsStalenessTimeoutMs,
+        pendingEventsQueueSize,
+        pendingEventsAutoDrainEnabled,
+        osGeofenceWakeEnabled,
+        osGeofenceMaxRegions,
         enableDebugLogging,
       );
 
@@ -277,6 +370,10 @@ class PolyfenceConfiguration {
         'disableAlertNotifications: $disableAlertNotifications, '
         'gpsAccuracyThreshold: $gpsAccuracyThreshold, '
         'gpsStalenessTimeoutMs: $gpsStalenessTimeoutMs, '
+        'pendingEventsQueueSize: $pendingEventsQueueSize, '
+        'pendingEventsAutoDrainEnabled: $pendingEventsAutoDrainEnabled, '
+        'osGeofenceWakeEnabled: $osGeofenceWakeEnabled, '
+        'osGeofenceMaxRegions: $osGeofenceMaxRegions, '
         'enableDebugLogging: $enableDebugLogging'
         ')';
   }

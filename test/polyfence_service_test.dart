@@ -165,6 +165,24 @@ class MockPolyfencePlatform extends PolyfencePlatform
     return sessionTelemetryResponse;
   }
 
+  List<Map<String, dynamic>> drainPendingEventsResponse =
+      const <Map<String, dynamic>>[];
+  int pendingEventsDroppedCountResponse = 0;
+
+  @override
+  Future<List<Map<String, dynamic>>> drainPendingEvents() async {
+    calls.add('drainPendingEvents');
+    if (errorToThrow != null) throw errorToThrow!;
+    return drainPendingEventsResponse;
+  }
+
+  @override
+  Future<int> pendingEventsDroppedCount() async {
+    calls.add('pendingEventsDroppedCount');
+    if (errorToThrow != null) throw errorToThrow!;
+    return pendingEventsDroppedCountResponse;
+  }
+
   @override
   Future<void> dispose() async {
     calls.add('dispose');
@@ -540,9 +558,11 @@ void main() {
       expect(mockPlatform.calls, contains('getDebugInfo'));
       expect(info, isA<PolyfenceDebugInfo>());
       expect(info.systemStatus.pluginVersion, '0.9.0');
-      // Missing keys now safely default to empty values
+      // A count with no data is zero; a measurement with no data is
+      // absent. Defaulting the latter to zero would report the best
+      // possible battery level for a device that never gave one.
       expect(info.performance.totalLocationUpdates, 0);
-      expect(info.battery.batteryLevel, 0);
+      expect(info.battery.batteryLevel, isNull);
       expect(info.zones.activeZones, 0);
       expect(info.recentErrors, isEmpty);
     });
@@ -879,6 +899,10 @@ void main() {
       expect(() => PolyfenceService.instance.enableMovementOptimization(),
           throwsA(isA<StateError>()));
       expect(() => PolyfenceService.instance.enableIntelligentOptimization(),
+          throwsA(isA<StateError>()));
+      expect(() => PolyfenceService.instance.drainPendingEvents(),
+          throwsA(isA<StateError>()));
+      expect(() => PolyfenceService.instance.pendingEventsDroppedCount(),
           throwsA(isA<StateError>()));
     });
 

@@ -18,6 +18,12 @@ checks:
     runs: bash scripts/consistency-android-gradle-version.sh
     fix: Run scripts/sync_version.sh to propagate pubspec.yaml version to android/build.gradle.
 
+  - id: library-manifest-permission-set
+    description: android/src/main/AndroidManifest.xml declares exactly the library-owned permissions, so the set inherited by every consumer cannot silently regrow
+    type: subprocess
+    runs: bash scripts/consistency-library-manifest-permissions.sh
+    fix: Permissions with a Google Play review cost or that gate an opt-in feature are consumer-declared — document them in doc/ANDROID_PERMISSIONS.md and the README instead of adding them to the library manifest.
+
   - id: dart-analyze-clean
     description: Flutter analyzer reports zero errors on plugin surfaces (infos tolerated via project precedent)
     type: subprocess
@@ -55,6 +61,18 @@ checks:
       - pubspec.yaml
     pattern: "(?i)geofenc"
     fix: Ensure pubspec description mentions geofencing so package metadata matches README positioning.
+
+  - id: polyfence-core-version-sync
+    description: polyfence-core pinned to the same released version on Android (build.gradle) and iOS (podspec), with no SNAPSHOT pin or mavenLocal() repository
+    type: subprocess
+    runs: bash scripts/consistency-polyfence-core-version.sh
+    fix: Pin android/build.gradle and ios/polyfence.podspec to the same released polyfence-core version, and remove any mavenLocal() repository — both make the build resolve from a developer's ~/.m2 rather than for consumers.
+
+  - id: core-error-types-mapped
+    description: every error type polyfence-core can emit resolves to a PolyfenceErrorType (an unmapped code degrades silently to unknown)
+    type: subprocess
+    runs: bash scripts/consistency-core-error-types.sh
+    fix: Add the reported code to the PolyfenceErrorType enum in lib/src/errors/polyfence_error.dart, or list it under _extraNativeCodesForType when it should resolve to an existing type. Mirror the decision in polyfence-react-native's NATIVE_CODE_TO_TYPE.
 
   - id: no-internal-decision-ids
     description: internal decision-IDs (Dxxx) / job-codes (Jxx) must not appear in public docs or lib source

@@ -42,7 +42,7 @@ All three zone-sourcing approaches use the **same plugin API** — switch anytim
 
 | Requirement | Version |
 |-------------|---------|
-| **Flutter** | 3.10.0+ |
+| **Flutter** | 3.29.0+ |
 | **Dart SDK** | 3.0.0+ |
 | **Android** | API 24+ (Android 7.0), tested up to API 35 (Android 15) |
 | **iOS** | 14.0+ |

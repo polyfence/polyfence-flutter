@@ -1009,7 +1009,7 @@ Polyfence is built with privacy as the foundation.
 
 ### Zero PII about your end users
 
-Polyfence collects **zero PII and zero identifiable data about your end users.** The only personal information our analytics endpoint sees is anonymous platform aggregates — never coordinates, never identifiers.
+Polyfence collects **zero PII about your end users. We never learn who they are.** The only personal information our analytics endpoint sees is anonymous platform aggregates — never coordinates, never identifiers.
 
 Different defaults for different data classes — control on every axis, no privacy theatre:
 

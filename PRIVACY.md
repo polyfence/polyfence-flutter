@@ -19,7 +19,7 @@ The SDK surfaces geofencing to Dart while native engines (Kotlin on Android, Swi
 
 ### Zero PII about your end users
 
-Polyfence collects **zero PII and zero identifiable data about your end users.** The only personal information in our system is YOUR account info (email, billing) — same as any paid SaaS, identical to what Stripe or Vercel hold about you.
+Polyfence collects **zero PII about your end users. We never learn who they are.** The personal information in our system is about you, not them — your account details and billing, same as any paid SaaS, identical to what Stripe or Vercel hold about you.
 
 This SDK **never collects, transmits, or stores** GPS coordinates, raw location fixes, addresses, end-user names, contact fields, advertising identifiers, or cross-app tracking tokens. Zone perimeters stay on the device too, with one opt-in exception described below. Telemetry, when enabled, is limited to aggregates and operational signals described in [`doc/TELEMETRY.md`](doc/TELEMETRY.md) — never coordinates, never end-user identifiers, never end-user PII.
 

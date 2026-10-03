@@ -1009,14 +1009,14 @@ Polyfence is built with privacy as the foundation.
 
 ### Zero PII about your end users
 
-Polyfence collects **zero PII and zero identifiable data about your end users.** The only personal information our analytics endpoint sees is anonymous platform aggregates — never coordinates, never identifiers.
+Polyfence collects **zero PII and zero identifiable data about your end users.** What our analytics endpoint sees is anonymous platform aggregates plus your app's package name — never coordinates, never end-user identifiers.
 
 Different defaults for different data classes — control on every axis, no privacy theatre:
 
 | Data class | Default | Why |
 |---|---|---|
 | **Raw positions** | **Opt-IN** | We don't have your customers' location data unless you explicitly turn retention on. |
-| **Anonymous platform aggregates** | **Opt-OUT** with one-line disable | Collected by default to fuel product improvements everyone benefits from. Never coordinates, never identifiers, never PII. Industry-standard pattern (Stripe, Vercel, Cloudflare, Sentry). |
+| **Anonymous platform aggregates** | **Opt-OUT** with one-line disable | Collected by default to fuel product improvements everyone benefits from. Never coordinates, never end-user identifiers, never PII. Carries your app's package name, and a link to your Polyfence account if you configure an API key. Industry-standard pattern (Stripe, Vercel, Cloudflare, Sentry). |
 | **Zone events** | **Always** | They're the value we deliver — collecting them isn't surveillance, it's the product. |
 
 ### Anonymous Plugin Telemetry (Opt-Out)

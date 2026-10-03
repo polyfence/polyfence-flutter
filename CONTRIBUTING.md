@@ -169,7 +169,7 @@ PRs we'll likely reject:
 
 1. **Privacy First**
    - No external API calls related to user data — the anonymous telemetry endpoint is the one exception, opt-out via `AnalyticsConfig(disableTelemetry: true)`.
-   - Anonymous platform telemetry is opt-out (one-line disable). No GPS coordinates, no zone definitions, no user identifiers — ever sent.
+   - Anonymous platform telemetry is opt-out (one-line disable). No GPS coordinates, no zone definitions, no end-user identifiers — ever sent. The payload does carry your app's package name, which the server requires.
    - Location data stays on device
 
 2. **Platform Parity**

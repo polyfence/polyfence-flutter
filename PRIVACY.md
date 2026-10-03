@@ -1,7 +1,7 @@
 # Polyfence Flutter SDK — Privacy Policy
 
 **Effective Date:** March 26, 2026  
-**Last Updated:** May 16, 2026
+**Last Updated:** October 3, 2026
 
 **Applies to:** the Polyfence Flutter SDK (`package:polyfence`) only. Server-side and SaaS-side privacy posture is described separately at https://polyfence.io/privacy.
 
@@ -19,7 +19,7 @@ The SDK surfaces geofencing to Dart while native engines (Kotlin on Android, Swi
 
 ### Zero PII about your end users
 
-Polyfence collects **zero PII and zero identifiable data about your end users.** The only personal information in our system is YOUR account info (email, billing) — same as any paid SaaS, identical to what Stripe or Vercel hold about you.
+Polyfence collects **zero PII about your end users. We never ask who they are.** The personal information in our system is about you, not them — your account details and billing, same as any paid SaaS, identical to what Stripe or Vercel hold about you.
 
 This SDK **never collects, transmits, or stores** GPS coordinates, raw location fixes, addresses, end-user names, contact fields, advertising identifiers, or cross-app tracking tokens. Zone perimeters stay on the device too, with one opt-in exception described below. Telemetry, when enabled, is limited to aggregates and operational signals described in [`doc/TELEMETRY.md`](doc/TELEMETRY.md) — never coordinates, never end-user identifiers, never end-user PII.
 
@@ -30,10 +30,10 @@ This SDK **never collects, transmits, or stores** GPS coordinates, raw location 
 | Data class | What we hold | When |
 | --- | --- | --- |
 | **Zone events** | Zone references only (`zone_id`, `device_id`, timestamp). No PII. No coordinates. | Always — this is the product value. |
-| **Anonymous platform telemetry** | Aggregates only — accuracy averages, event frequencies, error counts. No identifiers, no coordinates, no PII. | Opt-out (one-line disable). |
+| **Anonymous platform telemetry** | Aggregates only — accuracy averages, event frequencies, error counts. No end-user identifiers, no coordinates, no PII. Carries your app's package name. | Opt-out (one-line disable). |
 | **Raw positions** | Not collected by default. Opt-in retention only. When opted in: positions only — never names / phones / emails / health / etc. | Opt-in only. |
 
-> **Zero PII. Zero identifiable data about end users.**
+> **Zero PII about end users. We never ask who they are.**
 
 ---
 
@@ -54,7 +54,7 @@ This SDK **never collects, transmits, or stores** GPS coordinates, raw location 
 | Data class | Default | Why |
 | --- | --- | --- |
 | **Raw positions** | **Opt-IN** | We don't have your customers' location data unless you explicitly turn retention on. |
-| **Anonymous platform aggregates** | **Opt-OUT** with one-line disable | Collected by default to fuel product improvements everyone benefits from. Never coordinates, never identifiers, never PII. Industry-standard pattern (Stripe, Vercel, Cloudflare, Sentry). |
+| **Anonymous platform aggregates** | **Opt-OUT** with one-line disable | Collected by default to fuel product improvements everyone benefits from. Never coordinates, never end-user identifiers, never PII. Carries your app's package name, and a link to your Polyfence account if you configure an API key. Industry-standard pattern (Stripe, Vercel, Cloudflare, Sentry). |
 | **Zone events** | **Always** | They're the value we deliver — collecting them isn't surveillance, it's the product. |
 
 Different defaults for different data — control on every axis, no privacy theatre.
@@ -120,7 +120,7 @@ Field-by-field telemetry contract: see [`doc/TELEMETRY.md`](doc/TELEMETRY.md).
 
 ## Anonymous platform telemetry (detail)
 
-When telemetry is enabled, the SDK sends anonymous performance and reliability signals (for example, detection counts, timing, GPS accuracy in meters without coordinates, zone shape counts, and error-class tallies). There are no user identifiers, no location fixes, and no free-text PII in those payloads. For a complete field-by-field breakdown with examples, see [`doc/TELEMETRY.md`](doc/TELEMETRY.md).
+When telemetry is enabled, the SDK sends anonymous performance and reliability signals (for example, detection counts, timing, GPS accuracy in meters without coordinates, zone shape counts, and error-class tallies). There are no end-user identifiers, no location fixes, and no free-text PII in those payloads. Each payload does carry your app's package name, which is a required field, and if you configure an API key the session is linked to your Polyfence account. For a complete field-by-field breakdown with examples, see [`doc/TELEMETRY.md`](doc/TELEMETRY.md).
 
 When telemetry is disabled, zero analytics data is transmitted; SDK features continue to work normally.
 

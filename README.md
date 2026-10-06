@@ -17,6 +17,8 @@ Polyfence is the geofence layer — same zones run on your mobile app, your IoT 
 
 The screenshots above are from the [example app](example/) in this repo — a working Flutter app that loads zones from the Polyfence SaaS (or local demo zones), tracks location, and renders enter / exit / dwell events. Sign up at [polyfence.io](https://polyfence.io) for a free API key, then follow [`example/README.md`](example/README.md) to run it locally.
 
+**Building something with this?** One line to [hello@polyfence.io](mailto:hello@polyfence.io) — it reaches the person who writes this SDK, and what you're building is how we decide what to work on next.
+
 ## Why Polyfence?
 
 - **Polygon geofencing** — Not just circles. Define zones with arbitrary polygon boundaries (complex city zones, campus outlines, delivery areas).
@@ -1088,10 +1090,11 @@ Contributions are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for developmen
 
 ## Support
 
+- **Not stuck, just building?** Tell us what you're building — [hello@polyfence.io](mailto:hello@polyfence.io)
 - **Plugin Issues**: [GitHub Issues](https://github.com/polyfence/polyfence-flutter/issues)
 - **Questions & Discussions**: Open an issue with the `question` label
 - **Security Issues**: See [SECURITY.md](SECURITY.md)
-- **Commercial Support**: [polyfence.io](https://polyfence.io)
+- **Hosted platform & API keys**: [polyfence.io](https://polyfence.io)
 
 ## License
 

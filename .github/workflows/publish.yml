@@ -66,10 +66,14 @@ jobs:
           channel: stable
 
       # Temporary. Remove once this workflow has published successfully once.
-      # Prints whether the OIDC token reached the job and which claims it
-      # carries, so a failure says why instead of hanging silently. Never
-      # prints the token, only its length and its non-secret claims.
+      # Reports whether the OIDC token reached the job and which claims it
+      # carries, so a failure says why instead of hanging. Never prints the
+      # token, only its length and its non-secret claims.
+      #
+      # continue-on-error because this step sits before publish: a diagnostic
+      # must never be able to block a release.
       - name: Diagnose pub.dev OIDC
+        continue-on-error: true
         run: |
           [ -n "${ACTIONS_ID_TOKEN_REQUEST_URL:-}" ]   && echo "REQUEST_URL: present"   || echo "REQUEST_URL: MISSING"
           [ -n "${ACTIONS_ID_TOKEN_REQUEST_TOKEN:-}" ] && echo "REQUEST_TOKEN: present" || echo "REQUEST_TOKEN: MISSING"
@@ -77,10 +81,17 @@ jobs:
           echo "--- pub token store ---"
           dart pub token list
           echo "--- OIDC claims (audience pub.dev) ---"
+          # A JWT payload is base64url with the padding stripped, so three
+          # lengths in four are undecodable by `base64 -d`. Pad before decoding.
           curl -sS -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
             "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=https%3A%2F%2Fpub.dev" \
-          | jq -r .value | cut -d. -f2 | tr '_-' '/+' | base64 -d 2>/dev/null \
-          | jq '{aud, sub, repository, ref, event_name, repository_owner}'
+          | jq -r .value | cut -d. -f2 | python3 -c "
+          import sys, base64, json
+          s = sys.stdin.read().strip(); s += '=' * (-len(s) % 4)
+          d = json.loads(base64.urlsafe_b64decode(s))
+          print(json.dumps({k: d.get(k) for k in
+                ('aud','sub','repository','ref','event_name','repository_owner')}, indent=2))
+          "
 
       - run: flutter pub get
 

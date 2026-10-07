@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.0.1] - 2026-10-07
+
+### Changed
+- **Privacy wording now matches the payload.** The README said Polyfence collects "zero identifiable data" about end users, and that telemetry carries "never identifiers". The payload does carry the host app's package name, and links to a Polyfence account when an API key is configured. The claim is now scoped to end users and says what is actually sent. The payload itself is unchanged.
+- **`Commercial Support` renamed to `Hosted platform & API keys`.** polyfence.io states there is no support at scale and no SLA. The old label promised otherwise.
+
+### Added
+- A contact line for people building with the SDK rather than reporting a problem.
+
+No code changed in this release. It exists because pub.dev renders the README from the published version, so the corrections above were not visible on the package page.
+
 ## [3.0.0] - 2026-08-05
 
 ### Added

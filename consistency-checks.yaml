@@ -63,7 +63,7 @@ checks:
     fix: Ensure pubspec description mentions geofencing so package metadata matches README positioning.
 
   - id: polyfence-core-version-sync
-    description: polyfence-core pinned to the same released version on Android (build.gradle) and iOS (podspec), with no SNAPSHOT pin or mavenLocal() repository
+    description: polyfence-core pinned to the same released version, exactly and without a version operator, on Android (build.gradle) and iOS (podspec), with no SNAPSHOT pin or mavenLocal() repository
     type: subprocess
     runs: bash scripts/consistency-polyfence-core-version.sh
     fix: Pin android/build.gradle and ios/polyfence.podspec to the same released polyfence-core version, and remove any mavenLocal() repository — both make the build resolve from a developer's ~/.m2 rather than for consumers.

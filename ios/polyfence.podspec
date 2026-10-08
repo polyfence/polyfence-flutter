@@ -16,7 +16,13 @@ Privacy-first polygon and circle geofencing for Flutter. True background trackin
   # ordering this plugin's drainPendingEvents API is a passthrough for. Local
   # builds against the pre-release require the paired polyfence-core branch to
   # be checked out and pod-linked until the tag lands.
-  s.dependency 'PolyfenceCore', '~> 3.0.0'
+  #
+  # Exact version, not '~> 3.0.0'. android/build.gradle pins the same core
+  # version exactly, and an optimistic pin here would let iOS pick up a core
+  # patch on the next pod install while Android stayed put. One version of
+  # this plugin would then sit on two different engines depending on the
+  # platform, which is not reproducible from the version number alone.
+  s.dependency 'PolyfenceCore', '3.0.0'
   s.platform = :ios, '14.0'
   s.swift_version = '5.0'
   

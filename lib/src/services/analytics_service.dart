@@ -16,15 +16,15 @@ import 'package:package_info_plus/package_info_plus.dart';
 /// );
 /// ```
 ///
-/// No location data or PII is ever sent. The optional [apiKey] enables
-/// additional Polyfence.io dashboard features.
+/// No location data or PII is ever sent. The optional [apiKey] links uploads
+/// to your Polyfence account.
 class AnalyticsConfig {
   /// Set to `true` to disable all anonymous telemetry.
   ///
   /// Defaults to `false` — telemetry is on by default (opt-out).
   final bool disableTelemetry;
 
-  /// Optional industry category for benchmarking.
+  /// Optional industry category, recorded alongside the session.
   final String? industryCategory;
 
   /// Optional use-case description.
@@ -33,7 +33,7 @@ class AnalyticsConfig {
   /// Custom analytics endpoint URL (must use HTTPS).
   final String? apiEndpoint;
 
-  /// Optional API key for Polyfence.io dashboard features.
+  /// Optional API key. Sent as `x-api-key`, linking uploads to your Polyfence account.
   final String? apiKey;
 
   /// Creates an analytics configuration.

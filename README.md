@@ -34,7 +34,7 @@ Once you're using the Flutter SDK, you can source zones from three places. (For 
 |----------|---------|---------|----------|
 | **Hardcode zones in your app** | None | Not needed | Static zones, full control, privacy-first apps |
 | **Fetch from your own API** | Your backend | Not needed | Existing infrastructure, custom zone logic |
-| **Use Polyfence SaaS** _(optional)_ | polyfence.io | Required | Visual zone editor, analytics dashboard |
+| **Use Polyfence SaaS** _(optional)_ | polyfence.io | Required | Visual zone editor, hosted zone store |
 
 All three zone-sourcing approaches use the **same plugin API** — switch anytime without code changes.
 

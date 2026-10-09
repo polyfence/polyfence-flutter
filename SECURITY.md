@@ -55,7 +55,7 @@ When reporting a vulnerability, please include:
 
    **Example: Secure API Key Storage**
 
-   API keys are only required for Polyfence.io dashboard features. The anonymous
+   API keys are only required for the Polyfence.io REST API. The anonymous
    telemetry pipeline does NOT require an API key and is enabled by default —
    see [PRIVACY.md](PRIVACY.md) and [doc/TELEMETRY.md](doc/TELEMETRY.md) for the
    canonical one-line opt-out.

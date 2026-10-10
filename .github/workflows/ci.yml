@@ -22,6 +22,14 @@ jobs:
       - run: flutter pub get
       - run: flutter analyze --no-fatal-infos
       - run: flutter test
+      # POLYFENCE_API_KEY is fixed at compile time, so the run above proves
+      # nothing about it: with the define unset, a telemetry key taken from the
+      # environment is empty either way. This run sets it, which is the only
+      # way the assertion can fail if that fallback ever returns. It is scoped
+      # to the one file on purpose: the example widget test asserts the
+      # missing-key empty state, and a define on the whole suite would fill it.
+      - name: Telemetry key stays out of the build environment
+        run: flutter test test/telemetry_api_key_test.dart --dart-define=POLYFENCE_API_KEY=pf_ci_should_be_ignored
       - name: Consistency checks
         run: bash scripts/consistency-check.sh --local-only
 

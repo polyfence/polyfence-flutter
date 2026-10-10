@@ -347,8 +347,6 @@ class PolyfenceService {
         final bool envDisabled =
             analyticsEnabledEnv.toLowerCase() != 'true';
 
-        const String apiKeyEnv =
-            String.fromEnvironment('POLYFENCE_API_KEY', defaultValue: '');
         const String apiEndpointEnv =
             String.fromEnvironment('POLYFENCE_API_ENDPOINT', defaultValue: '');
 
@@ -360,8 +358,11 @@ class PolyfenceService {
 
         final analyticsConfigToUse = AnalyticsConfig(
           disableTelemetry: telemetryDisabled,
-          apiKey:
-              analyticsConfig?.apiKey ?? (apiKeyEnv.isEmpty ? null : apiKeyEnv),
+          // Only a key the caller passed here. POLYFENCE_API_KEY is a REST
+          // key that reads and writes zones, it is compiled into the app by
+          // --dart-define, and adopting it would attach it to every upload
+          // without anyone choosing that.
+          apiKey: analyticsConfig?.apiKey,
           apiEndpoint: analyticsConfig?.apiEndpoint ??
               (apiEndpointEnv.isEmpty ? null : apiEndpointEnv),
           industryCategory: analyticsConfig?.industryCategory,

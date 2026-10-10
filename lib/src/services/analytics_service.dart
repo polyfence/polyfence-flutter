@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:uuid/uuid.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter/foundation.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
 /// Configuration for Polyfence anonymous telemetry and analytics.
@@ -65,6 +66,15 @@ class PolyfenceAnalytics {
   PolyfenceAnalytics._();
 
   AnalyticsConfig? _config;
+
+  /// Whether telemetry uploads carry an API key.
+  ///
+  /// True only when a non-empty [AnalyticsConfig.apiKey] was passed to
+  /// [initialize]. The key is never read from the build environment, so an
+  /// app that configures none uploads anonymously. Reports presence, not the
+  /// value.
+  @visibleForTesting
+  bool get hasApiKey => _config?.apiKey?.isNotEmpty ?? false;
   String? _appIdentifier;
   String? _pluginVersion;
 

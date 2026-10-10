@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **Telemetry no longer adopts `POLYFENCE_API_KEY` on its own.** When no `AnalyticsConfig.apiKey` was passed, the SDK fell back to the `POLYFENCE_API_KEY` build define and sent it as `x-api-key` on every telemetry upload. That define is a Polyfence API key, which can read and change your zones, and `--dart-define` compiles it into the shipped app, so a release could carry it attached to telemetry without the developer choosing that. Telemetry now uses only a key passed explicitly in `AnalyticsConfig`, matching `polyfence-react-native`. Apps that pass no analytics key send anonymous telemetry, as the docs already describe. The define keeps working everywhere else it is used.
+
 ### Changed
 - **`PolyfenceCore` is pinned to an exact version on iOS, matching Android.** `ios/polyfence.podspec` asked for `~> 3.0.0`, which accepts any `3.0.x`, while `android/build.gradle` pinned `3.0.0` exactly. Once a core patch is published, iOS consumers take it on their next `pod install` and Android consumers do not, so a single version of this plugin would sit on two different engines depending on the platform. Both now pin exactly. The `polyfence-core-version-sync` consistency check now rejects a floating pin on either side, so the asymmetry cannot grow back from whichever platform drifts first. It compared only the numeric triple before, which made `~> 3.0.0` on iOS and a Gradle selector such as `3.0.0+` or `[3.0.0,3.1.0)` on Android all compare equal to an exact `3.0.0`.
 

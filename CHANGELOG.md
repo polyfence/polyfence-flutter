@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
-- **`PolyfenceCore` is pinned to an exact version on iOS, matching Android.** `ios/polyfence.podspec` asked for `~> 3.0.0`, which accepts any `3.0.x`, while `android/build.gradle` pinned `3.0.0` exactly. Once a core patch is published, iOS consumers take it on their next `pod install` and Android consumers do not, so a single version of this plugin would sit on two different engines depending on the platform. Both now pin exactly. The `polyfence-core-version-sync` consistency check also fails on a version operator in the podspec, so the asymmetry cannot grow back unnoticed: it compared only the numeric triple before and was blind to the operator.
+- **`PolyfenceCore` is pinned to an exact version on iOS, matching Android.** `ios/polyfence.podspec` asked for `~> 3.0.0`, which accepts any `3.0.x`, while `android/build.gradle` pinned `3.0.0` exactly. Once a core patch is published, iOS consumers take it on their next `pod install` and Android consumers do not, so a single version of this plugin would sit on two different engines depending on the platform. Both now pin exactly. The `polyfence-core-version-sync` consistency check now rejects a floating pin on either side, so the asymmetry cannot grow back from whichever platform drifts first. It compared only the numeric triple before, which made `~> 3.0.0` on iOS and a Gradle selector such as `3.0.0+` or `[3.0.0,3.1.0)` on Android all compare equal to an exact `3.0.0`.
 
 ## [3.0.1] - 2026-10-07
 

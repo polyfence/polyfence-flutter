@@ -132,6 +132,24 @@ class PolyfenceAnalytics {
     await _sendTelemetry(telemetry);
   }
 
+  /// The idempotency key for a payload: the session's own id where the engine
+  /// supplies one, otherwise a fresh uuid.
+  ///
+  /// Keyed on the session rather than the request. The server deduplicates on
+  /// (app_identifier, platform, plugin_version, session_date, idempotency_key),
+  /// and the payload is a running total, so a session re-sent while it is still
+  /// accumulating differs only in its duration. A key per request made every
+  /// re-send a new row, and made a retry of an unchanged payload a new row too.
+  /// An engine old enough not to send session_id keeps the old behaviour.
+  @visibleForTesting
+  static String idempotencyKeyForTest(Map<String, dynamic> payload) =>
+      _idempotencyKeyFor(payload);
+
+  static String _idempotencyKeyFor(Map<String, dynamic> payload) {
+    final id = payload['session_id'];
+    return (id is String && id.isNotEmpty) ? id : const Uuid().v4();
+  }
+
   Future<void> _sendTelemetry(Map<String, dynamic> sessionData) async {
     if (_appIdentifier == null || _pluginVersion == null) return;
 
@@ -146,7 +164,7 @@ class PolyfenceAnalytics {
 
     try {
       final endpoint = _config?.apiEndpoint ?? _defaultEndpoint;
-      final idempotencyKey = const Uuid().v4();
+      final idempotencyKey = _idempotencyKeyFor(payload);
 
       final headers = <String, String>{
         'Content-Type': 'application/json',
@@ -228,7 +246,7 @@ class PolyfenceAnalytics {
               json.decode(sessionDataJson) as Map<String, dynamic>;
 
           final endpoint = _config?.apiEndpoint ?? _defaultEndpoint;
-          final idempotencyKey = const Uuid().v4();
+          final idempotencyKey = _idempotencyKeyFor(sessionData);
 
           final headers = <String, String>{
             'Content-Type': 'application/json',

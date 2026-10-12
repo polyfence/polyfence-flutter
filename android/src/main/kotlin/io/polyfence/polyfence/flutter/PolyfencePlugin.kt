@@ -278,6 +278,38 @@ class PolyfencePlugin: FlutterPlugin, MethodCallHandler, ActivityAware {
                 clearAllZones()
                 result.success(null)
             }
+
+            // The zone as it was passed to addZone, or null when no zone is
+            // stored under that id. Reads storage rather than the engine, so it
+            // answers before startTracking and after a process restart, which
+            // is when a crossing handler usually asks.
+            //
+            // The loaded map goes to the channel untranslated, unlike the React
+            // Native bridge, which has to replace JSONObject.NULL with a Java
+            // null first. Core returns that sentinel for a value stored as
+            // null, and Zone.toJson always emits all seven keys, so every
+            // circle stores polygon: null and the sentinel is on the ordinary
+            // path rather than a corner. Flutter needs no translation because
+            // StandardMessageCodec.writeValue opens with
+            // `value == null || value.equals(null)`, and
+            // JSONObject.NULL.equals(null) is true, so it encodes as a null.
+            // That is one line in the Flutter engine rather than anything this
+            // plugin arranged, which is why it is written down here: the
+            // asymmetry with the React Native bridge is deliberate, not an
+            // oversight, and it would stop being true if that check changed.
+            "getZone" -> {
+                val zoneId = call.argument<String>("zoneId")
+                if (zoneId.isNullOrBlank()) {
+                    result.error("INVALID_ZONE_ID", "Zone ID is required", null)
+                } else {
+                    try {
+                        result.success(ZonePersistence(context).loadZoneData(zoneId))
+                    } catch (e: Exception) {
+                        Log.e("PolyfencePlugin", "Failed to get zone $zoneId: ${e.message}")
+                        result.error("GET_ZONE_FAILED", e.message, null)
+                    }
+                }
+            }
             
             "requestPermissions" -> {
                 result.success(hasCoreTrackingPerms(context))

@@ -205,14 +205,15 @@ class PolyfenceService {
   ///   `PolyfenceConfiguration.accuracyProfile`.
   /// - `trackingEnabled` → track locally around [startTracking] and
   ///   [stopTracking]; there is no dedicated `isTracking` query.
-  /// - `zonesCount` → no supported readback for the persistence-backed
+  /// - `zonesCount` → still no readback for the persistence-backed
   ///   count. The in-process [zones] getter reports the session's
   ///   cache only (zones added via [addZone] this session), not
   ///   rehydrated at [initialize]. `debugInfo().zones.activeZones` is
   ///   also `0` until polyfence-core wires
   ///   `PolyfenceDebugCollector.setGeofenceEngine` (defined but never
   ///   called today). Track the count in your own app state as you
-  ///   call [addZone] / [removeZone] / [clearAllZones].
+  ///   call [addZone] / [removeZone] / [clearAllZones]. One zone's stored
+  ///   data does read back, through [getZone].
   /// - `lastAccuracy` → [runtimeStatus] emits
   ///   [PolyfenceRuntimeStatus.currentGpsAccuracy] on every engine
   ///   snapshot.
@@ -220,9 +221,9 @@ class PolyfenceService {
     'No stream replacement. Use getConfiguration() for profile, '
     'runtimeStatus.currentGpsAccuracy for lastAccuracy, and track '
     'the zone count in your own app state around addZone / removeZone '
-    '/ clearAllZones — there is no supported readback for the '
-    'persistence-backed count today. Track tracking-enabled state '
-    'locally around startTracking() / stopTracking().',
+    '/ clearAllZones: there is no readback for the persistence-backed '
+    'count, though getZone(zoneId) reads one zone back. Track '
+    'tracking-enabled state locally around startTracking() / stopTracking().',
   )
   Stream<Map<String, dynamic>> get statusStream => _statusController.stream;
 
@@ -632,6 +633,52 @@ class PolyfenceService {
     } on PlatformException catch (e, stackTrace) {
       throw PlatformOperationException(
         'getZoneStates',
+        e.message ?? 'Unknown error',
+        details: {'code': e.code, 'details': e.details},
+        innerException: e,
+        stackTrace: stackTrace,
+      );
+    }
+  }
+
+  /// The zone as it was passed to [addZone], or `null` when no zone is stored
+  /// under that id.
+  ///
+  /// Whatever you attached to a zone comes back, [Zone.metadata] included, so
+  /// a crossing handler can look up what the zone meant to your app from the
+  /// `zoneId` the event carries rather than keeping a parallel copy.
+  ///
+  /// Reads persisted storage rather than the running engine, so unlike
+  /// [getZoneStates] and the [zones] cache it answers before [startTracking]
+  /// and after the app's process has been restarted.
+  ///
+  /// One caveat on the write side: while tracking is running, [addZone] hands
+  /// the zone to the native service and completes before that service has
+  /// persisted it, so a [getZone] issued immediately afterwards can still
+  /// return `null`. A read before [startTracking], and any read from a later
+  /// crossing, both see the write.
+  ///
+  /// ```dart
+  /// Polyfence.instance.onGeofenceEvent.listen((event) async {
+  ///   final zone = await Polyfence.instance.getZone(event.zoneId);
+  ///   debugPrint(zone?.metadata.toString());
+  /// });
+  /// ```
+  ///
+  /// Values make the round trip through the platform channel, so what comes
+  /// back is the channel-compatible form of what went in: maps, lists,
+  /// strings, numbers and booleans survive.
+  ///
+  /// Requires polyfence-core 3.1.0 or later.
+  Future<Zone?> getZone(String zoneId) async {
+    _assertNotDisposed();
+    if (!_isInitialized) throw PolyfenceNotInitializedException();
+
+    try {
+      return await _platform.getZone(zoneId);
+    } on PlatformException catch (e, stackTrace) {
+      throw PlatformOperationException(
+        'getZone',
         e.message ?? 'Unknown error',
         details: {'code': e.code, 'details': e.details},
         innerException: e,

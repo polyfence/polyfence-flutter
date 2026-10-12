@@ -316,6 +316,18 @@ void main() {
         throwsA(isA<PolyfenceNotInitializedException>()),
       );
     });
+
+    test('getZone throws PolyfenceNotInitializedException before initialize',
+        () {
+      // The service-level guards on getZone, which its own test file does not
+      // reach because that one exercises the method-channel layer. Its React
+      // Native counterpart covers both guards, so without these the same
+      // method is guarded on one bridge and unverified on the other.
+      expect(
+        () => PolyfenceService.instance.getZone('zone-1'),
+        throwsA(isA<PolyfenceNotInitializedException>()),
+      );
+    });
   });
 
   group('PolyfenceService — initialization', () {

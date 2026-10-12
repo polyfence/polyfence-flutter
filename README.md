@@ -391,6 +391,65 @@ await Polyfence.instance.initialize(
 
 **Use cases:** custom notifications with app-specific context, apps that handle zone events silently, or different notification styles. The foreground service notification remains active (required for background GPS).
 
+### Notification Text
+
+You do not have to turn the notifications off to change what they say. Every
+string Polyfence shows your users is yours to write, in your own language:
+
+```dart
+await Polyfence.instance.updateConfiguration(
+  PolyfenceConfiguration(
+    notificationText: NotificationText(
+      enterTitle: 'Arrivé à {zone}',
+      exitTitle: 'Départ de {zone}',
+      dwellBodyMinutes: '{minutes} minutes sur place',
+    ),
+  ),
+);
+```
+
+| Field | Default | Surface |
+|---|---|---|
+| `trackingTitle` | `Polyfence Active` | The ongoing notification Android requires while background tracking runs. Android only. |
+| `trackingText` | `Monitoring geofence zones` | Body of the same notification. Android only. |
+| `trackingIconName` | unset | Drawable resource **name** for its small icon. Android only. |
+| `enterTitle` | `Entered {zone}` | Shown when someone enters a zone. |
+| `dwellTitle` | `Dwelling in {zone}` | Shown while someone stays in a zone. |
+| `exitTitle` | `Exited {zone}` | Shown when someone leaves a zone. |
+| `dwellBodyUnderMinute` | `Here under a minute` | Dwell body, under a minute. |
+| `dwellBodyMinutes` | `Here {minutes} min` | Dwell body, under an hour. |
+| `dwellBodyHours` | `Here {hours}h` | Dwell body, whole hours. |
+| `dwellBodyHoursMinutes` | `Here {hours}h {minutes} min` | Dwell body, hours and minutes. |
+| `trackingChannelName` | `Location Tracking` | Notification-channel label, shown in the phone's own Settings app. Android only. |
+| `trackingChannelDescription` | `Background location tracking` | Its description. Android only. |
+| `alertChannelName` | `Geofence Alerts` | Channel label for zone alerts. Android only. |
+| `alertChannelDescription` | `Zone entry and exit notifications` | Its description. Android only. |
+
+Put `{zone}` wherever your language needs it: a Japanese app writes
+`{zone}に到着`. A placeholder you misspell stays visible rather than blanking, so
+the mistake shows up in the tray.
+
+Polyfence ships no translations and does not detect the device language. Pass the
+strings for the language your app is in, and call `updateConfiguration` again if
+that changes.
+
+**A field left `null` keeps whatever is stored for it**, so leaving one out later
+does not bring English back. Pass the English text yourself, or call
+`resetConfiguration()` to restore every default.
+
+`trackingIconName` is a resource **name** such as `ic_tracking`, not a resource
+id, and an empty string clears it. Android draws a small icon from its alpha
+channel alone, so use a monochrome asset with a transparent background or it
+arrives as a white square. A name that does not resolve falls back to the
+platform glyph.
+
+The Android-only fields are stored and echoed on iOS, so this group round-trips
+through `getConfiguration()` on either platform.
+
+If you change `trackingChannelName` or either description and the system Settings
+screen still shows the old one, you are most likely looking at a channel created
+by an earlier run or install. A clean install confirms which it is.
+
 ### GPS Accuracy Profiles
 
 ```dart
@@ -813,6 +872,30 @@ states.forEach((zoneId, isInside) {
   print('$zoneId: ${isInside ? "INSIDE" : "OUTSIDE"}');
 });
 ```
+
+### Reading a Zone Back
+
+`getZone(zoneId)` returns the `Zone` as you passed it to `addZone`, with its
+`metadata`, so a crossing handler can look up what a zone meant to your app from
+the `zoneId` the event carries rather than keeping a parallel copy in state:
+
+```dart
+Polyfence.instance.onGeofenceEvent.listen((event) async {
+  final zone = await Polyfence.instance.getZone(event.zoneId);
+  debugPrint(zone?.metadata.toString());
+});
+```
+
+It reads persisted storage rather than the running engine, so unlike
+`getZoneStates()` and the `zones` cache it answers before `startTracking()` and
+after your app's process has been restarted. It returns `null` when no zone is
+stored under that id.
+
+While tracking is running, `addZone` completes before the native service has
+persisted the zone, so a `getZone` immediately afterwards can still return
+`null`. A stored record missing an id or a name raises
+`PlatformOperationException` with the code `ZONE_DECODE_FAILED` rather than
+returning `null`.
 
 Useful for session management and state reconciliation after app restarts.
 

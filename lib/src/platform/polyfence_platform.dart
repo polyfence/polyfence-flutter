@@ -30,6 +30,19 @@ abstract class PolyfencePlatform extends PlatformInterface {
   Future<void> addZone(Zone zone);
   Future<void> removeZone(String zoneId);
   Future<void> clearAllZones();
+
+  /// The zone as it was passed to [addZone], or `null` when no zone is stored
+  /// under that id. See `PolyfenceService.getZone`.
+  ///
+  /// Carries a default rather than being abstract. This is a
+  /// [PlatformInterface], so anything outside this package can implement it,
+  /// and a new abstract member would stop every existing implementation
+  /// compiling. A default that throws keeps adding a method to a minor
+  /// release, and an implementation that has not caught up fails loudly at the
+  /// call rather than silently answering null.
+  Future<Zone?> getZone(String zoneId) {
+    throw UnimplementedError('getZone() has not been implemented.');
+  }
   Future<void> startTracking();
   Future<void> stopTracking();
   Future<bool> requestPermissions({bool always = false});
@@ -196,6 +209,39 @@ class MethodChannelPolyfence extends PolyfencePlatform {
   }
 
   @override
+  Future<Zone?> getZone(String zoneId) async {
+    final result = await _channel
+        .invokeMethod<Map<Object?, Object?>>('getZone', {'zoneId': zoneId});
+
+    if (result == null) {
+      return null;
+    }
+    // Deep cast, not Map<String, dynamic>.from: a method channel hands back
+    // nested maps as Map<Object?, Object?>, and Zone.fromJson passes `center`
+    // straight to PolyfenceLocation.fromJson and assigns `metadata` to a
+    // Map<String, dynamic>. A shallow cast converts the outer map only, so both
+    // would fail at runtime on any zone that has a centre or metadata, which is
+    // every zone worth reading back.
+    //
+    // Zone.fromJson takes a non-nullable id and name and rejects an empty one,
+    // so a record missing either throws rather than returning. Left alone those
+    // escape as a TypeError or an ArgumentError, which this method's signature
+    // does not admit and its caller does not catch. A stored record this method
+    // cannot decode is a real failure, not an absent zone, so it must not come
+    // back as null either: that would report a corrupted store as "no such
+    // zone". Raised as a PlatformException so PolyfenceService.getZone wraps it
+    // into the PlatformOperationException it already documents.
+    try {
+      return Zone.fromJson(_deepCastMap(result));
+    } catch (e) {
+      throw PlatformException(
+        code: 'ZONE_DECODE_FAILED',
+        message: 'Stored zone $zoneId could not be read as a Zone: $e',
+      );
+    }
+  }
+
+  @override
   Future<void> startTracking() async {
     await _channel.invokeMethod('startTracking').timeout(_platformTimeout);
   }
@@ -243,15 +289,28 @@ class MethodChannelPolyfence extends PolyfencePlatform {
   /// Recursively casts platform channel maps from Map<Object?, Object?> to
   /// Map<String, dynamic>. Platform channels return untyped maps; a shallow
   /// Map.from only fixes the top level, leaving nested maps as Object?.
+  /// Companion to [_deepCastMap] for the list case.
+  ///
+  /// Recurses into nested lists as well as maps. Handling only maps one level
+  /// down leaves a map inside a list inside a list with its channel type, which
+  /// then sits inside a value declared `Map<String, dynamic>`: the outer cast
+  /// passes and the inner type is a lie, so the caller's first typed read of it
+  /// throws. Caller-supplied zone metadata is arbitrary, so that nesting is
+  /// ordinary rather than exotic.
+  static List<dynamic> _deepCastList(List<Object?> list) {
+    return list.map((e) {
+      if (e is Map) return _deepCastMap(Map<Object?, Object?>.from(e));
+      if (e is List) return _deepCastList(e);
+      return e;
+    }).toList();
+  }
+
   static Map<String, dynamic> _deepCastMap(Map<Object?, Object?> map) {
     return map.map((key, value) {
       if (value is Map) {
         return MapEntry(key.toString(), _deepCastMap(Map<Object?, Object?>.from(value)));
       } else if (value is List) {
-        return MapEntry(key.toString(), value.map((e) {
-          if (e is Map) return _deepCastMap(Map<Object?, Object?>.from(e));
-          return e;
-        }).toList());
+        return MapEntry(key.toString(), _deepCastList(value));
       }
       return MapEntry(key.toString(), value);
     });

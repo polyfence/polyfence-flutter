@@ -360,7 +360,7 @@ def main(argv)
   end
 
   print_summary(results)
-  exit 2 if results.values.sum(&:length).zero?
+  exit 2 if results[:pass].empty? && results[:fail].empty?
   exit(results[:fail].empty? ? 0 : 1)
 end
 
@@ -378,6 +378,8 @@ def print_summary(results)
   puts "#{results[:pass].length} passed, #{results[:skip].length} skipped, #{results[:fail].length} failed"
   if results[:fail].any?
     puts "RESULT: FAILED (#{results[:fail].join(', ')})"
+  elsif results[:pass].empty?
+    puts "RESULT: nothing verified, every selected check was skipped (#{results[:skip].join(', ')})"
   elsif results[:skip].any?
     puts "RESULT: no failures, but not verified: #{results[:skip].join(', ')}"
   else

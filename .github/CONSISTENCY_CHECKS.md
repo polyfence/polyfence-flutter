@@ -30,7 +30,7 @@ Each check prints `PASS <id>`, `SKIP <id> (<reason>)`, or `FAIL <id>` with the `
 
 A `subprocess` script reports a skip by printing `SKIP_REASON: <why>` as its last line of stdout and exiting 77. Both are required: exit 77 without that last line is reported as FAIL, so a script that happens to die with 77 cannot pass itself off as a skip. Exit 0 always means PASS, so a script that exits 0 is reported as FAIL if any line of its stdout or stderr matches `^\s*SKIP\b` or `^\s*SKIP_REASON:` (at any indentation, so `SKIP x`, `  SKIP x` and `SKIP: x` all count).
 
-The run exits 0 when nothing failed, 1 when a check failed, and 2 when the run itself is wrong: no `consistency-checks.yaml`, a `--check` id that matches no entry (`FAIL: no check with id <id>`), or a selection under which no check ran at all (`RESULT: no checks ran`, for example `--remote-only` in this repo, which has no `remote-query` checks).
+The run exits 0 when nothing failed, 1 when a check failed, and 2 when the run itself is wrong: no `consistency-checks.yaml`, a `--check` id that matches no entry (`FAIL: no check with id <id>`), or a selection that verified nothing: no check ran at all (`RESULT: no checks ran`, for example `--remote-only` in this repo, which has no `remote-query` checks), or every selected check was skipped (`RESULT: nothing verified`, for example `--check` on a single optional check whose tool is missing).
 
 ## Phase 3
 

@@ -69,10 +69,16 @@ checks:
     fix: Pin android/build.gradle and ios/polyfence.podspec to the same released polyfence-core version, and remove any mavenLocal() repository — both make the build resolve from a developer's ~/.m2 rather than for consumers.
 
   - id: core-error-types-mapped
-    description: every error type polyfence-core can emit resolves to a PolyfenceErrorType (an unmapped code degrades silently to unknown)
+    description: every error type in the roster in scripts/consistency-core-error-types.sh resolves to a PolyfenceErrorType (an unmapped code degrades silently to unknown)
     type: subprocess
     runs: bash scripts/consistency-core-error-types.sh
     fix: Add the reported code to the PolyfenceErrorType enum in lib/src/errors/polyfence_error.dart, or list it under _extraNativeCodesForType when it should resolve to an existing type. Mirror the decision in polyfence-react-native's NATIVE_CODE_TO_TYPE.
+
+  - id: core-error-types-match-core
+    description: the error-type roster in scripts/consistency-core-error-types.sh matches the types a polyfence-core checkout emits (skipped, not passed, when no checkout is found)
+    type: subprocess
+    runs: bash scripts/consistency-core-error-types.sh --against-core
+    fix: Add each reported type to CORE_ERROR_TYPES in scripts/consistency-core-error-types.sh and give it a mapping in lib/src/errors/polyfence_error.dart, then mirror both in polyfence-react-native. To run this check, check out polyfence-core beside this repo or set POLYFENCE_CORE_PATH.
 
   - id: no-internal-decision-ids
     description: internal decision-IDs (Dxxx) / job-codes (Jxx) must not appear in public docs or lib source

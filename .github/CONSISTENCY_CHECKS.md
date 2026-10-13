@@ -23,6 +23,8 @@ bash scripts/consistency-check.sh --local-only
 | privacy-md-links-telemetry-doc | `PRIVACY.md` links `doc/TELEMETRY.md` |
 | privacy-md-zero-pii-headline | `PRIVACY.md` includes the verbatim Role-1 Zero PII headline |
 | pubspec-description-geofencing | `pubspec.yaml` description mentions geofencing |
+| core-error-types-mapped | Every error type in the script's polyfence-core roster maps to a `PolyfenceErrorType` |
+| core-error-types-match-core | That roster matches the types a polyfence-core checkout emits. Needs a checkout beside this repo or `POLYFENCE_CORE_PATH`; without one it is SKIP, so CI (which checks out only this repo) reports it as not verified |
 
 ## Results
 

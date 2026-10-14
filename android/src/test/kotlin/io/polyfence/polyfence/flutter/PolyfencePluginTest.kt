@@ -100,6 +100,33 @@ class PolyfencePluginTest {
         verify(result).error(eq("INVALID_ZONE_ID"), any(), any())
     }
 
+    // getZone reads persisted storage rather than the engine, so unlike the
+    // zone mutators it has no tracker to guard against and its only rejection
+    // is a missing id. These are the validation paths; the happy path needs a
+    // real context, which this file does not have, and is covered by the Dart
+    // side's channel contract in test/notification_text_and_zone_read_test.dart
+    // and by polyfence-core's own ZoneMetadataReadTest.
+    @Test
+    fun testGetZoneNullIdReturnsError() {
+        val call = MethodCall("getZone", mapOf("zoneId" to null))
+        plugin.onMethodCall(call, result)
+        verify(result).error(eq("INVALID_ZONE_ID"), any(), any())
+    }
+
+    @Test
+    fun testGetZoneBlankIdReturnsError() {
+        val call = MethodCall("getZone", mapOf("zoneId" to "  "))
+        plugin.onMethodCall(call, result)
+        verify(result).error(eq("INVALID_ZONE_ID"), any(), any())
+    }
+
+    @Test
+    fun testGetZoneMissingKeyReturnsError() {
+        val call = MethodCall("getZone", mapOf("wrongKey" to "z1"))
+        plugin.onMethodCall(call, result)
+        verify(result).error(eq("INVALID_ZONE_ID"), any(), any())
+    }
+
     @Test
     fun testRemoveZoneMissingKeyReturnsError() {
         val call = MethodCall("removeZone", mapOf("wrongKey" to "z1"))

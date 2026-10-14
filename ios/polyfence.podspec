@@ -11,18 +11,19 @@ Privacy-first polygon and circle geofencing for Flutter. True background trackin
   s.source           = { :path => '.' }
   s.source_files = 'Classes/**/*'
   s.dependency 'Flutter'
-  # Pinned to the coordinated mobile release train: polyfence-core 3.0.0 ships
-  # the durable pending-events queue primitive and the drain-then-reconcile
-  # ordering this plugin's drainPendingEvents API is a passthrough for. Local
-  # builds against the pre-release require the paired polyfence-core branch to
-  # be checked out and pod-linked until the tag lands.
+  # Pinned to the coordinated mobile release train: polyfence-core 3.1.0 is the
+  # first core carrying the host-settable notificationText group and
+  # ZonePersistence.loadZoneData. This plugin's getZone calls the latter, so it
+  # does not build against an earlier core. Local builds against the pre-release
+  # require the paired polyfence-core branch to be checked out and pod-linked
+  # until the tag lands.
   #
-  # Exact version, not '~> 3.0.0'. android/build.gradle pins the same core
+  # Exact version, not '~> 3.1.0'. android/build.gradle pins the same core
   # version exactly, and an optimistic pin here would let iOS pick up a core
   # patch on the next pod install while Android stayed put. One version of
   # this plugin would then sit on two different engines depending on the
   # platform, which is not reproducible from the version number alone.
-  s.dependency 'PolyfenceCore', '3.0.0'
+  s.dependency 'PolyfenceCore', '3.1.0'
   s.platform = :ios, '14.0'
   s.swift_version = '5.0'
   

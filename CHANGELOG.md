@@ -7,6 +7,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **`NotificationText`: every string Polyfence shows your users, for you to write.** Fourteen were fixed in the library, in English, so an app embedding Polyfence showed Polyfence's words to its own users. Pass it on `PolyfenceConfiguration`:
+
+  ```dart
+  await Polyfence.instance.updateConfiguration(
+    PolyfenceConfiguration(
+      notificationText: NotificationText(
+        enterTitle: 'Arrivé à {zone}',
+        exitTitle: 'Départ de {zone}',
+        dwellBodyMinutes: '{minutes} minutes sur place',
+      ),
+    ),
+  );
+  ```
+
+  Fields: `trackingTitle`, `trackingText`, `trackingIconName`, `enterTitle`, `dwellTitle`, `exitTitle`, `dwellBodyUnderMinute`, `dwellBodyMinutes`, `dwellBodyHours`, `dwellBodyHoursMinutes`, `trackingChannelName`, `trackingChannelDescription`, `alertChannelName`, `alertChannelDescription`. Each string keeps its English default until you set it, and a `null` group changes nothing. A field left `null` in a later call keeps the value you set before, rather than reverting to English: pass the English text to undo one, or `resetConfiguration()` to undo all of them. The one exception is `trackingIconName`, where an empty string is the clear.
+
+  The zone titles take `{zone}`, and the dwell bodies also take `{hours}` and `{minutes}`. Placeholders rather than a fixed prefix, because word order moves between languages: a Japanese app needs `{zone}に到着`. There are four dwell bodies rather than one template plus a unit because plural rules differ, and only your app knows which language it is writing. Polyfence ships no translations and does not detect the device language, so pass the strings for the language your app is in, and call `updateConfiguration` again if that changes.
+
+  The three `tracking*` fields and the four channel fields describe Android surfaces iOS has no equivalent for. Pass them anyway from a cross-platform app: iOS stores and returns them, so one configuration round-trips through `getConfiguration()` on either platform. A channel's name and description appear in the phone's own Settings app rather than the notification tray.
+
+- **`PolyfenceService.getZone(zoneId)`: read back what you attached to a zone.** Returns the `Zone` as you passed it to `addZone`, `metadata` included, or `null` if no zone is stored under that id. A crossing handler can now look up what a zone meant to your app from the `zoneId` the event carries, instead of keeping a parallel copy in app state:
+
+  ```dart
+  Polyfence.instance.onGeofenceEvent.listen((event) async {
+    final zone = await Polyfence.instance.getZone(event.zoneId);
+    debugPrint(zone?.metadata.toString());
+  });
+  ```
+
+  Reads persisted storage rather than the running engine, so unlike `getZoneStates()` and the `zones` cache it answers before `startTracking()` and after the app's process has been restarted. A stored record that cannot be read as a `Zone`, which means one missing an id or a name, raises `PlatformOperationException` with the underlying code `ZONE_DECODE_FAILED` rather than returning `null`: a corrupted record is a failure, not an absent zone. The persisted zone *count* is still not exposed; the note on the deprecated `statusStream` has been corrected to say so rather than claiming there is no readback at all.
+
+  `PolyfencePlatform.getZone` carries a default implementation that throws `UnimplementedError`, so adding it does not stop an existing platform implementation compiling.
+
+### Changed
+- **Requires polyfence-core 3.1.0.** Both additions above need it: `notificationText` is inert against an earlier core, and `getZone` calls an accessor that does not exist there. `android/build.gradle` and the podspec both pin it exactly, so one version of this plugin cannot sit on two different engines depending on the platform.
+
+
 ### Fixed
 - **Telemetry no longer adopts `POLYFENCE_API_KEY` on its own.** When no `AnalyticsConfig.apiKey` was passed, the SDK fell back to the `POLYFENCE_API_KEY` build define and sent it as `x-api-key` on every telemetry upload. That define is a Polyfence API key, which can read and change your zones, and `--dart-define` compiles it into the shipped app, so a release could carry it attached to telemetry without the developer choosing that. Telemetry now uses only a key passed explicitly in `AnalyticsConfig`, matching `polyfence-react-native`. Apps that pass no analytics key send anonymous telemetry, as the docs already describe. The define keeps working everywhere else it is used.
 

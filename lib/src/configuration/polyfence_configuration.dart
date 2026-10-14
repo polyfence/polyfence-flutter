@@ -145,6 +145,12 @@ class PolyfenceConfiguration {
   /// Enable debug logging for GPS configuration changes
   final bool enableDebugLogging;
 
+  /// Every string Polyfence shows your users, for you to write in your own
+  /// words and your own language. `null` (default) changes nothing, and a
+  /// field left `null` keeps whatever is already stored for it rather than
+  /// reverting to English. See [NotificationText].
+  final NotificationText? notificationText;
+
   /// Creates a Polyfence configuration.
   ///
   /// Throws [ArgumentError] if [gpsAccuracyThreshold] is not positive.
@@ -166,6 +172,7 @@ class PolyfenceConfiguration {
     this.osGeofenceWakeEnabled = false,
     this.osGeofenceMaxRegions,
     this.enableDebugLogging = false,
+    this.notificationText,
   }) {
     if (gpsAccuracyThreshold <= 0) {
       throw ArgumentError.value(
@@ -209,6 +216,7 @@ class PolyfenceConfiguration {
     bool? osGeofenceWakeEnabled,
     int? osGeofenceMaxRegions,
     bool? enableDebugLogging,
+    NotificationText? notificationText,
   }) {
     return PolyfenceConfiguration(
       accuracyProfile: accuracyProfile ?? this.accuracyProfile,
@@ -229,6 +237,7 @@ class PolyfenceConfiguration {
       osGeofenceWakeEnabled: osGeofenceWakeEnabled ?? this.osGeofenceWakeEnabled,
       osGeofenceMaxRegions: osGeofenceMaxRegions ?? this.osGeofenceMaxRegions,
       enableDebugLogging: enableDebugLogging ?? this.enableDebugLogging,
+      notificationText: notificationText ?? this.notificationText,
     );
   }
 
@@ -259,6 +268,12 @@ class PolyfenceConfiguration {
       if (osGeofenceMaxRegions != null)
         'osGeofenceMaxRegions': osGeofenceMaxRegions,
       'enableDebugLogging': enableDebugLogging,
+      // Omitted when null, so a configuration that says nothing about wording
+      // leaves whatever the host set earlier in place. An empty map here would
+      // read as "apply no keys", which is the same thing, but sending nothing
+      // keeps the channel payload honest about what the caller asked for.
+      if (notificationText != null)
+        'notificationText': notificationText!.toMap(),
     };
   }
 
@@ -308,6 +323,11 @@ class PolyfenceConfiguration {
       osGeofenceWakeEnabled: map['osGeofenceWakeEnabled'] ?? false,
       osGeofenceMaxRegions: (map['osGeofenceMaxRegions'] as num?)?.toInt(),
       enableDebugLogging: map['enableDebugLogging'] ?? false,
+      notificationText: map['notificationText'] == null
+          ? null
+          : NotificationText.fromMap(
+              Map<String, dynamic>.from(map['notificationText'] as Map),
+            ),
     );
   }
 
@@ -331,7 +351,8 @@ class PolyfenceConfiguration {
         other.pendingEventsAutoDrainEnabled == pendingEventsAutoDrainEnabled &&
         other.osGeofenceWakeEnabled == osGeofenceWakeEnabled &&
         other.osGeofenceMaxRegions == osGeofenceMaxRegions &&
-        other.enableDebugLogging == enableDebugLogging;
+        other.enableDebugLogging == enableDebugLogging &&
+        other.notificationText == notificationText;
   }
 
   @override
@@ -353,6 +374,7 @@ class PolyfenceConfiguration {
         osGeofenceWakeEnabled,
         osGeofenceMaxRegions,
         enableDebugLogging,
+        notificationText,
       );
 
   @override
@@ -374,7 +396,8 @@ class PolyfenceConfiguration {
         'pendingEventsAutoDrainEnabled: $pendingEventsAutoDrainEnabled, '
         'osGeofenceWakeEnabled: $osGeofenceWakeEnabled, '
         'osGeofenceMaxRegions: $osGeofenceMaxRegions, '
-        'enableDebugLogging: $enableDebugLogging'
+        'enableDebugLogging: $enableDebugLogging, '
+        'notificationText: $notificationText'
         ')';
   }
 }
@@ -1159,4 +1182,220 @@ class BatterySettings {
         'pauseOnCriticalBattery: $pauseOnCriticalBattery'
         ')';
   }
+}
+
+/// Every string Polyfence shows your users, for you to write in your own words
+/// and your own language.
+///
+/// Polyfence ships no translations and does not detect the device language.
+/// Your app knows which language it is in and already has the files that say
+/// so, so pass the right strings for that language.
+///
+/// **A field left `null` is left as it is, not reset.** Each string keeps
+/// Polyfence's English default until you set it, so a first call naming a few
+/// fields changes only those. But once you have set a field, leaving it `null`
+/// in a later call keeps your value in place: it does not go back to English.
+/// To undo one, pass the English text yourself; to undo all of them, call
+/// [PolyfenceService.resetConfiguration]. The per-field defaults below are the
+/// starting value, not what `null` restores.
+///
+/// The three `tracking*` fields and the four channel fields describe Android
+/// surfaces iOS has no equivalent for. Pass them anyway from a cross-platform
+/// app: iOS stores and returns them, so one configuration round-trips through
+/// `getConfiguration()` on either platform.
+///
+/// ```dart
+/// await Polyfence.instance.updateConfiguration(
+///   PolyfenceConfiguration(
+///     notificationText: NotificationText(
+///       enterTitle: 'Arrivé à {zone}',
+///       exitTitle: 'Départ de {zone}',
+///       dwellBodyMinutes: '{minutes} minutes sur place',
+///     ),
+///   ),
+/// );
+/// ```
+class NotificationText {
+  /// Title of the ongoing notification Android requires while background
+  /// tracking runs. Default `'Polyfence Active'`. Android only.
+  final String? trackingTitle;
+
+  /// Body of that same notification. Default `'Monitoring geofence zones'`.
+  /// Android only.
+  final String? trackingText;
+
+  /// Drawable resource **name** for that notification's small icon, for
+  /// example `'ic_tracking'`, not a resource id. Unset shows the platform
+  /// location glyph; pass an empty string to go back to it after setting one.
+  ///
+  /// Android draws a small icon from its alpha channel alone, so point this at
+  /// a monochrome asset with a transparent background or it arrives as a white
+  /// square. A name that does not resolve falls back to the platform glyph.
+  /// Android only.
+  final String? trackingIconName;
+
+  /// Title shown when someone enters a zone. Default `'Entered {zone}'`.
+  /// `{zone}` is replaced with the zone's name, and can go wherever that
+  /// language needs it.
+  final String? enterTitle;
+
+  /// Title shown while someone stays in a zone. Default
+  /// `'Dwelling in {zone}'`.
+  final String? dwellTitle;
+
+  /// Title shown when someone leaves a zone. Default `'Exited {zone}'`.
+  final String? exitTitle;
+
+  /// Dwell body for under a minute in the zone. Default
+  /// `'Here under a minute'`.
+  ///
+  /// There are four dwell bodies rather than one template plus a unit, because
+  /// which one applies depends on the duration and each reads differently in a
+  /// given language: English needs `1 minute` against `2 minutes`, Polish
+  /// needs three forms. Each is a whole sentence so your own plural rules
+  /// decide. `{hours}`, `{minutes}` and `{zone}` are available in all four.
+  final String? dwellBodyUnderMinute;
+
+  /// Dwell body for under an hour. Default `'Here {minutes} min'`.
+  final String? dwellBodyMinutes;
+
+  /// Dwell body for a whole number of hours. Default `'Here {hours}h'`.
+  final String? dwellBodyHours;
+
+  /// Dwell body for hours and minutes. Default
+  /// `'Here {hours}h {minutes} min'`.
+  final String? dwellBodyHoursMinutes;
+
+  /// Name of the notification channel for the tracking notification. Default
+  /// `'Location Tracking'`.
+  ///
+  /// Android has required notification channels since API 26 and shows a
+  /// channel's name and description in the phone's own Settings app, under
+  /// your app's notification settings, where they label the switches that turn
+  /// tracking and zone alerts off independently. Android only.
+  final String? trackingChannelName;
+
+  /// Description of that channel. Default `'Background location tracking'`.
+  /// Android only.
+  final String? trackingChannelDescription;
+
+  /// Name of the notification channel for zone alerts. Default
+  /// `'Geofence Alerts'`. Android only.
+  final String? alertChannelName;
+
+  /// Description of that channel. Default
+  /// `'Zone entry and exit notifications'`. Android only.
+  final String? alertChannelDescription;
+
+  const NotificationText({
+    this.trackingTitle,
+    this.trackingText,
+    this.trackingIconName,
+    this.enterTitle,
+    this.dwellTitle,
+    this.exitTitle,
+    this.dwellBodyUnderMinute,
+    this.dwellBodyMinutes,
+    this.dwellBodyHours,
+    this.dwellBodyHoursMinutes,
+    this.trackingChannelName,
+    this.trackingChannelDescription,
+    this.alertChannelName,
+    this.alertChannelDescription,
+  });
+
+  /// Convert to map for platform communication.
+  ///
+  /// Null fields are omitted rather than sent as null. The native side applies
+  /// the keys it receives and leaves the rest of its stored strings alone, so
+  /// an absent key means "do not change this one".
+  ///
+  /// An instance with every field null therefore produces an empty map, and
+  /// [PolyfenceConfiguration.toMap] still sends it, because it gates on the
+  /// group being non-null rather than non-empty. The native side applies zero
+  /// keys, so the outcome is the same as sending nothing.
+  Map<String, dynamic> toMap() {
+    return {
+      if (trackingTitle != null) 'trackingTitle': trackingTitle,
+      if (trackingText != null) 'trackingText': trackingText,
+      if (trackingIconName != null) 'trackingIconName': trackingIconName,
+      if (enterTitle != null) 'enterTitle': enterTitle,
+      if (dwellTitle != null) 'dwellTitle': dwellTitle,
+      if (exitTitle != null) 'exitTitle': exitTitle,
+      if (dwellBodyUnderMinute != null)
+        'dwellBodyUnderMinute': dwellBodyUnderMinute,
+      if (dwellBodyMinutes != null) 'dwellBodyMinutes': dwellBodyMinutes,
+      if (dwellBodyHours != null) 'dwellBodyHours': dwellBodyHours,
+      if (dwellBodyHoursMinutes != null)
+        'dwellBodyHoursMinutes': dwellBodyHoursMinutes,
+      if (trackingChannelName != null)
+        'trackingChannelName': trackingChannelName,
+      if (trackingChannelDescription != null)
+        'trackingChannelDescription': trackingChannelDescription,
+      if (alertChannelName != null) 'alertChannelName': alertChannelName,
+      if (alertChannelDescription != null)
+        'alertChannelDescription': alertChannelDescription,
+    };
+  }
+
+  /// Create from map (for platform communication).
+  factory NotificationText.fromMap(Map<String, dynamic> map) {
+    return NotificationText(
+      trackingTitle: map['trackingTitle'] as String?,
+      trackingText: map['trackingText'] as String?,
+      trackingIconName: map['trackingIconName'] as String?,
+      enterTitle: map['enterTitle'] as String?,
+      dwellTitle: map['dwellTitle'] as String?,
+      exitTitle: map['exitTitle'] as String?,
+      dwellBodyUnderMinute: map['dwellBodyUnderMinute'] as String?,
+      dwellBodyMinutes: map['dwellBodyMinutes'] as String?,
+      dwellBodyHours: map['dwellBodyHours'] as String?,
+      dwellBodyHoursMinutes: map['dwellBodyHoursMinutes'] as String?,
+      trackingChannelName: map['trackingChannelName'] as String?,
+      trackingChannelDescription: map['trackingChannelDescription'] as String?,
+      alertChannelName: map['alertChannelName'] as String?,
+      alertChannelDescription: map['alertChannelDescription'] as String?,
+    );
+  }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is NotificationText &&
+        other.trackingTitle == trackingTitle &&
+        other.trackingText == trackingText &&
+        other.trackingIconName == trackingIconName &&
+        other.enterTitle == enterTitle &&
+        other.dwellTitle == dwellTitle &&
+        other.exitTitle == exitTitle &&
+        other.dwellBodyUnderMinute == dwellBodyUnderMinute &&
+        other.dwellBodyMinutes == dwellBodyMinutes &&
+        other.dwellBodyHours == dwellBodyHours &&
+        other.dwellBodyHoursMinutes == dwellBodyHoursMinutes &&
+        other.trackingChannelName == trackingChannelName &&
+        other.trackingChannelDescription == trackingChannelDescription &&
+        other.alertChannelName == alertChannelName &&
+        other.alertChannelDescription == alertChannelDescription;
+  }
+
+  @override
+  int get hashCode => Object.hash(
+        trackingTitle,
+        trackingText,
+        trackingIconName,
+        enterTitle,
+        dwellTitle,
+        exitTitle,
+        dwellBodyUnderMinute,
+        dwellBodyMinutes,
+        dwellBodyHours,
+        dwellBodyHoursMinutes,
+        trackingChannelName,
+        trackingChannelDescription,
+        alertChannelName,
+        alertChannelDescription,
+      );
+
+  @override
+  String toString() => 'NotificationText(${toMap()})';
 }

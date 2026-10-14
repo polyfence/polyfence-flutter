@@ -100,6 +100,8 @@ public class PolyfencePlugin: NSObject, FlutterPlugin, PolyfenceCoreDelegate {
             removeZone(arguments: call.arguments, result: result)
         case "clearAllZones":
             clearAllZones(result: result)
+        case "getZone":
+            getZone(arguments: call.arguments, result: result)
         case "isLocationServiceEnabled":
             result(CLLocationManager.locationServicesEnabled())
         case "getConfiguration":
@@ -375,6 +377,30 @@ public class PolyfencePlugin: NSObject, FlutterPlugin, PolyfenceCoreDelegate {
         result(nil)
     }
     
+    /// The zone as it was passed to `addZone`, or nil when no zone is stored
+    /// under that id.
+    ///
+    /// Reads storage rather than the engine, so it answers before
+    /// `startTracking` and after a process restart, which is when a crossing
+    /// handler usually asks. It therefore does not require the tracker, unlike
+    /// the zone mutators above: storage is reachable on its own, and demanding
+    /// a tracker here would make the method useless in exactly the case it
+    /// exists for.
+    private func getZone(arguments: Any?, result: @escaping FlutterResult) {
+        // Blank, not just empty, to match Android's isNullOrBlank. A whitespace
+        // id would otherwise be rejected on one platform and looked up on the
+        // other, and it cannot name a real zone on either.
+        guard let args = arguments as? [String: Any],
+              let zoneId = args["zoneId"] as? String,
+              !zoneId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            result(FlutterError(code: "INVALID_ZONE_ID", message: "Zone ID is required", details: nil))
+            return
+        }
+
+        let persistence = zonePersistence ?? ZonePersistence()
+        result(persistence.loadZoneData(zoneId: zoneId))
+    }
+
     private func getConfiguration(result: @escaping FlutterResult) {
         guard let locationTracker = locationTracker else {
             result(FlutterError(code: "NO_LOCATION_TRACKER", message: "Location tracker not initialized", details: nil))

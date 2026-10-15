@@ -43,6 +43,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - **Requires polyfence-core 3.1.0.** Both additions above need it: `notificationText` is inert against an earlier core, and `getZone` calls an accessor that does not exist there. `android/build.gradle` and the podspec both pin it exactly, so one version of this plugin cannot sit on two different engines depending on the platform.
+- **Privacy wording corrected.** Earlier READMEs said "No location data or PII ever transmitted". That was too broad. Telemetry carries no coordinates, zone shapes or end-user identifiers, but it does carry aggregates derived from location (average speed at events, activity mix, and dwell-time fields core leaves empty for now) and your app's package name, and each upload arrives from the device's IP address. If you described this SDK as sending no data in your app's privacy notice or store data declaration, review it against `doc/TELEMETRY.md`. The App Store privacy template in `SECURITY.md` is rewritten to match; if you pasted the earlier one into your app, replace it. The privacy policy no longer promises an email or a GitHub issue for major changes: every change moves its **Last Updated** date, and changes that affect what the SDK sends or how we handle it are described there and here. The payload itself is unchanged.
 
 
 ### Fixed

@@ -46,6 +46,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 ### Fixed
+- **Telemetry uploads are keyed on the session, not the request, so a re-sent session is no longer counted twice.** The payload is a running total, so a session sent again while it is still accumulating differs from the first send only in its duration. The server deduplicates on `(app_identifier, platform, plugin_version, session_date, idempotency_key)`, and both send paths minted a key per request, so every re-send became another row and a retry of an unchanged payload did too. Both now use the `session_id` the engine supplies, falling back to a generated key against an engine old enough not to send one.
 - **Telemetry no longer adopts `POLYFENCE_API_KEY` on its own.** When no `AnalyticsConfig.apiKey` was passed, the SDK fell back to the `POLYFENCE_API_KEY` build define and sent it as `x-api-key` on every telemetry upload. That define is a Polyfence API key, which can read and change your zones, and `--dart-define` compiles it into the shipped app, so a release could carry it attached to telemetry without the developer choosing that. Telemetry now uses only a key passed explicitly in `AnalyticsConfig`, matching `polyfence-react-native`. Apps that pass no analytics key send anonymous telemetry, as the docs already describe. The define keeps working everywhere else it is used.
 
 ### Changed

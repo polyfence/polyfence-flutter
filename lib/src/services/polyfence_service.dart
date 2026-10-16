@@ -332,8 +332,8 @@ class PolyfenceService {
       );
 
       // Initialize analytics — isolated so failures never block geofencing.
-      // Anonymous plugin telemetry enabled by default. No location data or PII
-      // ever sent — only plugin performance metrics.
+      // Telemetry is on by default. It never contains coordinates or end-user
+      // identifiers; see doc/TELEMETRY.md.
       try {
         // Telemetry is opt-out: enabled by default unless developer
         // explicitly disables it via AnalyticsConfig(disableTelemetry: true).
@@ -1934,13 +1934,14 @@ class PolyfenceService {
 
 What's sent:
   • Plugin version, platform (Android/iOS), app package name
-  • Performance metrics (detection times, GPS accuracy, battery usage)
-  • Error counts, zone type usage (circle/polygon counts)
+  • Performance metrics (detection times, GPS accuracy, battery level)
+  • Aggregates derived from location (average speed at events,
+    dwell times, activity mix), error counts, zone counts by size
 
 What's NEVER sent:
-  • GPS coordinates or location data
-  • Zone definitions or boundaries
-  • User identifiers or personal information
+  • GPS coordinates
+  • Zone shapes
+  • End-user identifiers
 
 See full details: https://polyfence.io/privacy
 

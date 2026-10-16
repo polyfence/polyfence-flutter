@@ -2,7 +2,7 @@
 
 Polyfence is the geofence layer — same zones run on your mobile app, your IoT device, and your server. This package is the Flutter SDK; see [polyfence-core](https://github.com/polyfence/polyfence-core) (native engines) and [polyfence-embedded](https://github.com/polyfence/polyfence-embedded) (C library for IoT) for the other surfaces.
 
-**Privacy-first, on-device geofencing for Flutter.** Accurate circle & polygon zone detection with true background operation on both platforms. No location data or PII ever transmitted. Minimal dependencies.
+**Privacy-first, on-device geofencing for Flutter.** Accurate circle & polygon zone detection with true background operation on both platforms. Zone checks run on the device, and the SDK never sends your users' positions or identifiers off it. Telemetry is on by default, turns off with one line, and never contains coordinates or end-user identifiers ([what it sends](https://github.com/polyfence/polyfence-flutter/blob/main/doc/TELEMETRY.md)). Minimal dependencies.
 
 [![pub package](https://img.shields.io/pub/v/polyfence.svg)](https://pub.dev/packages/polyfence)
 [![CI](https://github.com/polyfence/polyfence-flutter/actions/workflows/ci.yml/badge.svg)](https://github.com/polyfence/polyfence-flutter/actions/workflows/ci.yml)
@@ -23,7 +23,7 @@ The screenshots above are from the [example app](example/) in this repo — a wo
 
 - **Polygon geofencing** — Not just circles. Define zones with arbitrary polygon boundaries (complex city zones, campus outlines, delivery areas).
 - **Unlimited zones** — No artificial limits. Monitor hundreds of zones simultaneously with zone clustering for performance.
-- **Privacy-first** — All geofencing runs on-device. Zero location data ever leaves the device by default. No cloud dependency.
+- **Privacy-first**: all geofencing runs on the device, and positions never leave it. No cloud dependency.
 - **SmartGPS** — Intelligent GPS scheduling based on proximity, movement, activity, and battery state. 40-50% less battery drain than naive polling.
 
 ## Zone sources — three ways
@@ -1085,12 +1085,12 @@ Polyfence is built with privacy as the foundation.
 
 ### What We NEVER Send
 
-- **GPS coordinates** or location data
-- **Zone definitions** or boundaries
+- **GPS coordinates** or any position
+- **Zone definitions** or boundaries, unless you turn on `osGeofenceWakeEnabled`, which gives circles around the nearest zones to the phone's own geofence service (see [PRIVACY.md](PRIVACY.md))
 - **User identifiers** (name, email, phone, device ID)
-- **Personal information** of any kind
+- **Personal information** about your users
 
-**Your users' location data stays on their device. Always.**
+**Your users' positions stay on their device.** Telemetry carries aggregates worked out from them, such as average speed at events and time spent in zones. See below.
 
 ### Zero PII about your end users
 
@@ -1100,9 +1100,9 @@ Different defaults for different data classes — control on every axis, no priv
 
 | Data class | Default | Why |
 |---|---|---|
-| **Raw positions** | **Opt-IN** | We don't have your customers' location data unless you explicitly turn retention on. |
+| **Raw positions** | **Not sent by this SDK** | None from this SDK. If your devices or servers send positions to the Polyfence platform, they are kept only when you turn retention on. |
 | **Anonymous platform aggregates** | **Opt-OUT** with one-line disable | Collected by default to fuel product improvements everyone benefits from. Never coordinates, never end-user identifiers, never PII. Carries your app's package name, and a link to your Polyfence account if you configure an API key. Industry-standard pattern (Stripe, Vercel, Cloudflare, Sentry). |
-| **Zone events** | **Always** | They're the value we deliver — collecting them isn't surveillance, it's the product. |
+| **Zone events** | **Not sent by this SDK** | The SDK gives them to your code and never sends them to us. Events your devices or servers report to the Polyfence platform are what we deliver there. |
 
 ### Anonymous Plugin Telemetry (Opt-Out)
 
@@ -1116,7 +1116,7 @@ await Polyfence.instance.initialize(
 );
 ```
 
-Only anonymous aggregate metrics are sent: plugin version, platform, performance metrics (detection times, GPS accuracy averages), battery impact statistics, error counts, and zone type counts. **No GPS coordinates, zone definitions, or PII are ever transmitted.**
+Telemetry sends aggregate metrics each time the app goes to the background or shuts Polyfence down, with totals since tracking started: plugin version, platform, your app's package name, the device maker and class (for example, Samsung flagship) and OS version, the hour tracking started, performance metrics (detection times, GPS accuracy, average speed at events, dwell times), the mix of activities such as walking or driving, battery level and usage, error counts, zone counts by size, and any industry or use-case label you set. It never contains GPS coordinates, zone shapes or end-user identifiers. Like any network request, each upload reaches our servers from the device's IP address; our code does not store it.
 
 **See exactly what's sent:** [Full Telemetry Reference](doc/TELEMETRY.md)
 
@@ -1124,7 +1124,7 @@ Only anonymous aggregate metrics are sent: plugin version, platform, performance
 
 - **On-device geofencing**: All zone detection runs locally using native GPS APIs
 - **Local persistence**: Zones stored in SharedPreferences (Android) / UserDefaults (iOS)
-- **No tracking**: No user behavior tracking, no cross-app tracking
+- **No cross-app tracking**: no advertising identifiers, no cross-app tracking tokens, no end-user identifiers
 - **GDPR/CCPA-friendly**: Anonymous telemetry only, easy opt-out
 
 ---

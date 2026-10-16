@@ -1,15 +1,18 @@
 /// Privacy-first, on-device geofencing for Flutter.
 ///
 /// Polyfence provides accurate circle and polygon zone detection with true
-/// background operation. GPS coordinates and zone definitions never leave the
-/// device. Anonymous performance telemetry is enabled by default — opt out
-/// with one line of code: `AnalyticsConfig(disableTelemetry: true)`.
+/// background operation. The SDK never sends GPS coordinates off the device.
+/// Zone definitions stay on the device too, unless you turn on
+/// `osGeofenceWakeEnabled`, which registers circles around the nearest zones
+/// with the phone's own geofence service.
+/// Anonymous performance telemetry is enabled by default. Opt out with one
+/// line of code: `AnalyticsConfig(disableTelemetry: true)`.
 ///
 /// ## Features
 ///
 /// - **Circle & Polygon Zones**: Support for both circular and complex polygon zones
 /// - **True Background Operation**: Works reliably in background on iOS and Android
-/// - **Privacy-First**: Positions never leave the device — only zone events. Anonymous platform telemetry is opt-out with one line.
+/// - **Privacy-First**: Positions stay on the device, and zone events go to your code, never to us. Anonymous platform telemetry is opt-out with one line.
 /// - **Cross-Platform Consistency**: Identical behavior on Android and iOS
 /// - **Structured Error Handling**: Comprehensive error streams for debugging
 /// - **Battery Optimization**: Built-in battery optimization management

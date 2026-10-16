@@ -17,8 +17,10 @@ import 'package:package_info_plus/package_info_plus.dart';
 /// );
 /// ```
 ///
-/// No location data or PII is ever sent. The optional [apiKey] links uploads
-/// to your Polyfence account.
+/// Uploads never contain coordinates, zone shapes or end-user identifiers.
+/// They do carry location-derived aggregates and your app's package name; see
+/// doc/TELEMETRY.md. The optional [apiKey] links uploads to your Polyfence
+/// account.
 class AnalyticsConfig {
   /// Set to `true` to disable all anonymous telemetry.
   ///

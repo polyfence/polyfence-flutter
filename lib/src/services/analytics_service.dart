@@ -6,6 +6,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/foundation.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
+import 'telemetry_retry_key.dart';
+
 /// Configuration for Polyfence anonymous telemetry and analytics.
 ///
 /// By default, telemetry is **enabled** (opt-out). To disable, set
@@ -144,9 +146,10 @@ class PolyfenceAnalytics {
       ...sessionData,
     };
 
+    final idempotencyKey = const Uuid().v4();
+
     try {
       final endpoint = _config?.apiEndpoint ?? _defaultEndpoint;
-      final idempotencyKey = const Uuid().v4();
 
       final headers = <String, String>{
         'Content-Type': 'application/json',
@@ -167,7 +170,7 @@ class PolyfenceAnalytics {
     } catch (e) {
       // Store the full payload so retries send it directly without
       // re-wrapping app_identifier/platform fields.
-      await _storeForRetry(payload);
+      await _storeForRetry(payload, idempotencyKey);
     }
   }
 
@@ -181,13 +184,19 @@ class PolyfenceAnalytics {
   }
 
   static const int _maxRetryEntries = 50;
+  /// The retry run in progress, so a second call joins it instead of sending
+  /// the same entries again in parallel.
+  Future<void>? _retryInFlight;
 
-  Future<void> _storeForRetry(Map<String, dynamic> sessionData) async {
+  Future<void> _storeForRetry(
+    Map<String, dynamic> sessionData,
+    String idempotencyKey,
+  ) async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final existingKeys = prefs
           .getKeys()
-          .where((key) => key.startsWith('polyfence_analytics_retry_'))
+          .where((key) => key.startsWith(telemetryRetryKeyPrefix))
           .toList()
         ..sort();
 
@@ -200,8 +209,10 @@ class PolyfenceAnalytics {
         }
       }
 
-      final key =
-          'polyfence_analytics_retry_${DateTime.now().millisecondsSinceEpoch}';
+      // The key rides in the entry name so the retry reuses it. The timestamp
+      // stays first so names still sort oldest first for pruning.
+      final key = '$telemetryRetryKeyPrefix'
+          '${DateTime.now().millisecondsSinceEpoch}_$idempotencyKey';
       await prefs.setString(key, json.encode(sessionData));
     } catch (e) {
       // Best-effort storage for retry
@@ -209,14 +220,21 @@ class PolyfenceAnalytics {
   }
 
   /// Retries sending previously failed analytics requests.
-  Future<void> retryFailedRequests() async {
-    if ((_config?.disableTelemetry ?? true)) return;
+  ///
+  /// Each entry is resent with the same Idempotency-Key every time; see
+  /// [retryIdempotencyKey].
+  Future<void> retryFailedRequests() {
+    if ((_config?.disableTelemetry ?? true)) return Future.value();
 
+    return _retryInFlight ??=
+        _retryQueuedEntries().whenComplete(() => _retryInFlight = null);
+  }
+
+  Future<void> _retryQueuedEntries() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final keys = prefs
-          .getKeys()
-          .where((key) => key.startsWith('polyfence_analytics_retry_'));
+      final keys =
+          prefs.getKeys().where((key) => key.startsWith(telemetryRetryKeyPrefix));
 
       for (final key in keys) {
         final sessionDataJson = prefs.getString(key);
@@ -228,7 +246,7 @@ class PolyfenceAnalytics {
               json.decode(sessionDataJson) as Map<String, dynamic>;
 
           final endpoint = _config?.apiEndpoint ?? _defaultEndpoint;
-          final idempotencyKey = const Uuid().v4();
+          final idempotencyKey = retryIdempotencyKey(key, sessionDataJson);
 
           final headers = <String, String>{
             'Content-Type': 'application/json',

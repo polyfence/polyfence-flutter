@@ -1,12 +1,13 @@
 #!/usr/bin/env ruby
 # frozen_string_literal: true
 
-# Declarative consistency-check runner (Phase 2). Parses consistency-checks.yaml
+# Declarative consistency-check runner. Parses consistency-checks.yaml
 # at repo root; dispatches subprocess, diff, hash, regex-presence, tally,
 # remote-query. Plain ASCII output.
 
 require "digest"
 require "fileutils"
+require "open3"
 require "pathname"
 require "psych"
 require "set"
@@ -18,22 +19,40 @@ require "set"
 Encoding.default_external = Encoding::UTF_8
 Encoding.default_internal = Encoding::UTF_8
 
+# PASS/SKIP lines go to stdout and FAIL lines to stderr. Unbuffered stdout keeps
+# a check's own diagnostic output ahead of the FAIL line it explains.
+$stdout.sync = true
+
 ROOT = ENV.fetch("CONSISTENCY_REPO_ROOT")
 
+# A subprocess check reports that it could not run (for example an optional
+# tool is missing) by printing SKIP_REASON_PREFIX plus a reason as its last line
+# of stdout and exiting SUBPROCESS_SKIP_EXIT. Both are required: a script that
+# dies with 77 for any other reason is a failure, not a skip. Exit 0 always
+# means PASS, so a check that cannot run must not exit 0. 77 is the automake
+# SKIP convention.
+SUBPROCESS_SKIP_EXIT = 77
+SKIP_REASON_PREFIX = "SKIP_REASON: "
+
+# Output that claims a skip. A script that prints it and exits 0 would read as
+# a pass, so that combination is a failure.
+SKIP_CLAIM = /^\s*SKIP(\b|_REASON:)/
+
+# Every handler returns one of :pass, :fail or :skip. A skip is never a pass.
 def fail_check(id, error, fix)
   warn "FAIL #{id}: #{error}"
   warn "     Fix: #{fix}"
-  false
+  :fail
 end
 
 def pass_check(id)
   puts "PASS #{id}"
-  true
+  :pass
 end
 
 def skip_check(id, reason)
   puts "SKIP #{id} (#{reason})"
-  true
+  :skip
 end
 
 def load_config(path)
@@ -60,9 +79,37 @@ end
 def handle_subprocess(check)
   cmd = check.fetch("runs")
   env = { "ROOT" => ROOT }
-  ok = system(env, "bash", "-c", cmd, chdir: ROOT)
-  unless ok
+  out, err, status = Open3.capture3(env, "bash", "-c", cmd, chdir: ROOT)
+
+  # On a skip, the marker line carries the reason and is folded into the SKIP
+  # line rather than printed twice.
+  if status.exitstatus == SUBPROCESS_SKIP_EXIT
+    lines = out.lines
+    last = lines.last.to_s.chomp
+    if last.start_with?(SKIP_REASON_PREFIX)
+      lines.pop
+      $stdout.write(lines.join)
+      $stderr.write(err)
+      reason = last.delete_prefix(SKIP_REASON_PREFIX).strip
+      return skip_check(check["id"], reason.empty? ? "subprocess reported skip" : reason)
+    end
+
+    $stdout.write(out)
+    $stderr.write(err)
+    return fail_check(check["id"],
+                      "subprocess exited #{SUBPROCESS_SKIP_EXIT} without a '#{SKIP_REASON_PREFIX}' last line of stdout",
+                      "To skip, print '#{SKIP_REASON_PREFIX}<why>' as the last stdout line before exiting " \
+                      "#{SUBPROCESS_SKIP_EXIT}. Otherwise the script failed: #{check.fetch('fix', '')}")
+  end
+
+  $stdout.write(out)
+  $stderr.write(err)
+  unless status.success?
     return fail_check(check["id"], "subprocess exited non-zero", check.fetch("fix", ""))
+  end
+  if (out + err).lines.any? { |l| SKIP_CLAIM.match?(l) }
+    return fail_check(check["id"], "subprocess printed SKIP but exited 0, which reads as a pass",
+                      "Print '#{SKIP_REASON_PREFIX}<why>' last and exit #{SUBPROCESS_SKIP_EXIT} when the check cannot run.")
   end
 
   pass_check(check["id"])
@@ -259,7 +306,13 @@ def main(argv)
   remote_only = argv.include?("--remote-only")
   one_check = nil
   argv.each_with_index do |a, idx|
-    one_check = argv[idx + 1] if a == "--check" && argv[idx + 1]
+    next unless a == "--check"
+
+    one_check = argv[idx + 1]
+    if one_check.nil? || one_check.start_with?("--")
+      warn "FAIL: --check needs a check id"
+      exit 2
+    end
   end
 
   cfg = File.join(ROOT, "consistency-checks.yaml")
@@ -274,32 +327,64 @@ def main(argv)
     exit 2
   end
 
-  checks.select! { |c| c["id"] == one_check } if one_check
+  if one_check
+    checks.select! { |c| c["id"] == one_check }
+    if checks.empty?
+      warn "FAIL: no check with id #{one_check}"
+      exit 2
+    end
+  end
 
-  failed = 0
+  results = { pass: [], skip: [], fail: [] }
   checks.each do |check|
     id = check["id"]
     type = check["type"]
     next if remote_only && type != "remote-query"
     if local_only && type == "remote-query"
+      results[:skip] << id
       skip_check(id, "remote check, --local-only")
       next
     end
 
-    ok = case type
-         when "subprocess" then handle_subprocess(check)
-         when "diff" then handle_diff(check)
-         when "hash" then handle_hash(check)
-         when "regex-presence" then handle_regex_presence(check)
-         when "tally" then handle_tally(check)
-         when "remote-query" then handle_remote_query(check, local_only)
-         else
-           fail_check(id, "unknown type #{type}", "Fix consistency-checks.yaml")
-         end
-    failed += 1 unless ok
+    result = case type
+             when "subprocess" then handle_subprocess(check)
+             when "diff" then handle_diff(check)
+             when "hash" then handle_hash(check)
+             when "regex-presence" then handle_regex_presence(check)
+             when "tally" then handle_tally(check)
+             when "remote-query" then handle_remote_query(check, local_only)
+             else
+               fail_check(id, "unknown type #{type}", "Fix consistency-checks.yaml")
+             end
+    results.fetch(result) << id
   end
 
-  exit(failed.positive? ? 1 : 0)
+  print_summary(results)
+  exit 2 if results[:pass].empty? && results[:fail].empty?
+  exit(results[:fail].empty? ? 0 : 1)
+end
+
+# Skips do not fail the run: a missing optional tool must not block a push.
+# They are reported as unverified so the summary never claims they passed.
+# A run in which nothing ran verified nothing, so it exits non-zero rather than
+# reading as a clean pass.
+def print_summary(results)
+  puts
+  if results.values.sum(&:length).zero?
+    puts "RESULT: no checks ran"
+    return
+  end
+
+  puts "#{results[:pass].length} passed, #{results[:skip].length} skipped, #{results[:fail].length} failed"
+  if results[:fail].any?
+    puts "RESULT: FAILED (#{results[:fail].join(', ')})"
+  elsif results[:pass].empty?
+    puts "RESULT: nothing verified, every selected check was skipped (#{results[:skip].join(', ')})"
+  elsif results[:skip].any?
+    puts "RESULT: no failures, but not verified: #{results[:skip].join(', ')}"
+  else
+    puts "RESULT: all passed"
+  end
 end
 
 main(ARGV)

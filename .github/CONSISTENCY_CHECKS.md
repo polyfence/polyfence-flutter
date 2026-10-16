@@ -23,6 +23,16 @@ bash scripts/consistency-check.sh --local-only
 | privacy-md-links-telemetry-doc | `PRIVACY.md` links `doc/TELEMETRY.md` |
 | privacy-md-zero-pii-headline | `PRIVACY.md` includes the verbatim Role-1 Zero PII headline |
 | pubspec-description-geofencing | `pubspec.yaml` description mentions geofencing |
+| core-error-types-mapped | Every error type in the script's polyfence-core roster maps to a `PolyfenceErrorType` |
+| core-error-types-match-core | That roster matches the types a polyfence-core checkout emits. Needs a checkout beside this repo or `POLYFENCE_CORE_PATH`; without one it is SKIP, so CI (which checks out only this repo) reports it as not verified |
+
+## Results
+
+Each check prints `PASS <id>`, `SKIP <id> (<reason>)`, or `FAIL <id>` with the `fix:` text from the YAML, then a summary line counting each. A skip means the check did not run, so it never counts as a pass. Skips do not fail the run (a missing optional tool must not block a push), but the summary names every skipped check as not verified and says `all passed` only when nothing was skipped.
+
+A `subprocess` script reports a skip by printing `SKIP_REASON: <why>` as its last line of stdout and exiting 77. Both are required: exit 77 without that last line is reported as FAIL, so a script that happens to die with 77 cannot pass itself off as a skip. Exit 0 always means PASS, so a script that exits 0 is reported as FAIL if any line of its stdout or stderr matches `^\s*SKIP\b` or `^\s*SKIP_REASON:` (at any indentation, so `SKIP x`, `  SKIP x` and `SKIP: x` all count).
+
+The run exits 0 when nothing failed, 1 when a check failed, and 2 when the run itself is wrong: no `consistency-checks.yaml`, a `--check` id that matches no entry (`FAIL: no check with id <id>`), or a selection that verified nothing: no check ran at all (`RESULT: no checks ran`, for example `--remote-only` in this repo, which has no `remote-query` checks), or every selected check was skipped (`RESULT: nothing verified`, for example `--check` on a single optional check whose tool is missing).
 
 ## Phase 3
 

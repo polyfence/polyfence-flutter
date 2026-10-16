@@ -8,24 +8,37 @@
 # invisible in every test that does not assert on the specific type, which is
 # how the same gap reached this bridge twice.
 #
-# Two tiers, both offline:
+# Two halves, both offline, registered as separate checks so that a run which
+# could not reach polyfence-core reports the second half as skipped rather than
+# passed:
 #
-#   1. CORE_ERROR_TYPES below is the contract. Every entry must resolve to a
-#      PolyfenceErrorType — either because its camelCase form is an enum value,
-#      or because it is listed explicitly in _extraNativeCodesForType (which is
-#      how a code is deliberately resolved to `unknown`). Always runs.
+#   (no argument) CORE_ERROR_TYPES below is the contract. Every entry must
+#      resolve to a PolyfenceErrorType: either its camelCase form is an enum
+#      value, or it is listed explicitly in _extraNativeCodesForType (which is
+#      how a code is deliberately resolved to `unknown`). Needs only this repo.
 #
-#   2. When a polyfence-core checkout is reachable, its emitted type strings are
-#      extracted and diffed against CORE_ERROR_TYPES, so a type added upstream
-#      is caught here rather than at the next device test. Skipped with a notice
-#      when no checkout is found, which is the normal case in CI.
+#   --against-core  Extracts the type strings a polyfence-core checkout emits
+#      and diffs them against CORE_ERROR_TYPES, so a type added upstream is
+#      caught here rather than at the next device test. With no checkout found
+#      it exits 77 with a SKIP_REASON line, which the runner reports as SKIP.
 #
-# Set POLYFENCE_CORE_PATH to point tier 2 at a checkout in a non-default place.
+# Set POLYFENCE_CORE_PATH to point --against-core at a checkout in a
+# non-default place.
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
 ERROR_SOURCE="lib/src/errors/polyfence_error.dart"
+
+MODE="mapping"
+case "${1:-}" in
+  "") ;;
+  --against-core) MODE="against-core" ;;
+  *)
+    echo "FAIL: unknown argument '$1' (expected none or --against-core)"
+    exit 1
+    ;;
+esac
 
 # Every `type` string polyfence-core passes to PolyfenceErrorManager.reportError
 # (directly or through reportGpsError / reportServiceError / reportBatteryError)
@@ -62,41 +75,45 @@ snake_to_camel() {
   awk -F_ '{ printf "%s", $1; for (i = 2; i <= NF; i++) printf "%s%s", toupper(substr($i,1,1)), substr($i,2) }' <<<"$1"
 }
 
-if [[ ! -f "$ERROR_SOURCE" ]]; then
-  echo "FAIL: $ERROR_SOURCE not found — the error-type surface moved."
-  exit 1
-fi
-
-unmapped=()
-for code in "${CORE_ERROR_TYPES[@]}"; do
-  camel="$(snake_to_camel "$code")"
-  # An enum value whose name is the camelCase form resolves algorithmically via
-  # PolyfenceError.fromMap's snake_case normalisation.
-  if grep -qE "^[[:space:]]*${camel},[[:space:]]*$" "$ERROR_SOURCE"; then
-    continue
+if [[ "$MODE" == "mapping" ]]; then
+  if [[ ! -f "$ERROR_SOURCE" ]]; then
+    echo "FAIL: $ERROR_SOURCE not found — the error-type surface moved."
+    exit 1
   fi
-  # Otherwise the code must be listed in _extraNativeCodesForType, which is
-  # where a code is deliberately routed to an existing type (including
-  # `unknown`) rather than getting one of its own.
-  if grep -qE "'${code}'" "$ERROR_SOURCE"; then
-    continue
-  fi
-  unmapped+=("$code")
-done
 
-if (( ${#unmapped[@]} > 0 )); then
-  echo "FAIL: polyfence-core error types with no PolyfenceErrorType mapping:"
-  for code in "${unmapped[@]}"; do
-    echo "  - $code  (expected enum value '$(snake_to_camel "$code")' or an entry in _extraNativeCodesForType)"
+  unmapped=()
+  for code in "${CORE_ERROR_TYPES[@]}"; do
+    camel="$(snake_to_camel "$code")"
+    # An enum value whose name is the camelCase form resolves algorithmically via
+    # PolyfenceError.fromMap's snake_case normalisation.
+    if grep -qE "^[[:space:]]*${camel},[[:space:]]*$" "$ERROR_SOURCE"; then
+      continue
+    fi
+    # Otherwise the code must be listed in _extraNativeCodesForType, which is
+    # where a code is deliberately routed to an existing type (including
+    # `unknown`) rather than getting one of its own.
+    if grep -qE "'${code}'" "$ERROR_SOURCE"; then
+      continue
+    fi
+    unmapped+=("$code")
   done
-  echo
-  echo "Add each to the PolyfenceErrorType enum in $ERROR_SOURCE, or list it"
-  echo "under _extraNativeCodesForType when it should resolve to an existing"
-  echo "type. Mirror the decision in polyfence-react-native's NATIVE_CODE_TO_TYPE."
-  exit 1
+
+  if (( ${#unmapped[@]} > 0 )); then
+    echo "FAIL: polyfence-core error types with no PolyfenceErrorType mapping:"
+    for code in "${unmapped[@]}"; do
+      echo "  - $code  (expected enum value '$(snake_to_camel "$code")' or an entry in _extraNativeCodesForType)"
+    done
+    echo
+    echo "Add each to the PolyfenceErrorType enum in $ERROR_SOURCE, or list it"
+    echo "under _extraNativeCodesForType when it should resolve to an existing"
+    echo "type. Mirror the decision in polyfence-react-native's NATIVE_CODE_TO_TYPE."
+    exit 1
+  fi
+
+  echo "OK: ${#CORE_ERROR_TYPES[@]} core error types all map to a PolyfenceErrorType"
+  exit 0
 fi
 
-# Tier 2 — diff the roster against a live core checkout when one is reachable.
 CORE_DIR=""
 for candidate in \
   "${POLYFENCE_CORE_PATH:-}" \
@@ -111,10 +128,8 @@ do
 done
 
 if [[ -z "$CORE_DIR" ]]; then
-  echo "OK: ${#CORE_ERROR_TYPES[@]} core error types all map to a PolyfenceErrorType"
-  echo "NOTE: no polyfence-core checkout found — roster not diffed against core."
-  echo "      Set POLYFENCE_CORE_PATH to enable that check."
-  exit 0
+  echo "SKIP_REASON: no polyfence-core checkout (set POLYFENCE_CORE_PATH)"
+  exit 77
 fi
 
 live="$(
@@ -144,6 +159,5 @@ if [[ -n "$missing" ]]; then
   exit 1
 fi
 
-echo "OK: ${#CORE_ERROR_TYPES[@]} core error types all map to a PolyfenceErrorType"
 echo "OK: roster matches the error types emitted by $CORE_DIR"
 exit 0
